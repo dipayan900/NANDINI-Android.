@@ -36,6 +36,8 @@ class MainActivity : Activity() {
 
         window.statusBarColor = bg
         window.navigationBarColor = bg
+        
+        Firebase.initialize(context = this)
 
         try {
             FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
