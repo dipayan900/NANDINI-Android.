@@ -340,11 +340,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 )
                 putExtra(
                     RecognizerIntent.EXTRA_LANGUAGE,
-                    "hi-IN"
+                    "en-IN"
                 )
                 putExtra(
                     RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE,
-                    "hi-IN"
+                    "en-IN"
                 )
                 putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
@@ -456,10 +456,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private suspend fun generateReplyWithRetry(): String {
-        var lastError: Exception? = null
+    private suspend fun generateReplyWithRetry(
+       userText: String
+    ): String {
+    var lastError: Exception? = null
 
-        for (attempt in 0..3) {
+    for (attempt in 0..3) {
             try {
                 val model = Firebase.ai(
                     backend = GenerativeBackend.googleAI()
