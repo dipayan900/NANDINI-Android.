@@ -569,8 +569,10 @@ private fun handleDeviceCommand(message: String): Boolean {
     }
 
     if ("set an alarm" in text || "set alarm" in text) {
-        val timeRegex =
-            Regex("""\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b""")
+        val timeRegex = Regex(
+    """\b(\d{1,2})(?::(\d{2}))?\s*\.?\s*(a\.?m\.?|p\.?m\.?)\b""",
+    RegexOption.IGNORE_CASE
+)
 
         val match = timeRegex.find(text) ?: run {
             addMessage("YOU", message)
@@ -585,6 +587,9 @@ private fun handleDeviceCommand(message: String): Boolean {
         val minute = match.groupValues[2]
             .takeIf { it.isNotEmpty() }?.toInt() ?: 0
         val period = match.groupValues[3]
+    .lowercase(Locale.ROOT)
+    .replace(".", "")
+    .replace(" ", "")
 
         if (hour12 !in 1..12 || minute !in 0..59) {
             addMessage("YOU", message)
@@ -600,41 +605,31 @@ private fun handleDeviceCommand(message: String): Boolean {
 
         addMessage("YOU", message)
 
-        val alarmIntent = Intent(
-            android.provider.AlarmClock.ACTION_SET_ALARM
-        ).apply {
-            putExtra(
-                android.provider.AlarmClock.EXTRA_HOUR,
-                hour24
-            )
-            putExtra(
-                android.provider.AlarmClock.EXTRA_MINUTES,
-                minute
-            )
-            putExtra(
-                android.provider.AlarmClock.EXTRA_MESSAGE,
-                "NANDINI alarm"
-            )
-        }
+        val alarmIntent = Intent(android.provider.AlarmClock.ACTION_SET_ALARM).apply {
+    putExtra(android.provider.AlarmClock.EXTRA_HOUR, hour24)
+    putExtra(android.provider.AlarmClock.EXTRA_MINUTES, minute)
+    putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, "NANDINI alarm")
+}
 
-        try {
-            startActivity(alarmIntent)
-            addMessage(
-                "NANDINI",
-                "Opening your Clock app to set the alarm for $hour12:${minute.toString().padStart(2, '0')} $period. Please confirm it in Clock. ⏰"
-            )
-        } catch (e: Exception) {
-            addMessage(
-                "NANDINI",
-                "I couldn't open an alarm app on this phone."
-            )
-            Log.e("NANDINI", "Alarm action failed", e)
+try {
+    if (alarmIntent.resolveActivity(packageManager) != null) {
+        startActivity(alarmIntent)
+        addMessage(
+            "NANDINI",
+            "Opening Clock to set your alarm for $hour12:${minute.toString().padStart(2, '0')} ${period.uppercase(Locale.ROOT)}. Please confirm it. ⏰"
+        )
+    } else {
+        val clockIntent = packageManager.getLaunchIntentForPackage("com.google.android.deskclock")
+        if (clockIntent != null) {
+            startActivity(clockIntent)
+            addMessage("NANDINI", "Clock opened. Please set your alarm manually. ⏰")
+        } else {
+            addMessage("NANDINI", "No compatible Clock app was found. Please open your Clock app manually.")
         }
-
-        return true
     }
-
-    return false
+} catch (e: Exception) {
+    Log.e("NANDINI", "Alarm launch failed", e)
+    addMessage("NANDINI", "I couldn't open Clock. Please check the Android logs for the exact error.")
 }
 
     private suspend fun generateReplyWithRetry(userText: String): String {
