@@ -192,7 +192,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val clearButton = makeButton("CLEAR", panel) {
             clearChat()
         }
-
+        val weatherButton = makeButton("🌦 WEATHER", panel) {
+            fetchWeather()
+        }
         actions.addView(voiceButton, LinearLayout.LayoutParams(0, dp(44), 1f).apply {
             rightMargin = dp(5)
         })
@@ -200,6 +202,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             rightMargin = dp(5)
         })
         actions.addView(clearButton, LinearLayout.LayoutParams(0, dp(44), 0.8f))
+        actions.addView(
+    weatherButton,
+    LinearLayout.LayoutParams(0, dp(44), 1f)
+)
 
         root.addView(actions, LinearLayout.LayoutParams(-1, dp(50)))
 
@@ -403,6 +409,25 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == 203) {
+    val granted = permissions.indices.any { index ->
+        grantResults[index] == PackageManager.PERMISSION_GRANTED &&
+            (permissions[index] == Manifest.permission.ACCESS_COARSE_LOCATION ||
+             permissions[index] == Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+    if (granted) {
+        fetchWeather()
+    } else {
+        Toast.makeText(
+            this,
+            "Location permission is needed for local weather.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+    return
+        }
 
         if (requestCode == REQUEST_MIC_PERMISSION) {
             if (grantResults.isNotEmpty() &&
@@ -709,6 +734,133 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density + 0.5f).toInt()
     }
+    
+private fun fetchWeather() {
+    if (isBusy) {
+        Toast.makeText(this, "Please wait for the current reply.", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    val permission = when {
+        checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ->
+            Manifest.permission.ACCESS_FINE_LOCATION
+
+        checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ->
+            Manifest.permission.ACCESS_COARSE_LOCATION
+
+        else -> null
+    }
+
+    if (permission == null) {
+        requestPermissions(
+            arrayOf(
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ),
+            203
+        )
+        return
+    }
+
+    statusText.text = "● GETTING WEATHER..."
+
+    scope.launch {
+        try {
+            val result = withContext(Dispatchers.IO) {
+                val client = LocationServices.getFusedLocationProviderClient(this@MainActivity)
+
+                val location = client.getCurrentLocation(
+                    Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                    CancellationTokenSource().token
+                ).await() ?: throw IllegalStateException(
+                    "Location unavailable. Please enable your phone's location and try again."
+                )
+
+                getLiveWeather(location)
+            }
+
+            addMessage("NANDINI", result)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("NANDINI", "Weather request failed", e)
+            addMessage(
+                "NANDINI",
+                "I couldn't get live weather right now. Please check your location permission, enable Location on your phone, and check your internet connection. 💜"
+            )
+        } finally {
+            statusText.text = "● READY"
+        }
+    }
+}
+
+private fun getLiveWeather(location: Location): String {
+    val urlString =
+        "https://api.open-meteo.com/v1/forecast" +
+        "?latitude=${location.latitude}" +
+        "&longitude=${location.longitude}" +
+        "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m" +
+        "&timezone=auto"
+
+    val connection = URL(urlString).openConnection() as HttpURLConnection
+
+    try {
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 10000
+        connection.readTimeout = 10000
+
+        if (connection.responseCode !in 200..299) {
+            throw IllegalStateException("Weather service returned an error.")
+        }
+
+        val response = connection.inputStream.bufferedReader().use { it.readText() }
+        val root = JSONObject(response)
+        val current = root.getJSONObject("current")
+        val units = root.getJSONObject("current_units")
+
+        val temperature = current.getDouble("temperature_2m")
+        val feelsLike = current.getDouble("apparent_temperature")
+        val humidity = current.getInt("relative_humidity_2m")
+        val wind = current.getDouble("wind_speed_10m")
+        val code = current.getInt("weather_code")
+        val time = current.optString("time", "Unknown")
+
+        val condition = when (code) {
+            0 -> "Clear sky"
+            1 -> "Mainly clear"
+            2 -> "Partly cloudy"
+            3 -> "Overcast"
+            45, 48 -> "Fog"
+            51, 53, 55 -> "Drizzle"
+            56, 57 -> "Freezing drizzle"
+            61, 63, 65 -> "Rain"
+            66, 67 -> "Freezing rain"
+            71, 73, 75, 77 -> "Snow"
+            80, 81, 82 -> "Rain showers"
+            85, 86 -> "Snow showers"
+            95 -> "Thunderstorm"
+            96, 99 -> "Thunderstorm with hail"
+            else -> "Unknown conditions"
+        }
+
+        return """
+            🌦 LIVE WEATHER
+
+            Condition: $condition
+            Temperature: $temperature ${units.optString("temperature_2m", "°C")}
+            Feels like: $feelsLike ${units.optString("apparent_temperature", "°C")}
+            Humidity: $humidity%
+            Wind speed: $wind ${units.optString("wind_speed_10m", "km/h")}
+
+            Observation time: $time
+            Source: Open-Meteo
+        """.trimIndent()
+    } finally {
+        connection.disconnect()
+    }
+}
 
     override fun onDestroy() {
         super.onDestroy()
