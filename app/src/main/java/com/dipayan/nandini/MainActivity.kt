@@ -177,9 +177,9 @@ class MainActivity : Activity() {
         scope.launch {
             try {
                 val reply = withContext(Dispatchers.IO) {
-                    val model = com.google.firebase.ai.Firebase.ai(
-                        backend = GenerativeBackend.googleAI()
-                    ).generativeModel("gemini-3.8-flash")
+                    val model = this@MainActivity
+                        .let { com.google.firebase.ai.ai(backend = GenerativeBackend.googleAI()) }
+                        .generativeModel("gemini-3.8-flash")
 
                     val response = model.generateContent(
                         """
