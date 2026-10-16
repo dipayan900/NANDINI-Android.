@@ -585,11 +585,105 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             history.clear()
         }
     }
-
-    private fun saveHistory() {
+         private fun saveHistory() {
         val array = JSONArray()
+
         history.forEach { message ->
             array.put(
                 JSONObject()
                     .put("role", message.role)
-                    .pu
+                    .put("text", message.text)
+            )
+        }
+
+        prefs.edit()
+            .putString("history", array.toString())
+            .apply()
+    }
+
+    private fun trimHistory() {
+        while (history.size > MAX_SAVED_MESSAGES) {
+            history.removeAt(0)
+        }
+    }
+
+    private fun renderHistory() {
+        messages.removeAllViews()
+
+        history.forEach { message ->
+            addMessage(
+                if (message.role == "user") "YOU" else "NANDINI",
+                message.text
+            )
+        }
+
+        scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+    }
+
+    private fun addMessage(
+        label: String,
+        messageText: String
+    ): TextView {
+        val isUser = label == "YOU"
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = if (isUser) Gravity.END else Gravity.START
+            setPadding(0, dp(5), 0, dp(5))
+        }
+
+        val name = TextView(this).apply {
+            text = label
+            textSize = 10f
+            setTextColor(if (isUser) accent else muted)
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(dp(4), 0, dp(4), dp(3))
+        }
+
+        val bubble = TextView(this).apply {
+            text = messageText
+            textSize = 15f
+            setTextColor(white)
+            setPadding(dp(13), dp(10), dp(13), dp(10))
+            setBackgroundColor(if (isUser) userBubble else panel)
+            setLineSpacing(dp(2).toFloat(), 1.0f)
+            maxWidth = resources.displayMetrics.widthPixels * 4 / 5
+        }
+
+        row.addView(name)
+
+        row.addView(
+            bubble,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        messages.addView(
+            row,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        return bubble
+    }
+
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density + 0.5f).toInt()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        scope.cancel()
+        tts?.stop()
+        tts?.shutdown()
+        tts = null
+    }
+}
+        
+
+    
