@@ -456,9 +456,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private suspend fun generateReplyWithRetry(
-       userText: String
-    ): String {
+    private suspend fun generateReplyWithRetry(userText: String): String {
     var lastError: Exception? = null
 
     for (attempt in 0..3) {
