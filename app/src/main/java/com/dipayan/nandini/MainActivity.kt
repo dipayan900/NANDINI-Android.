@@ -631,7 +631,9 @@ try {
     Log.e("NANDINI", "Alarm launch failed", e)
     addMessage("NANDINI", "I couldn't open Clock. Please check the Android logs for the exact error.")
 }
-
+      return true
+    }
+    
     private suspend fun generateReplyWithRetry(userText: String): String {
     var lastError: Exception? = null
 
