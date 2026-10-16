@@ -438,55 +438,84 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun sendMessage() {
-        val userText = input.text.toString().trim()
-        if (userText.isEmpty() || isBusy) return
+    
+private fun sendMessage() {
+    val userText = input.text.toString().trim()
+    if (userText.isEmpty() || isBusy) return
 
-        addMessage("YOU", userText)
-        history.add(ChatMessage("user", userText))
-        trimHistory()
-        saveHistory()
+    // Route weather questions to the live weather feature.
+    if (isWeatherQuestion(userText)) {
         input.text.clear()
 
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE)
+            as InputMethodManager
         imm.hideSoftInputFromWindow(input.windowToken, 0)
 
-        isBusy = true
-        setControlsEnabled(false)
+        fetchWeather()
+        return
+    }
 
-        val replyView = addMessage("NANDINI", "Thinking")
-        statusText.text = "●  THINKING..."
+    addMessage("YOU", userText)
+    history.add(ChatMessage("user", userText))
+    trimHistory()
+    saveHistory()
+    input.text.clear()
 
-        scope.launch {
-            try {
-                val reply = withContext(Dispatchers.IO) {
-                    generateReplyWithRetry(userText)
-                }
+    val imm = getSystemService(Context.INPUT_METHOD_SERVICE)
+        as InputMethodManager
+    imm.hideSoftInputFromWindow(input.windowToken, 0)
 
-                replyView.text = reply
-                history.add(ChatMessage("model", reply))
-                trimHistory()
+    isBusy = true
+    setControlsEnabled(false)
+
+    val replyView = addMessage("NANDINI", "Thinking")
+    statusText.text = "● THINKING..."
+
+    scope.launch {
+        try {
+            val reply = withContext(Dispatchers.IO) {
+                generateReplyWithRetry(userText)
+            }
+
+            replyView.text = reply
+            history.add(ChatMessage("model", reply))
+            trimHistory()
+            saveHistory()
+            speakReply(reply)
+
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("NANDINI", "AI request failed", e)
+            replyView.text = friendlyError(e)
+
+            if (history.lastOrNull()?.role == "user") {
+                history.removeAt(history.lastIndex)
                 saveHistory()
-                speakReply(reply)
-
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e("NANDINI", "AI request failed", e)
-                replyView.text = friendlyError(e)
-                // Remove the unanswered user turn so it is not replayed as a completed exchange.
-                if (history.lastOrNull()?.role == "user") {
-                    history.removeAt(history.lastIndex)
-                    saveHistory()
-                }
-            } finally {
-                isBusy = false
-                setControlsEnabled(true)
-                statusText.text = "●  READY"
-                scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+            }
+        } finally {
+            isBusy = false
+            setControlsEnabled(true)
+            statusText.text = "● READY"
+            scroll.post {
+                scroll.fullScroll(View.FOCUS_DOWN)
             }
         }
     }
+}
+
+    
+private fun isWeatherQuestion(message: String): Boolean {
+    val text = message.lowercase().trim()
+
+    val weatherWords = listOf(
+        "weather", "temperature", "forecast",
+        "humidity", "rain", "raining",
+        "wind speed"
+    )
+
+    return weatherWords.any { it in text }
+}
 
     private suspend fun generateReplyWithRetry(userText: String): String {
     var lastError: Exception? = null
