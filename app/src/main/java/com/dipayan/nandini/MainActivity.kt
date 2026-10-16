@@ -442,7 +442,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 private fun sendMessage() {
     val userText = input.text.toString().trim()
     if (userText.isEmpty() || isBusy) return
-
+    if (handleDeviceCommand(userText)) {
+    input.text.clear()
+    return
+    }
     // Route weather questions to the live weather feature.
     if (isWeatherQuestion(userText)) {
         input.text.clear()
@@ -515,6 +518,123 @@ private fun isWeatherQuestion(message: String): Boolean {
     )
 
     return weatherWords.any { it in text }
+}
+    
+private fun handleDeviceCommand(message: String): Boolean {
+    val text = message.lowercase(Locale.ROOT).trim()
+
+    val appPackages = mapOf(
+        "youtube" to "com.google.android.youtube",
+        "chrome" to "com.android.chrome",
+        "settings" to "com.android.settings",
+        "whatsapp" to "com.whatsapp",
+        "instagram" to "com.instagram.android",
+        "maps" to "com.google.android.apps.maps",
+        "gmail" to "com.google.android.gm",
+        "play store" to "com.android.vending"
+    )
+
+    val openPrefix = listOf(
+        "open ", "launch ", "start "
+    ).firstOrNull { text.startsWith(it) }
+
+    if (openPrefix != null) {
+        val appName = text.removePrefix(openPrefix)
+            .removeSuffix(" please")
+            .trim()
+
+        val packageName = appPackages[appName] ?: return false
+
+        addMessage("YOU", message)
+
+        val launchIntent = packageManager
+            .getLaunchIntentForPackage(packageName)
+
+        if (launchIntent != null) {
+            try {
+                startActivity(launchIntent)
+                addMessage("NANDINI", "Opening $appName. 💜")
+            } catch (e: Exception) {
+                addMessage("NANDINI", "I couldn't open $appName.")
+                Log.e("NANDINI", "App launch failed", e)
+            }
+        } else {
+            addMessage(
+                "NANDINI",
+                "$appName isn't installed or can't be opened."
+            )
+        }
+
+        return true
+    }
+
+    if ("set an alarm" in text || "set alarm" in text) {
+        val timeRegex =
+            Regex("""\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b""")
+
+        val match = timeRegex.find(text) ?: run {
+            addMessage("YOU", message)
+            addMessage(
+                "NANDINI",
+                "Please specify a time, like: Set an alarm for 7 AM."
+            )
+            return true
+        }
+
+        val hour12 = match.groupValues[1].toInt()
+        val minute = match.groupValues[2]
+            .takeIf { it.isNotEmpty() }?.toInt() ?: 0
+        val period = match.groupValues[3]
+
+        if (hour12 !in 1..12 || minute !in 0..59) {
+            addMessage("YOU", message)
+            addMessage("NANDINI", "That time doesn't look valid.")
+            return true
+        }
+
+        val hour24 = when {
+            period == "am" && hour12 == 12 -> 0
+            period == "pm" && hour12 != 12 -> hour12 + 12
+            else -> hour12
+        }
+
+        addMessage("YOU", message)
+
+        val alarmIntent = Intent(
+            android.provider.AlarmClock.ACTION_SET_ALARM
+        ).apply {
+            putExtra(
+                android.provider.AlarmClock.EXTRA_HOUR,
+                hour24
+            )
+            putExtra(
+                android.provider.AlarmClock.EXTRA_MINUTES,
+                minute
+            )
+            putExtra(
+                android.provider.AlarmClock.EXTRA_MESSAGE,
+                "NANDINI alarm"
+            )
+        }
+
+        try {
+            startActivity(alarmIntent)
+            addMessage(
+                "NANDINI",
+                "Opening your Clock app to set the alarm for $hour12:${minute.toString().padStart(2, '0')} $period. Please confirm it in Clock. ⏰"
+            )
+        } catch (e: Exception) {
+            addMessage(
+                "NANDINI",
+                "I couldn't open an alarm app on this phone."
+            )
+            Log.e("NANDINI", "Alarm action failed", e)
+        }
+
+        return true
+    }
+
+    return false
 }
 
     private suspend fun generateReplyWithRetry(userText: String): String {
