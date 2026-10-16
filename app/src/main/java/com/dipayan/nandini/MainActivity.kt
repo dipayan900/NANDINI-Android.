@@ -63,7 +63,7 @@ class MainActivity : Activity() {
 
         addMessage(
             "NANDINI",
-            "Hey! I'm NANDINI 💜\nSend me a message to chat with Gemini AI."
+            "Hey! I'm NANDINI 💜\nSend me a message to chat with me."
         )
     }
 
@@ -198,15 +198,20 @@ class MainActivity : Activity() {
                         ?: "No text returned. Please try again."
                 }
 
-                replyView.text = reply
+                val error = e.message.orEmpty()
 
-            } catch (e: Exception) {
-                android.util.Log.e("NANDINI", "Gemini request failed", e)
+                replyView.text = when {
+                error.contains("high demand", ignoreCase = true) ||
+                error.contains("503") ->
+             "I'm a little busy right now 😅 Please try again in a moment. 💜"
 
-                replyView.text =
-                    "Gemini request failed: " +
-                    (e.message ?: "Unknown error") +
-                    "\nPlease check Firebase configuration and internet."
+               error.contains("429") ||
+               error.contains("quota", ignoreCase = true) ->
+            "We've reached the current AI usage limit. Please try again later. 💜"
+
+            else ->
+        "Oops, I couldn't reply just now. Please try again. 💜"
+}
 
             } finally {
                 sendButton.isEnabled = true
