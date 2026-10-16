@@ -1,3 +1,4 @@
+
 package com.dipayan.nandini
 
 import android.app.Activity
@@ -8,22 +9,31 @@ import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
+import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 import com.google.firebase.FirebaseApp
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : Activity() {
     private lateinit var messages: LinearLayout
     private lateinit var input: EditText
     private lateinit var scroll: ScrollView
+    private lateinit var sendButton: Button
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val bg = Color.rgb(10, 12, 24)
     private val panel = Color.rgb(22, 25, 44)
@@ -36,21 +46,22 @@ class MainActivity : Activity() {
 
         window.statusBarColor = bg
         window.navigationBarColor = bg
-        
+
         FirebaseApp.initializeApp(this)
 
         try {
-            FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
-                DebugAppCheckProviderFactory.getInstance()
-            )
+            FirebaseAppCheck.getInstance()
+                .installAppCheckProviderFactory(
+                    DebugAppCheckProviderFactory.getInstance()
+                )
         } catch (e: Exception) {
-            Toast.makeText(this, "App Check setup: ${e.message}", Toast.LENGTH_LONG).show()
+            android.util.Log.e("NANDINI", "App Check setup failed", e)
         }
 
         buildUi()
         addMessage(
             "NANDINI",
-            "Hey! I'm NANDINI 💜\nDebug setup is added. Next we'll verify Firebase and connect the AI model."
+            "Hey! I'm NANDINI 💜\nYour AI is ready to connect. Send me a message!"
         )
     }
 
@@ -98,6 +109,7 @@ class MainActivity : Activity() {
         messages = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
+
         scroll.addView(messages)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
@@ -115,12 +127,12 @@ class MainActivity : Activity() {
             setSingleLine(true)
             setPadding(dp(14), 0, dp(10), 0)
             setBackgroundColor(panel)
-            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEND
+            imeOptions = EditorInfo.IME_ACTION_SEND
         }
 
         composer.addView(input, LinearLayout.LayoutParams(0, dp(52), 1f))
 
-        composer.addView(Button(this).apply {
+        sendButton = Button(this).apply {
             text = "SEND"
             setTextColor(bg)
             textSize = 12f
@@ -129,7 +141,9 @@ class MainActivity : Activity() {
                 android.content.res.ColorStateList.valueOf(accent)
             )
             setOnClickListener { sendMessage() }
-        }, LinearLayout.LayoutParams(dp(82), dp(52)).apply {
+        }
+
+        composer.addView(sendButton, LinearLayout.LayoutParams(dp(82), dp(52)).apply {
             leftMargin = dp(8)
         })
 
@@ -137,7 +151,7 @@ class MainActivity : Activity() {
         setContentView(root)
 
         input.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
+            if (actionId == EditorInfo.IME_ACTION_SEND) {
                 sendMessage()
                 true
             } else {
@@ -148,7 +162,7 @@ class MainActivity : Activity() {
 
     private fun sendMessage() {
         val text = input.text.toString().trim()
-        if (text.isEmpty()) return
+        if (text.isEmpty() || !sendButton.isEnabled) return
 
         addMessage("YOU", text)
         input.text.clear()
@@ -156,10 +170,57 @@ class MainActivity : Activity() {
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(input.windowToken, 0)
 
-        addMessage("NANDINI", "Debug setup is ready to test. Real AI connection is the next step.")
+        sendButton.isEnabled = false
+        input.isEnabled = false
+
+        val replyView = addMessage("NANDINI", "Thinking...")
+
+        scope.launch {
+            try {
+                val reply = withContext(Dispatchers.IO) {
+                    val model = com.google.firebase.ai.Firebase.ai(
+                        backend = GenerativeBackend.googleAI()
+                    ).generativeModel("gemini-3.8-flash")
+
+                    val response = model.generateContent(
+                        """
+                        You are NANDINI, a friendly, helpful AI assistant.
+                        Reply naturally and clearly. Match the user's language
+                        when practical. Be honest that you are an AI.
+                        User message: $text
+                        """.trimIndent()
+                    )
+
+                    response.text?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+                        ?: "I couldn't generate a reply. Please try again."
+                }
+
+                replyView.text = reply
+
+            } catch (e: Exception) {
+                android.util.Log.e("NANDINI", "Gemini request failed", e)
+
+                replyView.text = when {
+                    e.message.orEmpty().contains("App Check", true) ||
+                    e.message.orEmpty().contains("attestation", true) ->
+                        "App Check verification failed. Check the debug token and Firebase App Check configuration."
+
+                    e.message.orEmpty().contains("quota", true) ||
+                    e.message.orEmpty().contains("429", true) ->
+                        "AI usage limit reached. Please wait and try again."
+
+                    else ->
+                        "Couldn't connect to Gemini. Check your internet and Firebase configuration, then try again."
+                }
+            } finally {
+                sendButton.isEnabled = true
+                input.isEnabled = true
+            }
+        }
     }
 
-    private fun addMessage(sender: String, body: String) {
+    private fun addMessage(sender: String, body: String): TextView {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(panel)
@@ -174,17 +235,26 @@ class MainActivity : Activity() {
             letterSpacing = 0.08f
         })
 
-        card.addView(TextView(this).apply {
+        val bodyView = TextView(this).apply {
             text = body
             textSize = 15f
             setTextColor(white)
             setPadding(0, dp(5), 0, 0)
-        })
+        }
+
+        card.addView(bodyView)
 
         messages.addView(card, LinearLayout.LayoutParams(-1, -2).apply {
             bottomMargin = dp(10)
         })
+
         scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        return bodyView
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
     }
 
     private fun dp(value: Int): Int =
