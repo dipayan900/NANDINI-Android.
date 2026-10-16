@@ -32,6 +32,7 @@ import kotlinx.coroutines.tasks.await
 import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
+import org.json.JSONArray
 
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
@@ -49,9 +50,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-import org.json.JSONArray
-import org.json.JSONObject
 
 import java.util.Locale
 
