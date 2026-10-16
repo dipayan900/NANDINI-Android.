@@ -428,7 +428,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         scope.launch {
             try {
                 val reply = withContext(Dispatchers.IO) {
-                    generateReplyWithRetry()
+                    generateReplyWithRetry(userText)
                 }
 
                 replyView.text = reply
