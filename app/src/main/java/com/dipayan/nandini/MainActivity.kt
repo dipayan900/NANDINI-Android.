@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : Activity() {
+
     private lateinit var messages: LinearLayout
     private lateinit var input: EditText
     private lateinit var scroll: ScrollView
@@ -58,9 +59,10 @@ class MainActivity : Activity() {
         }
 
         buildUi()
+
         addMessage(
             "NANDINI",
-            "Hey! I'm NANDINI 💜\nYour AI is ready to connect. Send me a message!"
+            "Hey! I'm NANDINI 💜\nSend me a message to chat with Gemini AI."
         )
     }
 
@@ -129,7 +131,10 @@ class MainActivity : Activity() {
             imeOptions = EditorInfo.IME_ACTION_SEND
         }
 
-        composer.addView(input, LinearLayout.LayoutParams(0, dp(52), 1f))
+        composer.addView(
+            input,
+            LinearLayout.LayoutParams(0, dp(52), 1f)
+        )
 
         sendButton = Button(this).apply {
             text = "SEND"
@@ -142,9 +147,12 @@ class MainActivity : Activity() {
             setOnClickListener { sendMessage() }
         }
 
-        composer.addView(sendButton, LinearLayout.LayoutParams(dp(82), dp(52)).apply {
-            leftMargin = dp(8)
-        })
+        composer.addView(
+            sendButton,
+            LinearLayout.LayoutParams(dp(82), dp(52)).apply {
+                leftMargin = dp(8)
+            }
+        )
 
         root.addView(composer, LinearLayout.LayoutParams(-1, dp(60)))
         setContentView(root)
@@ -161,13 +169,16 @@ class MainActivity : Activity() {
 
     private fun sendMessage() {
         val text = input.text.toString().trim()
+
         if (text.isEmpty() || !sendButton.isEnabled) return
 
         addMessage("YOU", text)
         input.text.clear()
 
-        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
-            .hideSoftInputFromWindow(input.windowToken, 0)
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE)
+            as InputMethodManager
+
+        imm.hideSoftInputFromWindow(input.windowToken, 0)
 
         sendButton.isEnabled = false
         input.isEnabled = false
@@ -177,18 +188,11 @@ class MainActivity : Activity() {
         scope.launch {
             try {
                 val reply = withContext(Dispatchers.IO) {
-                    val model = this@MainActivity
-                        .let { com.google.firebase.ai.ai(backend = GenerativeBackend.googleAI()) }
-                        .generativeModel("gemini-3.8-flash")
+                    val model = ai(
+                        backend = GenerativeBackend.googleAI()
+                    ).generativeModel("gemini-3.8-flash")
 
-                    val response = model.generateContent(
-                        """
-                        You are NANDINI, a friendly, helpful AI assistant.
-                        Reply naturally and clearly. Match the user's language
-                        when practical. Be honest that you are an AI.
-                        User message: $text
-                        """.trimIndent()
-                    )
+                    val response = model.generateContent(text)
 
                     response.text?.trim()
                         ?.takeIf { it.isNotEmpty() }
@@ -198,20 +202,28 @@ class MainActivity : Activity() {
                 replyView.text = reply
 
             } catch (e: Exception) {
-                android.util.Log.e("NANDINI", "Gemini request failed", e)
+                android.util.Log.e(
+                    "NANDINI",
+                    "Gemini request failed",
+                    e
+                )
+
+                val error = e.message.orEmpty()
 
                 replyView.text = when {
-                    e.message.orEmpty().contains("App Check", true) ||
-                    e.message.orEmpty().contains("attestation", true) ->
-                        "App Check verification failed. Check the debug token and Firebase App Check configuration."
+                    error.contains("App Check", ignoreCase = true) ||
+                    error.contains("attestation", ignoreCase = true) ||
+                    error.contains("403") ->
+                        "Firebase rejected the request. Check App Check configuration and the registered debug token."
 
-                    e.message.orEmpty().contains("quota", true) ||
-                    e.message.orEmpty().contains("429", true) ->
+                    error.contains("quota", ignoreCase = true) ||
+                    error.contains("429") ->
                         "AI usage limit reached. Please wait and try again."
 
                     else ->
-                        "Couldn't connect to Gemini. Check your internet and Firebase configuration, then try again."
+                        "Couldn't connect to Gemini. Check internet, model availability, and Firebase configuration."
                 }
+
             } finally {
                 sendButton.isEnabled = true
                 input.isEnabled = true
@@ -243,11 +255,15 @@ class MainActivity : Activity() {
 
         card.addView(bodyView)
 
-        messages.addView(card, LinearLayout.LayoutParams(-1, -2).apply {
-            bottomMargin = dp(10)
-        })
+        messages.addView(
+            card,
+            LinearLayout.LayoutParams(-1, -2).apply {
+                bottomMargin = dp(10)
+            }
+        )
 
         scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+
         return bodyView
     }
 
