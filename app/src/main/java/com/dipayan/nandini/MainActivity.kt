@@ -14,12 +14,14 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -56,15 +58,16 @@ class MainActivity : Activity() {
                     DebugAppCheckProviderFactory.getInstance()
                 )
         } catch (e: Exception) {
-            android.util.Log.e("NANDINI", "App Check setup failed", e)
+            android.util.Log.e(
+                "NANDINI",
+                "App Check setup failed",
+                e
+            )
         }
 
         buildUi()
 
-        addMessage(
-            "NANDINI",
-            "Hey! I'm NANDINI 💜\nSend me a message to chat with me."
-        )
+        addMessage("NANDINI", "Hey! I'm NANDINI 💜")
     }
 
     private fun buildUi() {
@@ -113,7 +116,10 @@ class MainActivity : Activity() {
         }
 
         scroll.addView(messages)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(-1, 0, 1f)
+        )
 
         val composer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -145,7 +151,9 @@ class MainActivity : Activity() {
             setBackgroundTintList(
                 android.content.res.ColorStateList.valueOf(accent)
             )
-            setOnClickListener { sendMessage() }
+            setOnClickListener {
+                sendMessage()
+            }
         }
 
         composer.addView(
@@ -155,7 +163,11 @@ class MainActivity : Activity() {
             }
         )
 
-        root.addView(composer, LinearLayout.LayoutParams(-1, dp(60)))
+        root.addView(
+            composer,
+            LinearLayout.LayoutParams(-1, dp(60))
+        )
+
         setContentView(root)
 
         input.setOnEditorActionListener { _, actionId, _ ->
@@ -170,13 +182,17 @@ class MainActivity : Activity() {
 
     private fun sendMessage() {
         val text = input.text.toString().trim()
-        if (text.isEmpty() || !sendButton.isEnabled) return
+
+        if (text.isEmpty() || !sendButton.isEnabled) {
+            return
+        }
 
         addMessage("YOU", text)
         input.text.clear()
 
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE)
             as InputMethodManager
+
         imm.hideSoftInputFromWindow(input.windowToken, 0)
 
         sendButton.isEnabled = false
@@ -193,25 +209,47 @@ class MainActivity : Activity() {
 
                     val response = model.generateContent(text)
 
-                    response.text?.trim()
+                    response.text
+                        ?.trim()
                         ?.takeIf { it.isNotEmpty() }
-                        ?: "No text returned. Please try again."
+                        ?: "I couldn't generate a reply. Please try again."
                 }
+
+                replyView.text = reply
+
+            } catch (e: Exception) {
+                android.util.Log.e(
+                    "NANDINI",
+                    "Gemini request failed",
+                    e
+                )
 
                 val error = e.message.orEmpty()
 
                 replyView.text = when {
-                error.contains("high demand", ignoreCase = true) ||
-                error.contains("503") ->
-             "I'm a little busy right now 😅 Please try again in a moment. 💜"
+                    error.contains(
+                        "high demand",
+                        ignoreCase = true
+                    ) || error.contains("503") ->
+                        "I'm a little busy right now 😅 Please try again in a moment. 💜"
 
-               error.contains("429") ||
-               error.contains("quota", ignoreCase = true) ->
-            "We've reached the current AI usage limit. Please try again later. 💜"
+                    error.contains("429") ||
+                    error.contains(
+                        "quota",
+                        ignoreCase = true
+                    ) ->
+                        "We've reached the current AI usage limit. Please try again later. 💜"
 
-            else ->
-        "Oops, I couldn't reply just now. Please try again. 💜"
-}
+                    error.contains("403") ||
+                    error.contains(
+                        "App Check",
+                        ignoreCase = true
+                    ) ->
+                        "I'm having trouble connecting securely. Please try again later. 💜"
+
+                    else ->
+                        "Oops, I couldn't reply just now. Please try again. 💜"
+                }
 
             } finally {
                 sendButton.isEnabled = true
@@ -220,7 +258,10 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun addMessage(sender: String, body: String): TextView {
+    private fun addMessage(
+        sender: String,
+        body: String
+    ): TextView {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(panel)
@@ -231,7 +272,9 @@ class MainActivity : Activity() {
             text = sender
             textSize = 10f
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(if (sender == "YOU") muted else accent)
+            setTextColor(
+                if (sender == "YOU") muted else accent
+            )
             letterSpacing = 0.08f
         })
 
@@ -251,7 +294,10 @@ class MainActivity : Activity() {
             }
         )
 
-        scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        scroll.post {
+            scroll.fullScroll(View.FOCUS_DOWN)
+        }
+
         return bodyView
     }
 
@@ -260,6 +306,7 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
+    }
 }
