@@ -6,14 +6,15 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.view.Gravity
 import android.view.View
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
-import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
@@ -169,7 +170,6 @@ class MainActivity : Activity() {
 
     private fun sendMessage() {
         val text = input.text.toString().trim()
-
         if (text.isEmpty() || !sendButton.isEnabled) return
 
         addMessage("YOU", text)
@@ -177,7 +177,6 @@ class MainActivity : Activity() {
 
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE)
             as InputMethodManager
-
         imm.hideSoftInputFromWindow(input.windowToken, 0)
 
         sendButton.isEnabled = false
@@ -188,7 +187,7 @@ class MainActivity : Activity() {
         scope.launch {
             try {
                 val reply = withContext(Dispatchers.IO) {
-                    val model = ai(
+                    val model = Firebase.ai(
                         backend = GenerativeBackend.googleAI()
                     ).generativeModel("gemini-3.8-flash")
 
@@ -196,33 +195,18 @@ class MainActivity : Activity() {
 
                     response.text?.trim()
                         ?.takeIf { it.isNotEmpty() }
-                        ?: "I couldn't generate a reply. Please try again."
+                        ?: "No text returned. Please try again."
                 }
 
                 replyView.text = reply
 
             } catch (e: Exception) {
-                android.util.Log.e(
-                    "NANDINI",
-                    "Gemini request failed",
-                    e
-                )
+                android.util.Log.e("NANDINI", "Gemini request failed", e)
 
-                val error = e.message.orEmpty()
-
-                replyView.text = when {
-                    error.contains("App Check", ignoreCase = true) ||
-                    error.contains("attestation", ignoreCase = true) ||
-                    error.contains("403") ->
-                        "Firebase rejected the request. Check App Check configuration and the registered debug token."
-
-                    error.contains("quota", ignoreCase = true) ||
-                    error.contains("429") ->
-                        "AI usage limit reached. Please wait and try again."
-
-                    else ->
-                        "Couldn't connect to Gemini. Check internet, model availability, and Firebase configuration."
-                }
+                replyView.text =
+                    "Gemini request failed: " +
+                    (e.message ?: "Unknown error") +
+                    "\nPlease check Firebase configuration and internet."
 
             } finally {
                 sendButton.isEnabled = true
@@ -263,7 +247,6 @@ class MainActivity : Activity() {
         )
 
         scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
-
         return bodyView
     }
 
