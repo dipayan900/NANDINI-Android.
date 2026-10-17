@@ -957,7 +957,23 @@ text.startsWith("open ") -> {
         "I couldn't find that installed app."
     }
 }
+text.contains("flashlight") ||
+text.contains("torch") ||
+text.contains("flash light") -> {
+    when {
+        text.contains("off") ||
+        text.contains("band") ||
+        text.contains("bujha") -> setFlashlight(false)
 
+        text.contains("on") ||
+        text.contains("chalu") ||
+        text.contains("jala") ||
+        text.contains("turn on") ||
+        text.contains("open") -> setFlashlight(true)
+
+        else -> "Say 'turn on flashlight' or 'turn off flashlight'."
+    }
+}
             else -> null
         }
     } catch (e: Exception) {
