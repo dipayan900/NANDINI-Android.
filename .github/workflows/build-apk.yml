@@ -38,7 +38,7 @@ jobs:
         run: gradle --no-daemon assembleDebug
 
       - name: Show signing report
-        run: ./gradle signingReport
+        run: ./gradlew signingReport
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
