@@ -640,8 +640,8 @@ return when {
     message.contains("network") || message.contains("connect") ->    
         "I couldn't connect. Please check your internet and try again. 💜"    
 
-    else >    
-        "Oops, I couldn't reply just now. Please try again. 💜"    
+else ->
+    "Oops, I couldn't reply just now. Please try again. 💜"
 }
 
 }
@@ -810,7 +810,7 @@ if (permission == null) {
     return  
 }  
 
-[x] statusText.text = " GETTING WEATHER..."  
+statusText.text = "● GETTING WEATHER..."
 
 scope.launch {  
     try {  
@@ -837,7 +837,7 @@ scope.launch {
             "I couldn't get live weather right now. Please check your location permission, enable Location on your phone, and check your internet connection. 💜"  
         )  
     } finally {  
-[x]         statusText.text = " READY"  
+statusText.text = "● READY"
     }  
 }
 
