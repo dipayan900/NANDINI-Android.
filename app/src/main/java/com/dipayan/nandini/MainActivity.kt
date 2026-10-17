@@ -1,6 +1,7 @@
 package com.dipayan.nandini
 
 import android.Manifest
+import android.provider.ContactsContract
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
@@ -931,6 +932,32 @@ text.contains("take photo") -> {
     "Opening camera. Take your photo there."
 }
 
+text.startsWith("call ") ||
+text.startsWith("phone ") ||
+text.startsWith("dial ") ||
+text.startsWith("call ") ||
+text.startsWith("mummy ko phone") ||
+text.startsWith("mom ko phone") ||
+text.startsWith("papa ko phone") -> {
+    val target = when {
+        text.startsWith("mummy ko phone") ->
+            command.substringAfter("mummy ko phone").trim()
+                .ifBlank { "Mummy" }
+
+        text.startsWith("mom ko phone") ->
+            command.substringAfter("mom ko phone").trim()
+                .ifBlank { "Mom" }
+
+        text.startsWith("papa ko phone") ->
+            command.substringAfter("papa ko phone").trim()
+                .ifBlank { "Papa" }
+
+        else -> command.substringAfter(" ").trim()
+    }
+
+    startCallTo(target)
+}
+
 text.startsWith("open ") -> {
     val requestedApp = text.removePrefix("open ").trim()
     val launchableApps = packageManager.queryIntentActivities(
@@ -978,6 +1005,61 @@ text.contains("flash light") -> {
         }
     } catch (e: Exception) {
         "I couldn't perform that action. Please check the app permissions and try again."
+    }
+}
+
+private fun findContactNumber(name: String): String? {
+    val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI
+        .buildUpon()
+        .appendPath(name)
+        .build()
+
+    contentResolver.query(
+        uri,
+        arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+        null,
+        null,
+        null
+    )?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            return cursor.getString(0)
+        }
+    }
+
+    return null
+}
+
+private fun startCallTo(target: String): String {
+    val cleaned = target.trim()
+    if (cleaned.isBlank()) return "Tell me a contact name or phone number."
+
+    val number = if (cleaned.any { it.isLetter() }) {
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(Manifest.permission.READ_CONTACTS),
+                205
+            )
+            return "Please allow Contacts permission, then repeat the call command."
+        }
+
+        findContactNumber(cleaned)
+            ?: return "I couldn't find $cleaned in your saved contacts."
+    } else {
+        cleaned
+    }
+
+    return try {
+        val intent = Intent(
+            Intent.ACTION_DIAL,
+            Uri.fromParts("tel", number, null)
+        )
+        startActivity(intent)
+        "Opening the dialer for $cleaned. Check the number and tap Call."
+    } catch (e: Exception) {
+        Log.e("NANDINI", "Could not open dialer", e)
+        "I couldn't open the phone dialer."
     }
 }
 
