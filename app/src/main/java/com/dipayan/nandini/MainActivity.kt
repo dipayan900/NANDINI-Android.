@@ -20,6 +20,12 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.content.Intent
+import android.provider.AlarmClock
+import android.provider.Settings
+import android.net.Uri
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CameraCharacteristics
 import android.widget.Toast
 import android.content.res.ColorStateList
 import android.util.Log
@@ -472,6 +478,29 @@ trimHistory()
 saveHistory()
 input.text.clear()
 
+// Handle Android device commands before sending to Gemini.
+val deviceReply = runDeviceCommand(userText)
+
+if (deviceReply != null) {
+    input.text.clear()
+
+    val imm = getSystemService(Context.INPUT_METHOD_SERVICE)
+        as InputMethodManager
+    imm.hideSoftInputFromWindow(input.windowToken, 0)
+
+    addMessage("YOU", userText)
+    history.add(ChatMessage("user", userText))
+
+    addMessage("NANDINI", deviceReply)
+    history.add(ChatMessage("model", deviceReply))
+
+    trimHistory()
+    saveHistory()
+    speakReply(deviceReply)
+    return
+}
+
+
 val imm = getSystemService(Context.INPUT_METHOD_SERVICE)
 as InputMethodManager
 imm.hideSoftInputFromWindow(input.windowToken, 0)
@@ -780,7 +809,118 @@ private fun addMessage(
 private fun dp(value: Int): Int {  
     return (value * resources.displayMetrics.density + 0.5f).toInt()  
 }
+private fun runDeviceCommand(command: String): String? {
+    val text = command.lowercase().trim()
 
+    return try {
+        when {
+            text.contains("set alarm") ||
+            text.contains("alarm for") -> {
+                val timeRegex =
+                    Regex("""\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b""")
+                val match = timeRegex.find(text)
+
+                val intent = Intent(AlarmClock.ACTION_SET_ALARM)
+
+                if (match != null) {
+                    var hour = match.groupValues[1].toInt()
+                    val minute =
+                        match.groupValues[2].ifBlank { "0" }.toInt()
+                    val period = match.groupValues[3]
+
+                    if (hour !in 1..12 || minute !in 0..59) {
+                        return "Please tell me a valid alarm time."
+                    }
+
+                    if (period == "pm" && hour != 12) hour += 12
+                    if (period == "am" && hour == 12) hour = 0
+
+                    intent.putExtra(AlarmClock.EXTRA_HOUR, hour)
+                    intent.putExtra(AlarmClock.EXTRA_MINUTES, minute)
+                    intent.putExtra(
+                        AlarmClock.EXTRA_MESSAGE,
+                        "NANDINI alarm"
+                    )
+                }
+
+                startActivity(intent)
+                "Opening Clock to set your alarm."
+            }
+
+            text.contains("set timer") -> {
+                val regex = Regex("""(\d+)\s*(second|seconds|minute|minutes|hour|hours)""")
+                val match = regex.find(text)
+                    ?: return "Tell me a timer duration, like 10 minutes."
+
+                val amount = match.groupValues[1].toInt()
+                val unit = match.groupValues[2]
+                val multiplier = when {
+                    unit.startsWith("second") -> 1
+                    unit.startsWith("minute") -> 60
+                    else -> 3600
+                }
+                val seconds = amount.toLong() * multiplier
+
+                if (seconds !in 1..86400) {
+                    return "Please choose a timer up to 24 hours."
+                }
+
+                val intent = Intent(AlarmClock.ACTION_SET_TIMER)
+                    .putExtra(AlarmClock.EXTRA_LENGTH, seconds.toInt())
+                    .putExtra(AlarmClock.EXTRA_MESSAGE, "NANDINI timer")
+
+                startActivity(intent)
+                "Opening your timer."
+            }
+
+            text.contains("open wi-fi settings") ||
+            text.contains("open wifi settings") -> {
+                startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+                "Opening Wi-Fi settings."
+            }
+
+            text.contains("open bluetooth settings") -> {
+                startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+                "Opening Bluetooth settings."
+            }
+
+            text.contains("open display settings") -> {
+                startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS))
+                "Opening display settings."
+            }
+
+            text.contains("open camera") -> {
+                startActivity(Intent("android.media.action.IMAGE_CAPTURE"))
+                "Opening camera."
+            }
+
+            text.contains("open youtube") -> {
+                openApp("com.google.android.youtube")
+                "Opening YouTube if installed."
+            }
+
+            text.contains("open whatsapp") -> {
+                openApp("com.whatsapp")
+                "Opening WhatsApp if installed."
+            }
+
+            text.contains("open settings") -> {
+                startActivity(Intent(Settings.ACTION_SETTINGS))
+                "Opening Android settings."
+            }
+
+            else -> null
+        }
+    } catch (e: Exception) {
+        "I couldn't perform that action. Please check the app permissions and try again."
+    }
+}
+
+private fun openApp(packageName: String) {
+    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        ?: throw IllegalStateException("App is not installed")
+    startActivity(launchIntent)
+}
 private fun fetchWeather() {
 if (isBusy) {
 Toast.makeText(this, "Please wait for the current reply.", Toast.LENGTH_SHORT).show()
