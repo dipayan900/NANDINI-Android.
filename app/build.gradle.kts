@@ -31,7 +31,8 @@ kotlin {
 }
 
 dependencies {
-    implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
+    implementation(files("libs/spotify-app-remote-release-0.8.0.aar")
+    implementation("com.google.code.gson:gson:2.6.1")
     implementation(platform("com.google.firebase:firebase-bom:35.0.0"))
     implementation("com.google.firebase:firebase-ai")
     implementation("com.google.android.gms:play-services-location:21.4.0")
