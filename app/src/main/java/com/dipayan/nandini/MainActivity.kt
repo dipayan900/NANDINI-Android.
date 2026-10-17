@@ -908,6 +908,56 @@ private fun runDeviceCommand(command: String): String? {
                 "Opening Android settings."
             }
 
+            text.contains("torch on") ||
+text.contains("flashlight on") ||
+text.contains("flash on") ||
+text.contains("torch chalu") ||
+text.contains("flashlight chalu") -> {
+    setFlashlight(true)
+}
+
+text.contains("torch off") ||
+text.contains("flashlight off") ||
+text.contains("flash off") ||
+text.contains("torch band") ||
+text.contains("flashlight band") -> {
+    setFlashlight(false)
+}
+
+text.contains("open camera") ||
+text.contains("take a photo") ||
+text.contains("take photo") -> {
+    startActivity(Intent("android.media.action.IMAGE_CAPTURE"))
+    "Opening camera. Take your photo there."
+}
+
+text.startsWith("open ") -> {
+    val requestedApp = text.removePrefix("open ").trim()
+    val launchableApps = packageManager.queryIntentActivities(
+        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
+        0
+    )
+
+    val match = launchableApps.firstOrNull {
+        it.loadLabel(packageManager).toString()
+            .equals(requestedApp, ignoreCase = true)
+    }
+
+    if (match != null) {
+        val appIntent = packageManager.getLaunchIntentForPackage(
+            match.activityInfo.packageName
+        )
+        if (appIntent != null) {
+            startActivity(appIntent)
+            "Opening $requestedApp."
+        } else {
+            "I couldn't open that app."
+        }
+    } else {
+        "I couldn't find that installed app."
+    }
+}
+
             else -> null
         }
     } catch (e: Exception) {
@@ -917,8 +967,34 @@ private fun runDeviceCommand(command: String): String? {
 
 private fun openApp(packageName: String) {
     val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-        ?: throw IllegalStateException("App is not installed")
+        ?: throw IllegalStateException("App is not installed or unavailable")
     startActivity(launchIntent)
+}
+
+private fun setFlashlight(enabled: Boolean): String {
+    if (checkSelfPermission(Manifest.permission.CAMERA) !=
+        PackageManager.PERMISSION_GRANTED
+    ) {
+        requestPermissions(
+            arrayOf(Manifest.permission.CAMERA),
+            204
+        )
+        return "Please grant camera permission, then repeat the flashlight command."
+    }
+
+    return try {
+        val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val cameraId = manager.cameraIdList.firstOrNull { id ->
+            manager.getCameraCharacteristics(id)
+                .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+        } ?: return "This device has no supported flashlight."
+
+        manager.setTorchMode(cameraId, enabled)
+        if (enabled) "Flashlight turned on." else "Flashlight turned off."
+    } catch (e: Exception) {
+        Log.e("NANDINI", "Flashlight command failed", e)
+        "I couldn't change the flashlight. Check permissions and try again."
+    }
 }
 private fun fetchWeather() {
 if (isBusy) {
