@@ -57,6 +57,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import android.util.Base64
+import java.net.URLEncoder
+import java.security.MessageDigest
+import java.security.SecureRandom
+
 import java.util.Locale
 
 class MainActivity : Activity(), TextToSpeech.OnInitListener {
@@ -106,6 +111,258 @@ private fun connectSpotify(onConnected: (Boolean) -> Unit) {
             }
         }
     )
+}
+
+
+private val spotifyAuthRedirectUri =
+    "com.dipayan.nandini://spotify-auth"
+
+private val spotifyPrefs by lazy {
+    getSharedPreferences("spotify_auth", Context.MODE_PRIVATE)
+}
+
+private fun randomSpotifyString(length: Int = 64): String {
+    val chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+    val random = SecureRandom()
+    return buildString {
+        repeat(length) {
+            append(chars[random.nextInt(chars.length)])
+        }
+    }
+}
+
+private fun spotifyCodeChallenge(verifier: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+        .digest(verifier.toByteArray(Charsets.US_ASCII))
+
+    return Base64.encodeToString(
+        digest,
+        Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+    )
+}
+
+private fun spotifyFormValue(value: String): String =
+    URLEncoder.encode(value, "UTF-8")
+
+private fun beginSpotifyAuthorization(songQuery: String) {
+    val verifier = randomSpotifyString()
+    val state = randomSpotifyString(32)
+    val challenge = spotifyCodeChallenge(verifier)
+
+    spotifyPrefs.edit()
+        .putString("verifier", verifier)
+        .putString("state", state)
+        .putString("pending_query", songQuery)
+        .apply()
+
+    val url = Uri.parse("https://accounts.spotify.com/authorize")
+        .buildUpon()
+        .appendQueryParameter("client_id", spotifyClientId)
+        .appendQueryParameter("response_type", "code")
+        .appendQueryParameter("redirect_uri", spotifyAuthRedirectUri)
+        .appendQueryParameter("code_challenge_method", "S256")
+        .appendQueryParameter("code_challenge", challenge)
+        .appendQueryParameter("state", state)
+        .build()
+
+    startActivity(Intent(Intent.ACTION_VIEW, url))
+}
+
+private suspend fun exchangeSpotifyCode(code: String): String {
+    val verifier = spotifyPrefs.getString("verifier", null)
+        ?: error("Spotify authorization expired. Please try again.")
+
+    val body = listOf(
+        "client_id" to spotifyClientId,
+        "grant_type" to "authorization_code",
+        "code" to code,
+        "redirect_uri" to spotifyAuthRedirectUri,
+        "code_verifier" to verifier
+    ).joinToString("&") { (key, value) ->
+        "${spotifyFormValue(key)}=${spotifyFormValue(value)}"
+    }
+
+    val connection = (URL("https://accounts.spotify.com/api/token")
+        .openConnection() as HttpURLConnection).apply {
+        requestMethod = "POST"
+        doOutput = true
+        connectTimeout = 15000
+        readTimeout = 15000
+        setRequestProperty(
+            "Content-Type",
+            "application/x-www-form-urlencoded"
+        )
+    }
+
+    try {
+        connection.outputStream.use {
+            it.write(body.toByteArray(Charsets.UTF_8))
+        }
+
+        val status = connection.responseCode
+        val stream = if (status in 200..299) {
+            connection.inputStream
+        } else {
+            connection.errorStream
+        }
+
+        val response = stream.bufferedReader().use { it.readText() }
+        if (status !in 200..299) {
+            error("Spotify authorization failed ($status): $response")
+        }
+
+        val json = JSONObject(response)
+        val token = json.getString("access_token")
+        val expiry = System.currentTimeMillis() +
+            json.optLong("expires_in", 3600) * 1000L
+
+        spotifyPrefs.edit()
+            .putString("access_token", token)
+            .putLong("expires_at", expiry)
+            .remove("verifier")
+            .remove("state")
+            .apply()
+
+        return token
+    } finally {
+        connection.disconnect()
+    }
+}
+
+private suspend fun searchSpotifyTrack(
+    query: String,
+    token: String
+): Pair<String, String> {
+    val url = Uri.parse("https://api.spotify.com/v1/search")
+        .buildUpon()
+        .appendQueryParameter("q", query)
+        .appendQueryParameter("type", "track")
+        .appendQueryParameter("limit", "1")
+        .build()
+
+    val connection = (URL(url.toString())
+        .openConnection() as HttpURLConnection).apply {
+        requestMethod = "GET"
+        connectTimeout = 15000
+        readTimeout = 15000
+        setRequestProperty("Authorization", "Bearer $token")
+    }
+
+    try {
+        val status = connection.responseCode
+        val stream = if (status in 200..299) {
+            connection.inputStream
+        } else {
+            connection.errorStream
+        }
+        val response = stream.bufferedReader().use { it.readText() }
+
+        if (status !in 200..299) {
+            error("Spotify search failed ($status): $response")
+        }
+
+        val tracks = JSONObject(response)
+            .getJSONObject("tracks")
+            .getJSONArray("items")
+
+        if (tracks.length() == 0) {
+            error("No Spotify tracks found for: $query")
+        }
+
+        val track = tracks.getJSONObject(0)
+        val name = track.getString("name")
+        val artist = track.getJSONArray("artists")
+            .getJSONObject(0).getString("name")
+        val uri = track.getString("uri")
+
+        return Pair("$name — $artist", uri)
+    } finally {
+        connection.disconnect()
+    }
+}
+
+private fun playSpotifyUri(uri: String, description: String) {
+    connectSpotify { connected ->
+        runOnUiThread {
+            if (!connected) {
+                addMessage(
+                    "NANDINI",
+                    "Couldn't connect to Spotify. Open Spotify, sign in, and try again."
+                )
+                return@runOnUiThread
+            }
+
+            val remote = spotifyAppRemote
+            if (remote == null || !remote.isConnected) {
+                addMessage("NANDINI", "Spotify connection was lost. Please try again.")
+                return@runOnUiThread
+            }
+
+            remote.playerApi.play(uri)
+                .setResultCallback {
+                    addMessage("NANDINI", "Playing $description on Spotify 🎵")
+                    speakReply("Playing $description")
+                }
+                .setErrorCallback { error ->
+                    Log.e("NANDINI_SPOTIFY", "Playback failed", error)
+                    addMessage(
+                        "NANDINI",
+                        "Spotify couldn't start playback. Check your account and playback availability."
+                    )
+                }
+        }
+    }
+}
+
+private fun handleSpotifyCallback(intent: Intent?) {
+    val callback = intent?.data ?: return
+    if (callback.scheme != "com.dipayan.nandini" ||
+        callback.host != "spotify-auth"
+    ) return
+
+    val returnedState = callback.getQueryParameter("state")
+    val expectedState = spotifyPrefs.getString("state", null)
+    val code = callback.getQueryParameter("code")
+    val error = callback.getQueryParameter("error")
+
+    if (returnedState == null || returnedState != expectedState) {
+        addMessage("NANDINI", "Spotify authorization state didn't match. Please try again.")
+        return
+    }
+
+    if (error != null || code == null) {
+        addMessage("NANDINI", "Spotify authorization wasn't completed.")
+        return
+    }
+
+    val query = spotifyPrefs.getString("pending_query", null)
+    if (query.isNullOrBlank()) {
+        addMessage("NANDINI", "Authorization succeeded. Ask me to play a song.")
+        return
+    }
+
+    spotifyPrefs.edit().remove("pending_query").apply()
+
+    scope.launch {
+        try {
+            statusText.text = "● SEARCHING SPOTIFY..."
+            val result = withContext(Dispatchers.IO) {
+                val token = exchangeSpotifyCode(code)
+                val track = searchSpotifyTrack(query, token)
+                track
+            }
+            playSpotifyUri(result.second, result.first)
+        } catch (e: Exception) {
+            Log.e("NANDINI_SPOTIFY", "Spotify search failed", e)
+            addMessage(
+                "NANDINI",
+                "Spotify search failed: ${e.message ?: "Please try again."}"
+            )
+        } finally {
+            statusText.text = "● READY"
+        }
+    }
 }
 
 private fun testSpotifyPlayback() {
@@ -167,7 +424,7 @@ private const val MAX_CONTEXT_MESSAGES = 16
 
 override fun onCreate(savedInstanceState: Bundle?) {
 super.onCreate(savedInstanceState)
-
+handleSpotifyCallback(intent)
 window.statusBarColor = bg    
 window.navigationBarColor = bg    
 
@@ -542,6 +799,12 @@ saveHistory()
 input.text.clear()
 
 // Handle Android device commands before sending to Gemini.
+// Handle Spotify before Android commands or Firebase AI.
+if (isSpotifyCommand(userText)) {
+    handleSpotifyCommand(userText)
+    return
+}
+
 val deviceReply = runDeviceCommand(userText)
 
 if (deviceReply != null) {
@@ -1294,4 +1557,79 @@ override fun onDestroy() {
     tts = null  
 }
 
+}
+override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    handleSpotifyCallback(intent)
+}
+
+private fun isSpotifyCommand(command: String): Boolean {
+    val text = command.lowercase(Locale.ROOT)
+    return text.contains("spotify") ||
+        text.startsWith("play song ") ||
+        text.startsWith("play music ") ||
+        text.startsWith("play playlist ")
+}
+
+private fun handleSpotifyCommand(command: String) {
+    val text = command.trim()
+    val lower = text.lowercase(Locale.ROOT)
+
+    // Accept Spotify playlist URIs or shared playlist URLs.
+    val playlistId = Regex(
+        """(?:spotify:playlist:|open\.spotify\.com/playlist/)([A-Za-z0-9]+)"""
+    ).find(text)?.groupValues?.get(1)
+
+    if (playlistId != null) {
+        playSpotifyUri(
+            "spotify:playlist:$playlistId",
+            "your playlist"
+        )
+        return
+    }
+
+    val query = text
+        .replace(Regex("""(?i)\b(on|using)\s+spotify\b"""), "")
+        .replace(Regex("""(?i)\bspotify\b"""), "")
+        .replace(
+            Regex("""(?i)^\s*(please\s+)?(play|put on|start)\s+"""),
+            ""
+        )
+        .replace(Regex("""(?i)^\s*(song|music|track|playlist)\s+"""), "")
+        .trim()
+
+    if (query.isBlank()) {
+        addMessage(
+            "NANDINI",
+            "Tell me a song name, for example: play Tollywood 3 on Spotify."
+        )
+        return
+    }
+
+    val savedToken = spotifyPrefs.getString("access_token", null)
+    val expiry = spotifyPrefs.getLong("expires_at", 0L)
+
+    if (savedToken == null || System.currentTimeMillis() >= expiry) {
+        beginSpotifyAuthorization(query)
+        return
+    }
+
+    scope.launch {
+        try {
+            statusText.text = "● SEARCHING SPOTIFY..."
+            val track = withContext(Dispatchers.IO) {
+                searchSpotifyTrack(query, savedToken)
+            }
+            playSpotifyUri(track.second, track.first)
+        } catch (e: Exception) {
+            Log.e("NANDINI_SPOTIFY", "Spotify command failed", e)
+            addMessage(
+                "NANDINI",
+                "Couldn't find or play that song. ${e.message ?: ""}"
+            )
+        } finally {
+            statusText.text = "● READY"
+        }
+    }
 }
