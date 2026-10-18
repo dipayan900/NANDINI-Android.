@@ -10,13 +10,18 @@ android {
     namespace = "com.dipayan.nandini"
     compileSdk = 35
 
-    defaultConfig {
-        applicationId = "com.dipayan.nandini"
-        minSdk = 26
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
-    }
+    
+defaultConfig {
+    applicationId = "com.dipayan.nandini"
+    minSdk = 26
+    targetSdk = 35
+    versionCode = 1
+    versionName = "1.0"
+
+    manifestPlaceholders["redirectSchemeName"] = "com.dipayan.nandini"
+    manifestPlaceholders["redirectHostName"] = "callback"
+}
+
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
