@@ -1632,3 +1632,4 @@ private fun handleSpotifyCommand(command: String) {
         }
     }
 }
+}
