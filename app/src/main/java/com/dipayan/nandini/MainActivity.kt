@@ -108,6 +108,38 @@ private fun connectSpotify(onConnected: (Boolean) -> Unit) {
     )
 }
 
+private fun testSpotifyPlayback() {
+    connectSpotify { connected ->
+        runOnUiThread {
+            if (connected) {
+                try {
+                    spotifyAppRemote?.playerApi?.play(
+                        "spotify:playlist:37i9dQZF1DX2sUQwD7tbmL"
+                    )
+                    Toast.makeText(
+                        this,
+                        "Spotify playback requested",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } catch (e: Exception) {
+                    Log.e("NANDINI_SPOTIFY", "Playback failed", e)
+                    Toast.makeText(
+                        this,
+                        "Spotify playback failed",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } else {
+                Toast.makeText(
+                    this,
+                    "Spotify connection failed. Check login and permissions.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+}
+
 private val prefs by lazy {
 getSharedPreferences("nandini_chat", Context.MODE_PRIVATE)
 }
