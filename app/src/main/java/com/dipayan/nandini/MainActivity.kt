@@ -76,6 +76,37 @@ private var isListening = false
 private var isBusy = false
 
 private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+private val spotifyClientId = "e887a172aa184e72ae70595f6e3c4187"
+private val spotifyRedirectUri = "com.dipayan.nandini://callback"
+
+private var spotifyAppRemote: com.spotify.android.appremote.api.SpotifyAppRemote? = null
+
+private fun connectSpotify(onConnected: (Boolean) -> Unit) {
+    val params = com.spotify.android.appremote.api.ConnectionParams.Builder(
+        spotifyClientId
+    )
+        .setRedirectUri(spotifyRedirectUri)
+        .showAuthView(true)
+        .build()
+
+    com.spotify.android.appremote.api.SpotifyAppRemote.connect(
+        this,
+        params,
+        object : com.spotify.android.appremote.api.Connector.ConnectionListener {
+            override fun onConnected(
+                appRemote: com.spotify.android.appremote.api.SpotifyAppRemote
+            ) {
+                spotifyAppRemote = appRemote
+                onConnected(true)
+            }
+
+            override fun onFailure(error: Throwable) {
+                Log.e("NANDINI_SPOTIFY", "Spotify connection failed", error)
+                onConnected(false)
+            }
+        }
+    )
+}
 
 private val prefs by lazy {
 getSharedPreferences("nandini_chat", Context.MODE_PRIVATE)
