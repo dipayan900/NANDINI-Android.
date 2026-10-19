@@ -29,6 +29,15 @@ jobs:
           accept-android-sdk-licenses: true
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
 
+      - name: Download official Sherpa-ONNX Android runtime
+        run: |
+          mkdir -p app/libs
+          curl --fail --location --retry 3 \
+            https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-1.13.8.aar \
+            --output app/libs/sherpa-onnx-1.13.8.aar
+          test -s app/libs/sherpa-onnx-1.13.8.aar
+          ls -lh app/libs/sherpa-onnx-1.13.8.aar
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
