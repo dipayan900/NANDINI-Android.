@@ -27,6 +27,9 @@ import android.content.Intent
 import android.provider.AlarmClock
 import android.provider.Settings
 import android.net.Uri
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraCharacteristics
 import android.widget.Toast
@@ -68,6 +71,12 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 import java.util.Locale
+import kotlin.concurrent.thread
+import com.k2fsa.sherpa.onnx.FeatureConfig
+import com.k2fsa.sherpa.onnx.KeywordSpotter
+import com.k2fsa.sherpa.onnx.KeywordSpotterConfig
+import com.k2fsa.sherpa.onnx.OnlineModelConfig
+import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
 
 class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
@@ -83,6 +92,14 @@ private var tts: TextToSpeech? = null
 private var ttsReady = false
 private var isSpeakingEnabled = true
 private var isListening = false
+@Volatile private var wakeWordActive = false
+@Volatile private var wakeWordStarting = false
+private var wakeWordThread: Thread? = null
+private var wakeAudioRecord: AudioRecord? = null
+private var keywordSpotter: KeywordSpotter? = null
+private var wakeStream: com.k2fsa.sherpa.onnx.OnlineStream? = null
+private var wakeWordButton: Button? = null
+private val wakeSampleRate = 16000
 private var isBusy = false
 private var pendingImage: Bitmap? = null
 
@@ -550,6 +567,15 @@ LinearLayout.LayoutParams(0, dp(44), 1f)
 
 root.addView(actions, LinearLayout.LayoutParams(-1, dp(50)))
 
+wakeWordButton = makeButton("🎧 HEY NANDINI: OFF", panel) {
+    if (wakeWordActive || wakeWordStarting) stopWakeWordListening()
+    else startWakeWordListening()
+}
+root.addView(wakeWordButton, LinearLayout.LayoutParams(-1, dp(42)).apply {
+    topMargin = dp(2)
+    bottomMargin = dp(3)
+})
+
 val libraryActions = LinearLayout(this).apply {
     orientation = LinearLayout.HORIZONTAL
     gravity = Gravity.CENTER
@@ -685,6 +711,133 @@ try {
     Log.e("NANDINI", "Speech output failed", e)    
 }
 
+}
+
+
+private fun startWakeWordListening() {
+    if (wakeWordActive || wakeWordStarting) return
+    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 301)
+        Toast.makeText(this, "Allow microphone permission, then tap HEY NANDINI again.", Toast.LENGTH_LONG).show()
+        return
+    }
+    wakeWordStarting = true
+    wakeWordButton?.text = "⏳ STARTING WAKE WORD..."
+    scope.launch(Dispatchers.IO) {
+        try {
+            val spotter = KeywordSpotter(
+                assetManager = assets,
+                config = KeywordSpotterConfig(
+                    featConfig = FeatureConfig(sampleRate = wakeSampleRate, featureDim = 80),
+                    modelConfig = OnlineModelConfig(
+                        transducer = OnlineTransducerModelConfig(
+                            encoder = "encoder-epoch-12-avg-2-chunk-16-left-64.onnx",
+                            decoder = "decoder-epoch-12-avg-2-chunk-16-left-64.onnx",
+                            joiner = "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx"
+                        ),
+                        tokens = "tokens.txt",
+                        modelType = "zipformer2",
+                        numThreads = 2,
+                        provider = "cpu"
+                    ),
+                    keywordsFile = "keywords.txt",
+                    keywordsScore = 1.5f,
+                    keywordsThreshold = 0.25f
+                )
+            )
+            val minBuffer = AudioRecord.getMinBufferSize(
+                wakeSampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
+            )
+            if (minBuffer <= 0) throw IllegalStateException("Microphone buffer setup failed ($minBuffer)")
+            val recorder = AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                wakeSampleRate,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                maxOf(minBuffer, wakeSampleRate / 5 * 2)
+            )
+            if (recorder.state != AudioRecord.STATE_INITIALIZED) {
+                recorder.release()
+                spotter.release()
+                throw IllegalStateException("Could not open microphone")
+            }
+            val stream = spotter.createStream()
+            withContext(Dispatchers.Main) {
+                keywordSpotter = spotter
+                wakeAudioRecord = recorder
+                wakeStream = stream
+                wakeWordStarting = false
+                wakeWordActive = true
+                wakeWordButton?.text = "🎧 HEY NANDINI: ON"
+                statusText.text = "● LISTENING FOR HEY NANDINI (OFFLINE)"
+                statusText.setTextColor(accent)
+                Toast.makeText(this@MainActivity, "Wake word is ON. Say “Hey NANDINI”.", Toast.LENGTH_SHORT).show()
+            }
+            recorder.startRecording()
+            val buffer = ShortArray(1600)
+            while (wakeWordActive && !Thread.currentThread().isInterrupted) {
+                val count = recorder.read(buffer, 0, buffer.size)
+                if (count > 0) {
+                    val samples = FloatArray(count) { buffer[it] / 32768.0f }
+                    stream.acceptWaveform(samples, wakeSampleRate)
+                    while (wakeWordActive && spotter.isReady(stream)) {
+                        spotter.decode(stream)
+                        val detected = spotter.getResult(stream).keyword
+                        if (detected.isNotBlank()) {
+                            spotter.reset(stream)
+                            withContext(Dispatchers.Main) {
+                                if (wakeWordActive) {
+                                    stopWakeWordListening()
+                                    statusText.text = "● WAKE WORD DETECTED"
+                                    addMessage("NANDINI", "I'm listening 💜")
+                                    startVoiceInput()
+                                }
+                            }
+                            break
+                        }
+                    }
+                }
+            }
+            try { recorder.stop() } catch (_: Exception) {}
+            recorder.release()
+            stream.release()
+            spotter.release()
+            withContext(Dispatchers.Main) {
+                if (wakeAudioRecord === recorder) wakeAudioRecord = null
+                if (wakeStream === stream) wakeStream = null
+                if (keywordSpotter === spotter) keywordSpotter = null
+                wakeWordActive = false
+                wakeWordStarting = false
+                wakeWordButton?.text = "🎧 HEY NANDINI: OFF"
+            }
+        } catch (e: Exception) {
+            Log.e("NANDINI_WAKE", "Wake-word listener failed", e)
+            withContext(Dispatchers.Main) {
+                wakeWordStarting = false
+                wakeWordActive = false
+                wakeWordButton?.text = "🎧 HEY NANDINI: OFF"
+                statusText.text = "● WAKE WORD ERROR"
+                Toast.makeText(this@MainActivity, "Wake-word error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+}
+
+private fun stopWakeWordListening() {
+    wakeWordActive = false
+    wakeWordStarting = false
+    try { wakeAudioRecord?.stop() } catch (_: Exception) {}
+    wakeAudioRecord?.release()
+    wakeAudioRecord = null
+    try { wakeStream?.release() } catch (_: Exception) {}
+    wakeStream = null
+    try { keywordSpotter?.release() } catch (_: Exception) {}
+    keywordSpotter = null
+    wakeWordButton?.text = "🎧 HEY NANDINI: OFF"
+    if (::statusText.isInitialized) {
+        statusText.text = "● READY"
+        statusText.setTextColor(muted)
+    }
 }
 
 private fun startVoiceInput() {
@@ -1867,6 +2020,7 @@ try {
 }
 
 override fun onDestroy() {  
+    stopWakeWordListening()
     super.onDestroy()  
     scope.cancel()  
     tts?.stop()  
