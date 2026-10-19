@@ -10,18 +10,16 @@ android {
     namespace = "com.dipayan.nandini"
     compileSdk = 35
 
-    
-defaultConfig {
-    applicationId = "com.dipayan.nandini"
-    minSdk = 26
-    targetSdk = 35
-    versionCode = 1
-    versionName = "1.0"
+    defaultConfig {
+        applicationId = "com.dipayan.nandini"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0"
 
-    manifestPlaceholders["redirectSchemeName"] = "com.dipayan.nandini"
-    manifestPlaceholders["redirectHostName"] = "callback"
-}
-
+        manifestPlaceholders["redirectSchemeName"] = "com.dipayan.nandini"
+        manifestPlaceholders["redirectHostName"] = "callback"
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -37,6 +35,7 @@ kotlin {
 
 dependencies {
     implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
+    implementation(files("libs/sherpa-onnx-1.13.8.aar"))
 
     implementation(platform("com.google.firebase:firebase-bom:35.0.0"))
     implementation("com.google.firebase:firebase-ai")
