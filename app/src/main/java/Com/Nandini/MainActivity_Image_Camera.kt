@@ -571,9 +571,12 @@ LinearLayout.LayoutParams(0, dp(44), 1f)
 
 root.addView(actions, LinearLayout.LayoutParams(-1, dp(50)))
 
-wakeWordButton = makeButton("🎧 HEY NANDINI: OFF", panel) {
-    if (wakeWordActive || wakeWordStarting) stopWakeWordListening()
-    else startWakeWordListening()
+wakeWordButton = makeButton("🎙 VOICE INPUT (STABLE MODE)", panel) {
+    // Safe fallback: bypass Sherpa-ONNX native decode, which is crashing
+    // the process on this device. Use Android's speech recognizer instead.
+    stopWakeWordListening()
+    saveWakeDiagnostic("SAFE MODE: Native keyword decoding disabled; starting Android speech input")
+    startVoiceInput()
 }
 root.addView(wakeWordButton, LinearLayout.LayoutParams(-1, dp(42)).apply {
     topMargin = dp(2)
