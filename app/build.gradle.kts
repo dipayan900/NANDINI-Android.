@@ -35,7 +35,6 @@ kotlin {
 
 dependencies {
     implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
-    implementation(files("libs/sherpa-onnx-1.13.8.aar"))
 
     implementation(platform("com.google.firebase:firebase-bom:35.0.0"))
     implementation("com.google.firebase:firebase-ai")
