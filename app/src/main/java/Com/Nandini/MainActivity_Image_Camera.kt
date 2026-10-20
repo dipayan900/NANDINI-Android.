@@ -20,6 +20,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ImageView
 import android.widget.ScrollView
@@ -521,8 +522,29 @@ messages = LinearLayout(this).apply {
     orientation = LinearLayout.VERTICAL    
 }    
 
-scroll.addView(messages)    
-root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))    
+scroll.addView(messages)
+scroll.setBackgroundColor(Color.TRANSPARENT)
+
+// Chat-stage composition: the animated avatar is the background layer;
+// the existing scrollable conversation is placed above it and remains interactive.
+val chatStage = FrameLayout(this).apply {
+    setBackgroundColor(Color.TRANSPARENT)
+    clipChildren = true
+    clipToPadding = false
+}
+val chatAvatar = Anime3DView(this, chatBackgroundMode = true).apply {
+    alpha = 0.88f
+    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+}
+chatStage.addView(
+    chatAvatar,
+    FrameLayout.LayoutParams(dp(230), dp(390), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
+)
+chatStage.addView(
+    scroll,
+    FrameLayout.LayoutParams(-1, -1)
+)
+root.addView(chatStage, LinearLayout.LayoutParams(-1, 0, 1f))    
 
 val actions = LinearLayout(this).apply {    
     orientation = LinearLayout.HORIZONTAL    
