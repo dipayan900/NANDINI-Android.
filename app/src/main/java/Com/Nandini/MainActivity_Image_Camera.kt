@@ -17,6 +17,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.Gravity
 import android.view.View
+import android.view.MotionEvent
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
@@ -552,6 +553,59 @@ chatStage.addView(
     scroll,
     FrameLayout.LayoutParams(-1, -1)
 )
+
+// Small drag handle lets the user reposition the avatar without blocking chat messages.
+val avatarMoveHandle = TextView(this).apply {
+    text = "✥ MOVE"
+    textSize = 10f
+    gravity = Gravity.CENTER
+    setTextColor(Color.WHITE)
+    alpha = 0.88f
+    contentDescription = "Drag to move NANDINI's 3D character"
+    background = android.graphics.drawable.GradientDrawable().apply {
+        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+        cornerRadius = dp(12).toFloat()
+        setColor(Color.argb(190, 42, 30, 66))
+        setStroke(dp(1), Color.argb(180, 190, 155, 255))
+    }
+    setPadding(dp(8), dp(4), dp(8), dp(4))
+}
+val moveHandleParams = FrameLayout.LayoutParams(
+    dp(76), dp(30), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+).apply {
+    bottomMargin = dp(350)
+}
+avatarMoveHandle.translationX = dp(76).toFloat()
+chatStage.addView(avatarMoveHandle, moveHandleParams)
+
+var dragStartX = 0f
+var dragStartY = 0f
+var avatarStartX = 0f
+var avatarStartY = 0f
+avatarMoveHandle.setOnTouchListener { _, event ->
+    when (event.actionMasked) {
+        MotionEvent.ACTION_DOWN -> {
+            dragStartX = event.rawX
+            dragStartY = event.rawY
+            avatarStartX = chatAvatar.translationX
+            avatarStartY = chatAvatar.translationY
+            true
+        }
+        MotionEvent.ACTION_MOVE -> {
+            val stageWidth = chatStage.width.toFloat()
+            val stageHeight = chatStage.height.toFloat()
+            val maxX = (stageWidth - chatAvatar.width - chatAvatar.left).coerceAtLeast(-chatAvatar.left.toFloat())
+            val minX = -chatAvatar.left.toFloat()
+            val maxY = (stageHeight - chatAvatar.height - chatAvatar.top).coerceAtLeast(-chatAvatar.top.toFloat())
+            val minY = -chatAvatar.top.toFloat()
+            chatAvatar.translationX = (avatarStartX + event.rawX - dragStartX).coerceIn(minX, maxX)
+            chatAvatar.translationY = (avatarStartY + event.rawY - dragStartY).coerceIn(minY, maxY)
+            true
+        }
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true
+        else -> true
+    }
+}
 root.addView(chatStage, LinearLayout.LayoutParams(-1, 0, 1f))    
 
 val actions = LinearLayout(this).apply {    
