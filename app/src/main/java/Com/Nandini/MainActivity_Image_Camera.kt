@@ -1491,6 +1491,27 @@ private fun loadMemoriesText(): String {
     return if (items.isEmpty()) "No saved memories yet." else items.joinToString("\\n") { "- $it" }
 }
 
+private fun android.app.AlertDialog.Builder.showPremium(): android.app.AlertDialog {
+    val dialog = create()
+    dialog.show()
+    dialog.window?.setBackgroundDrawable(android.graphics.drawable.GradientDrawable().apply {
+        setColor(Color.rgb(30, 13, 39))
+        cornerRadius = dp(26).toFloat()
+        setStroke(dp(1), Color.rgb(171, 80, 177))
+    })
+    dialog.window?.setDimAmount(0.72f)
+    dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(Color.rgb(255, 132, 190))
+    dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(Color.rgb(198, 169, 201))
+    dialog.getButton(android.app.AlertDialog.BUTTON_NEUTRAL)?.setTextColor(Color.rgb(255, 132, 190))
+    dialog.findViewById<TextView>(resources.getIdentifier("alertTitle", "id", "android"))?.apply {
+        setTextColor(Color.rgb(255, 247, 252))
+        textSize = 20f
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
+    dialog.findViewById<TextView>(android.R.id.message)?.setTextColor(Color.rgb(198, 169, 201))
+    return dialog
+}
+
 private fun showMemoryManager() {
     fun display() {
         val items = loadMemories()
@@ -1509,11 +1530,22 @@ private fun showMemoryManager() {
                             display()
                         }
                         .setNegativeButton("Cancel", null)
-                        .show()
+                        .showPremium()
                 }
             }
             .setPositiveButton("Add memory") { _, _ ->
-                val editor = EditText(this).apply { hint = "Example: I prefer short Hinglish replies"; setTextColor(white); setHintTextColor(muted) }
+                val editor = EditText(this).apply {
+                    hint = "Example: I prefer short Hinglish replies"
+                    setTextColor(white)
+                    setHintTextColor(muted)
+                    textSize = 16f
+                    setPadding(dp(14), dp(12), dp(14), dp(12))
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(Color.rgb(48, 25, 58))
+                        cornerRadius = dp(14).toFloat()
+                        setStroke(dp(1), Color.rgb(113, 63, 127))
+                    }
+                }
                 android.app.AlertDialog.Builder(this)
                     .setTitle("Add a memory")
                     .setView(editor)
@@ -1523,22 +1555,22 @@ private fun showMemoryManager() {
                             val updated = loadMemories()
                             if (updated.none { it.equals(value, ignoreCase = true) }) updated.add(value)
                             saveMemories(updated)
-                            Toast.makeText(this, "Memory saved 💜", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "Memory saved 💜", Toast.LENGTH_SHORT).showPremium()
                         }
                         display()
                     }
                     .setNegativeButton("Cancel", null)
-                    .show()
+                    .showPremium()
             }
             .setNeutralButton("Clear all") { _, _ ->
                 android.app.AlertDialog.Builder(this)
                     .setMessage("Delete all saved memories?")
                     .setPositiveButton("Delete all") { _, _ -> saveMemories(emptyList()); display() }
                     .setNegativeButton("Cancel", null)
-                    .show()
+                    .showPremium()
             }
             .setNegativeButton("Close", null)
-            .show()
+            .showPremium()
     }
     display()
 }
