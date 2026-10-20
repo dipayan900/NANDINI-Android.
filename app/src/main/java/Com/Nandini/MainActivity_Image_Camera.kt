@@ -85,6 +85,7 @@ private var wakeWordButton: Button? = null
 private var wakeWordRecognizer: SpeechRecognizer? = null
 private var wakeWordEnabled = false
 private var wakeWordSessionStarting = false
+private var pendingWakePermission = false
 
 private var tts: TextToSpeech? = null
 private var ttsReady = false
@@ -570,6 +571,7 @@ wakeWordButton = makeButton("🎙 WAKE WORD: OFF", panel) {
         Toast.makeText(this, "Wake word turned off.", Toast.LENGTH_SHORT).show()
     } else {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            pendingWakePermission = true
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC_PERMISSION)
         } else {
             startWakeWordListening()
@@ -861,12 +863,10 @@ if (!SpeechRecognizer.isRecognitionAvailable(this)) {
     return    
 }    
 
-if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {    
-    requestPermissions(    
-        arrayOf(Manifest.permission.RECORD_AUDIO),    
-        REQUEST_MIC_PERMISSION    
-    )    
-    return    
+if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+    pendingWakePermission = false
+    requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC_PERMISSION)
+    return
 }    
 
 launchSpeechRecognizer()
@@ -983,12 +983,10 @@ return
 }
 
 if (requestCode == REQUEST_MIC_PERMISSION) {
+    val shouldStartWakeWord = pendingWakePermission
+    pendingWakePermission = false
     if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        if (wakeWordButton?.text?.toString()?.contains("WAKE WORD") == true) {
-            startWakeWordListening()
-        } else {
-            launchSpeechRecognizer()
-        }
+        if (shouldStartWakeWord) startWakeWordListening() else launchSpeechRecognizer()
     } else {
         Toast.makeText(this, "Microphone permission is needed for voice input.", Toast.LENGTH_LONG).show()
     }
