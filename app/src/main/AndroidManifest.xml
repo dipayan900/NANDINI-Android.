@@ -53,7 +53,7 @@
             android:name=".ReminderActivity"
             android:exported="false"
             android:label="NANDINI Reminders"
-            android:theme="@android:style/Theme.Material.NoActionBar" />
+            android:theme="@style/NandiniTheme" />
 
         <receiver
             android:name=".ReminderReceiver"
