@@ -14,6 +14,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.RecognitionListener
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -81,6 +82,8 @@ private lateinit var sendButton: Button
 private lateinit var voiceButton: Button
 private lateinit var speakButton: Button
 private lateinit var statusText: TextView
+private var chatAvatarView: Anime3DView? = null
+private var ttsIsSpeaking = false
 private var wakeWordButton: Button? = null
 private var wakeWordRecognizer: SpeechRecognizer? = null
 private var wakeWordEnabled = false
@@ -476,6 +479,10 @@ if (history.isEmpty()) {
 
 }
 
+private fun setAvatarState(state: String) {
+    runOnUiThread { chatAvatarView?.setCompanionState(state) }
+}
+
 private fun buildUi() {
 val root = LinearLayout(this).apply {
 orientation = LinearLayout.VERTICAL
@@ -536,6 +543,7 @@ val chatAvatar = Anime3DView(this, chatBackgroundMode = true).apply {
     alpha = 0.88f
     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
 }
+chatAvatarView = chatAvatar
 chatStage.addView(
     chatAvatar,
     FrameLayout.LayoutParams(dp(230), dp(390), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
@@ -793,6 +801,28 @@ override fun onInit(status: Int) {
 if (status == TextToSpeech.SUCCESS) {
 ttsReady = true
 configureFemaleVoice()
+tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+    override fun onStart(utteranceId: String?) {
+        runOnUiThread {
+            ttsIsSpeaking = true
+            setAvatarState("speaking")
+        }
+    }
+
+    override fun onDone(utteranceId: String?) {
+        runOnUiThread {
+            ttsIsSpeaking = false
+            setAvatarState("idle")
+        }
+    }
+
+    override fun onError(utteranceId: String?) {
+        runOnUiThread {
+            ttsIsSpeaking = false
+            setAvatarState("idle")
+        }
+    }
+})
 } else {
 ttsReady = false
 Log.e("NANDINI", "Text-to-Speech initialization failed")
@@ -829,7 +859,10 @@ try {
 }
 
 private fun speakReply(text: String) {
-if (!isSpeakingEnabled || !ttsReady || text.isBlank()) return
+if (!isSpeakingEnabled || !ttsReady || text.isBlank()) {
+    setAvatarState("idle")
+    return
+}
 
 try {    
     val hasHindiScript = text.any { it in '\u0900'..'\u097F' }    
@@ -846,6 +879,7 @@ try {
         tts?.setLanguage(Locale.getDefault())    
     }    
 
+    setAvatarState("speaking")
     tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nandini_reply")    
 } catch (e: Exception) {    
     Log.e("NANDINI", "Speech output failed", e)    
@@ -1026,14 +1060,16 @@ putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
 putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak in Hindi, English, or Hinglish")
 }
 
-isListening = true    
-    voiceButton.isEnabled = false    
+isListening = true
+    setAvatarState("listening")
+    voiceButton.isEnabled = false
     statusText.text = "●  LISTENING..."    
     startActivityForResult(intent, REQUEST_SPEECH)    
 } catch (e: Exception) {    
-    isListening = false    
-    voiceButton.isEnabled = true    
-    statusText.text = "●  READY"    
+    isListening = false
+    setAvatarState("idle")
+    voiceButton.isEnabled = true
+    statusText.text = "●  READY"
     Toast.makeText(this, "Couldn't start voice input.", Toast.LENGTH_SHORT).show()    
     Log.e("NANDINI", "Voice input failed to launch", e)    
 }
@@ -1044,9 +1080,10 @@ isListening = true
 override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
 super.onActivityResult(requestCode, resultCode, data)
 
-if (requestCode == REQUEST_SPEECH) {    
-    isListening = false    
-    voiceButton.isEnabled = true    
+if (requestCode == REQUEST_SPEECH) {
+    isListening = false
+    setAvatarState("idle")
+    voiceButton.isEnabled = true
     statusText.text = "●  READY"    
 
     if (resultCode == RESULT_OK) {    
@@ -1194,6 +1231,7 @@ setControlsEnabled(false)
 
 val replyView = addMessage("NANDINI", "Thinking")
 statusText.text = "● THINKING..."
+setAvatarState("thinking")
 
 scope.launch {
 try {
@@ -1220,10 +1258,11 @@ replyView.text = reply
     }    
 } finally {    
     isBusy = false    
-    setControlsEnabled(true)    
-    statusText.text = "● READY"    
-    scroll.post {    
-        scroll.fullScroll(View.FOCUS_DOWN)    
+    setControlsEnabled(true)
+    statusText.text = "● READY"
+    if (!ttsIsSpeaking) setAvatarState("idle")
+    scroll.post {
+        scroll.fullScroll(View.FOCUS_DOWN)
     }    
 }
 
