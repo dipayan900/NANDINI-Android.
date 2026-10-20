@@ -1,0 +1,175 @@
+package com.dipayan.nandini
+
+import android.app.*
+import android.content.*
+import android.graphics.Color
+import android.os.Build
+import android.os.Bundle
+import android.view.Gravity
+import android.widget.*
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.*
+
+class ReminderActivity : Activity() {
+    private val prefs by lazy { getSharedPreferences("nandini_reminders", Context.MODE_PRIVATE) }
+    private val bg = Color.rgb(10, 12, 24)
+    private val panel = Color.rgb(22, 25, 44)
+    private val accent = Color.rgb(184, 142, 255)
+    private val white = Color.rgb(245, 243, 255)
+    private val muted = Color.rgb(174, 176, 202)
+    private lateinit var list: LinearLayout
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
+        createNotificationChannel()
+        ReminderScheduler.rescheduleAll(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setBackgroundColor(bg)
+        }
+        root.addView(TextView(this).apply {
+            text = "REMINDERS & SCHEDULE"
+            textSize = 21f
+            gravity = Gravity.CENTER
+            setTextColor(accent)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }, LinearLayout.LayoutParams(-1, dp(48)))
+        root.addView(TextView(this).apply {
+            text = "Events • Daily routine • Birthdays at midnight"
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(muted)
+        }, LinearLayout.LayoutParams(-1, dp(30)))
+        val buttons = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        buttons.addView(makeButton("+ IMPORTANT DATE / EVENT") { chooseDateAndTime(false, false) })
+        buttons.addView(makeButton("+ DAILY SCHEDULE / REMINDER") { chooseDateAndTime(true, false) })
+        buttons.addView(makeButton("+ BIRTHDAY (YEARLY, 12 AM)") { chooseDateAndTime(false, true) })
+        root.addView(buttons)
+        root.addView(TextView(this).apply {
+            text = "SAVED REMINDERS"
+            textSize = 13f
+            setTextColor(accent)
+            setPadding(0, dp(12), 0, dp(6))
+        })
+        val scroller = ScrollView(this)
+        list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scroller.addView(list)
+        root.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(makeButton("← BACK TO NANDINI") { finish() })
+        setContentView(root)
+        refreshList()
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 700)
+        }
+    }
+
+    private fun chooseDateAndTime(daily: Boolean, birthday: Boolean) {
+        val name = EditText(this).apply {
+            hint = if (birthday) "Person's name" else "Event / reminder title"
+            setTextColor(white); setHintTextColor(muted); setSingleLine(true)
+        }
+        val note = EditText(this).apply {
+            hint = if (birthday) "Birthday wish (optional)" else "Notification message (optional)"
+            setTextColor(white); setHintTextColor(muted)
+        }
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), 0)
+            addView(name); addView(note)
+        }
+        val cal = Calendar.getInstance()
+        val datePicker = DatePickerDialog(this, { _, year, month, day ->
+            cal.set(Calendar.YEAR, year); cal.set(Calendar.MONTH, month); cal.set(Calendar.DAY_OF_MONTH, day)
+            val timeAction: (Int, Int) -> Unit = { hour, minute ->
+                cal.set(Calendar.HOUR_OF_DAY, if (birthday) 0 else hour)
+                cal.set(Calendar.MINUTE, if (birthday) 0 else minute)
+                cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+                val title = name.text.toString().trim()
+                if (title.isBlank()) {
+                    Toast.makeText(this, "Please enter a name or title.", Toast.LENGTH_SHORT).show()
+                } else {
+                    val id = UUID.randomUUID().toString()
+                    val item = JSONObject()
+                        .put("id", id).put("title", title)
+                        .put("message", note.text.toString().trim().ifBlank {
+                            if (birthday) "Happy birthday, $title! 🎂💜" else "It's time for $title."
+                        })
+                        .put("time", cal.timeInMillis)
+                        .put("daily", daily).put("birthday", birthday)
+                        .put("year", year).put("month", month).put("day", day)
+                    val all = readAll()
+                    all.put(item)
+                    prefs.edit().putString("items", all.toString()).apply()
+                    ReminderScheduler.schedule(this, item)
+                    refreshList()
+                    Toast.makeText(this, if (birthday) "Birthday saved. NANDINI will wish at midnight 💜" else "Reminder saved 💜", Toast.LENGTH_LONG).show()
+                }
+            }
+            if (birthday) timeAction(0, 0) else TimePickerDialog(this, { _, hour, minute -> timeAction(hour, minute) }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
+        }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+        datePicker.datePicker.minDate = if (birthday) 0L else System.currentTimeMillis() - 1000L
+        AlertDialog.Builder(this).setTitle(if (birthday) "Add birthday" else if (daily) "Add daily reminder" else "Add event")
+            .setView(wrap).setPositiveButton("Choose date/time") { _, _ -> datePicker.show() }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    private fun readAll(): JSONArray = try { JSONArray(prefs.getString("items", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+
+    private fun refreshList() {
+        list.removeAllViews()
+        val all = readAll()
+        if (all.length() == 0) {
+            list.addView(TextView(this).apply { text = "No reminders yet. Add an event or birthday above."; setTextColor(muted); setPadding(0, dp(12), 0, dp(12)) })
+            return
+        }
+        val formatter = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+        for (i in 0 until all.length()) {
+            val item = all.optJSONObject(i) ?: continue
+            val id = item.optString("id")
+            val title = item.optString("title", "Reminder")
+            val type = when {
+                item.optBoolean("birthday") -> "🎂 Birthday • yearly at 12:00 AM"
+                item.optBoolean("daily") -> "🔁 Daily reminder"
+                else -> "📅 One-time event"
+            }
+            val timeText = if (item.optBoolean("birthday")) {
+                String.format(Locale.getDefault(), "%02d %s", item.optInt("day"), listOf("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec").getOrElse(item.optInt("month")) { "?" })
+            } else formatter.format(Date(item.optLong("time")))
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(10), dp(12), dp(8)); setBackgroundColor(panel)
+            }
+            card.addView(TextView(this).apply { text = title; textSize = 16f; setTextColor(white); typeface = android.graphics.Typeface.DEFAULT_BOLD })
+            card.addView(TextView(this).apply { text = "$type\n$timeText\n" + item.optString("message"); textSize = 12f; setTextColor(muted) })
+            card.addView(makeButton("DELETE") {
+                val updated = JSONArray()
+                for (j in 0 until all.length()) if (all.optJSONObject(j)?.optString("id") != id) updated.put(all.getJSONObject(j))
+                prefs.edit().putString("items", updated.toString()).apply()
+                ReminderScheduler.cancel(this, id)
+                refreshList()
+            })
+            list.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+        }
+    }
+
+    private fun makeButton(label: String, action: () -> Unit) = Button(this).apply {
+        text = label; textSize = 11f; isAllCaps = false
+        setTextColor(if (label.startsWith("+")) bg else white)
+        backgroundTintList = android.content.res.ColorStateList.valueOf(if (label.startsWith("+")) accent else panel)
+        setOnClickListener { action() }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            val channel = NotificationChannel("nandini_reminders", "NANDINI reminders", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Important dates, daily schedules, and birthday wishes"
+            }
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
+    }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density + 0.5f).toInt()
+}
