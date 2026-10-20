@@ -23,7 +23,7 @@
         android:label="NANDINI"
         android:icon="@drawable/nandini_launcher"
         android:roundIcon="@drawable/nandini_launcher"
-        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:theme="@style/NandiniTheme"
         android:supportsRtl="true">
 
         <activity
