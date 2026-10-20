@@ -644,6 +644,10 @@ composer.addView(sendButton, LinearLayout.LayoutParams(dp(78), dp(52)).apply {
 })    
 
 root.addView(composer, LinearLayout.LayoutParams(-1, dp(58)))    
+// Ensure Android 15+ edge-to-edge enforcement does not let the IME cover the composer.
+if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+    window.setDecorFitsSystemWindows(true)
+}
 window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
 setContentView(root)
 root.alpha = 0f
