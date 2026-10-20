@@ -49,14 +49,30 @@ class Anime3DView(context: Context, private val chatBackgroundMode: Boolean = fa
         super.onDetachedFromWindow()
     }
 
-    fun setSpeaking(value: Boolean) { avatarRenderer.speaking = value; requestRender() }
+    fun setSpeaking(value: Boolean) = setCompanionState(if (value) "speaking" else "idle")
+
+    /**
+     * Drives the avatar's lightweight reactions from the existing chat/voice UI.
+     * Rendering is continuous only while an active state needs motion; idle mode
+     * returns to sparse redraws to avoid wasting battery.
+     */
+    fun setCompanionState(value: String) {
+        val normalized = when (value.lowercase()) {
+            "listening", "thinking", "speaking" -> value.lowercase()
+            else -> "idle"
+        }
+        avatarRenderer.companionState = normalized
+        renderMode = if (normalized == "idle") RENDERMODE_WHEN_DIRTY else RENDERMODE_CONTINUOUSLY
+        requestRender()
+    }
 
     private class AvatarRenderer : Renderer {
-        @Volatile var speaking = false
+        @Volatile var companionState: String = "idle"
         private var blink = false
         private var nextBlink = System.currentTimeMillis() + 1500
         private var blinkUntil = 0L
         private var angle = 0f
+        private var bodyBob = 0f
         private var lastFrame = 0L
         private var program = 0
         private var posHandle = 0
@@ -109,14 +125,32 @@ class Anime3DView(context: Context, private val chatBackgroundMode: Boolean = fa
             } else if (blink && now >= blinkUntil) {
                 blink = false; nextBlink = now + 1800 + random.nextInt(3400)
             }
-            if (now - lastFrame > 1000) {
-                angle = if (angle > 0f) -1.5f else 1.5f
-                lastFrame = now
+            // Gentle, state-aware motion: subtle idle breathing, attentive listening,
+            // a focused thinking sway, and a slightly livelier speaking motion.
+            val phase = now / when (companionState) {
+                "speaking" -> 210.0
+                "thinking" -> 720.0
+                "listening" -> 560.0
+                else -> 1250.0
             }
+            angle = (sin(phase) * when (companionState) {
+                "speaking" -> 2.7
+                "thinking" -> 2.2
+                "listening" -> 1.5
+                else -> 1.1
+            }).toFloat()
+            bodyBob = (sin(now / if (companionState == "speaking") 260.0 else 1050.0) *
+                when (companionState) {
+                    "speaking" -> 0.025
+                    "thinking" -> 0.012
+                    "listening" -> 0.018
+                    else -> 0.008
+                }).toFloat()
+            lastFrame = now
             GLES20.glUseProgram(program)
             // Head-to-toe model centered in a transparent window.
             Matrix.setIdentityM(model, 0)
-            Matrix.translateM(model, 0, 0f, 0f, 0f)
+            Matrix.translateM(model, 0, 0f, bodyBob, 0f)
             Matrix.rotateM(model, 0, angle, 0f, 1f, 0f)
             // Hair back
             part(-0.0f, 0.66f, -0.04f, 0.50f, 0.62f, 0.29f, 0.19f, 0.07f, 0.32f)
@@ -157,7 +191,13 @@ class Anime3DView(context: Context, private val chatBackgroundMode: Boolean = fa
             // blush, mouth and hair accessories
             part(-0.21f, 0.65f, 0.333f, 0.06f, 0.025f, 0.015f, 1f, 0.36f, 0.62f)
             part(0.21f, 0.65f, 0.333f, 0.06f, 0.025f, 0.015f, 1f, 0.36f, 0.62f)
-            part(0f, 0.625f, 0.35f, if (speaking) 0.035f else 0.025f, if (speaking) 0.04f else 0.012f, 0.012f, 0.56f, 0.12f, 0.32f)
+            val mouthPulse = if (companionState == "speaking") {
+                0.018f + kotlin.math.abs(sin(now / 82.0)).toFloat() * 0.028f
+            } else {
+                0.012f
+            }
+            part(0f, 0.625f, 0.35f, if (companionState == "speaking") 0.032f else 0.025f,
+                mouthPulse, 0.012f, 0.56f, 0.12f, 0.32f)
             part(-0.32f, 0.92f, 0.13f, 0.05f, 0.07f, 0.035f, 0.95f, 0.42f, 0.82f)
             part(0.32f, 0.92f, 0.13f, 0.05f, 0.07f, 0.035f, 0.95f, 0.42f, 0.82f)
         }
@@ -174,6 +214,7 @@ class Anime3DView(context: Context, private val chatBackgroundMode: Boolean = fa
             GLES20.glUniform4f(colorHandle, r, g, b, 1f)
             sphere.draw(posHandle, lightHandle)
             Matrix.setIdentityM(model, 0)
+            Matrix.translateM(model, 0, 0f, bodyBob, 0f)
             Matrix.rotateM(model, 0, angle, 0f, 1f, 0f)
         }
 
