@@ -471,8 +471,12 @@ try {
 
 loadAllChats()
 loadHistory()
-tts = TextToSpeech(this, this)    
-buildUi()    
+tts = TextToSpeech(this, this)
+buildUi()
+val previousWakeStage = getSharedPreferences(
+    "wake_word_diagnostics", Context.MODE_PRIVATE
+).getString("last_stage", "No wake-word attempt recorded")
+statusText.text = "WAKE DIAGNOSTIC: $previousWakeStage"
 renderHistory()    
 
 if (history.isEmpty()) {    
@@ -714,6 +718,19 @@ try {
 }
 
 
+
+private fun saveWakeDiagnostic(stage: String) {
+    try {
+        getSharedPreferences("wake_word_diagnostics", Context.MODE_PRIVATE)
+            .edit()
+            .putString("last_stage", stage)
+            .putLong("updated_at", System.currentTimeMillis())
+            .commit()
+    } catch (e: Exception) {
+        Log.e("NANDINI_WAKE_DIAG", "Could not save diagnostic stage", e)
+    }
+}
+
 private fun startWakeWordListening() {
     if (wakeWordActive || wakeWordStarting) return
     if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -722,6 +739,7 @@ private fun startWakeWordListening() {
         return
     }
 
+    saveWakeDiagnostic("0: Button tapped; permission granted")
     wakeWordStarting = true
     wakeWordButton?.text = "⏳ STARTING WAKE WORD..."
 
@@ -733,6 +751,7 @@ private fun startWakeWordListening() {
         var failure: Exception? = null
 
         try {
+            saveWakeDiagnostic("1: Creating native KeywordSpotter; loading ONNX models")
             spotter = KeywordSpotter(
                 assetManager = assets,
                 config = KeywordSpotterConfig(
@@ -753,12 +772,14 @@ private fun startWakeWordListening() {
                     keywordsThreshold = 0.25f
                 )
             )
+            saveWakeDiagnostic("2: KeywordSpotter created successfully")
 
             val minBuffer = AudioRecord.getMinBufferSize(
                 wakeSampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
             )
             if (minBuffer <= 0) throw IllegalStateException("Microphone buffer setup failed ($minBuffer)")
 
+            saveWakeDiagnostic("3: Microphone buffer configured")
             recorder = AudioRecord(
                 MediaRecorder.AudioSource.MIC,
                 wakeSampleRate,
@@ -770,7 +791,9 @@ private fun startWakeWordListening() {
                 throw IllegalStateException("Could not open microphone")
             }
 
+            saveWakeDiagnostic("4: Creating native audio stream")
             stream = spotter.createStream()
+            saveWakeDiagnostic("5: Audio stream created")
             val activeRecorder = recorder
             val activeSpotter = spotter
             val activeStream = stream
@@ -788,6 +811,7 @@ private fun startWakeWordListening() {
             }
 
             activeRecorder.startRecording()
+            saveWakeDiagnostic("6: Microphone recording started; waiting for keyword")
             val buffer = ShortArray(1600)
             while (wakeWordActive && !Thread.currentThread().isInterrupted) {
                 val count = activeRecorder.read(buffer, 0, buffer.size)
@@ -810,6 +834,7 @@ private fun startWakeWordListening() {
             }
         } catch (e: Exception) {
             failure = e
+            saveWakeDiagnostic("ERROR: ${e.javaClass.simpleName}: ${e.message ?: "no message"}")
             Log.e("NANDINI_WAKE", "Wake-word listener failed", e)
         } finally {
             wakeWordActive = false
