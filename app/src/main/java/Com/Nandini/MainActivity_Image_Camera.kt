@@ -79,6 +79,7 @@ private lateinit var sendButton: Button
 private lateinit var voiceButton: Button
 private lateinit var speakButton: Button
 private lateinit var statusText: TextView
+private var wakeWordButton: Button? = null
 
 private var tts: TextToSpeech? = null
 private var ttsReady = false
