@@ -266,7 +266,7 @@ class CompanionOverlayService : Service() {
                 canvas.drawCircle(w*.585f,h*.176f,w*.012f,p)
             } else {
                 p.style = Paint.Style.STROKE
-                p.strokeWidth = dp(1.5).toFloat()
+                p.strokeWidth = dp(2).toFloat()
                 canvas.drawArc(w*.36f,h*.18f,w*.45f,h*.205f,5f,170f,false,p)
                 canvas.drawArc(w*.55f,h*.18f,w*.64f,h*.205f,5f,170f,false,p)
                 p.style = Paint.Style.FILL
