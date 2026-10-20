@@ -156,10 +156,12 @@ class CompanionOverlayService : Service() {
         private var speaking = false
         private val face = RectF()
         private val hair = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val tick = Runnable {
-            blink = !blink
-            invalidate()
-            postDelayed(this@AnimeCompanionView.tick, if (blink) 140L else 2200L)
+        private val tick: Runnable = object : Runnable {
+            override fun run() {
+                blink = !blink
+                invalidate()
+                this@AnimeCompanionView.postDelayed(this, if (blink) 140L else 2200L)
+            }
         }
 
         init {
@@ -210,7 +212,7 @@ class CompanionOverlayService : Service() {
                 canvas.drawCircle(w*.395f,h*.405f,w*.014f,p)
                 canvas.drawCircle(w*.595f,h*.405f,w*.014f,p)
             } else {
-                p.strokeWidth = dp(1.5).toFloat()
+                p.strokeWidth = dp(2).toFloat()
                 p.style = Paint.Style.STROKE
                 canvas.drawArc(w*.35f,h*.40f,w*.45f,h*.45f,5f,170f,false,p)
                 canvas.drawArc(w*.55f,h*.40f,w*.65f,h*.45f,5f,170f,false,p)
