@@ -425,12 +425,12 @@ private val savedChats = mutableListOf<SavedChat>()
 private var currentChatId: String = System.currentTimeMillis().toString()
 private val memoryPrefs by lazy { getSharedPreferences("nandini_memory", Context.MODE_PRIVATE) }
 
-private val bg = Color.rgb(10, 12, 24)
-private val panel = Color.rgb(22, 25, 44)
-private val accent = Color.rgb(184, 142, 255)
-private val white = Color.rgb(245, 243, 255)
-private val muted = Color.rgb(174, 176, 202)
-private val userBubble = Color.rgb(56, 43, 87)
+private val bg = Color.rgb(13, 7, 22)
+private val panel = Color.rgb(35, 17, 43)
+private val accent = Color.rgb(255, 132, 190)
+private val white = Color.rgb(255, 247, 252)
+private val muted = Color.rgb(198, 169, 201)
+private val userBubble = Color.rgb(91, 35, 83)
 
 companion object {
 private const val REQUEST_MIC_PERMISSION = 201
@@ -478,7 +478,10 @@ if (history.isEmpty()) {
 private fun buildUi() {
 val root = LinearLayout(this).apply {
 orientation = LinearLayout.VERTICAL
-setBackgroundColor(bg)
+background = android.graphics.drawable.GradientDrawable(
+    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+    intArrayOf(Color.rgb(28, 10, 34), bg, Color.rgb(10, 7, 20))
+)
 setPadding(dp(16), dp(12), dp(16), dp(10))
 }
 
@@ -618,7 +621,11 @@ input = EditText(this).apply {
     textSize = 15f    
     setSingleLine(true)    
     setPadding(dp(14), 0, dp(10), 0)    
-    setBackgroundColor(panel)    
+    background = android.graphics.drawable.GradientDrawable().apply {
+        setColor(Color.rgb(39, 20, 48))
+        cornerRadius = dp(18).toFloat()
+        setStroke(dp(1), Color.rgb(111, 62, 121))
+    }
     imeOptions = EditorInfo.IME_ACTION_SEND    
     maxLines = 1    
 }    
@@ -656,8 +663,21 @@ return Button(this).apply {
 text = label
 textSize = 11f
 isAllCaps = false
-setTextColor(if (color == accent) bg else white)
-backgroundTintList = ColorStateList.valueOf(color)
+letterSpacing = 0.025f
+minHeight = dp(42)
+stateListAnimator = null
+setPadding(dp(10), dp(4), dp(10), dp(4))
+setTextColor(if (color == accent) Color.rgb(35, 10, 29) else white)
+backgroundTintList = null
+background = android.graphics.drawable.GradientDrawable(
+    android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+    if (color == accent) intArrayOf(Color.rgb(255, 164, 207), Color.rgb(188, 119, 255))
+    else intArrayOf(Color.rgb(53, 25, 61), Color.rgb(34, 20, 48))
+).apply {
+    cornerRadius = dp(16).toFloat()
+    setStroke(dp(1), if (color == accent) Color.rgb(255, 193, 224) else Color.rgb(102, 61, 112))
+}
+elevation = dp(2).toFloat()
 setOnClickListener { action() }
 }
 }
@@ -1594,7 +1614,11 @@ private fun addMessage(
         textSize = 15f  
         setTextColor(white)  
         setPadding(dp(13), dp(10), dp(13), dp(10))  
-        setBackgroundColor(if (isUser) userBubble else panel)  
+        background = android.graphics.drawable.GradientDrawable().apply {
+            setColor(if (isUser) userBubble else Color.rgb(35, 20, 44))
+            cornerRadius = dp(18).toFloat()
+            setStroke(dp(1), if (isUser) Color.rgb(193, 89, 160) else Color.rgb(92, 54, 104))
+        }
         setLineSpacing(dp(2).toFloat(), 1.0f)  
         maxWidth = resources.displayMetrics.widthPixels * 4 / 5  
     }  
