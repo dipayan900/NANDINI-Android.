@@ -91,7 +91,10 @@ class CompanionOverlayService : Service() {
             x = dp(18)
             y = dp(180)
         }
-        container.setOnTouchListener { _, event ->
+        // WebView consumes touch events, so attach the drag handler to BOTH the
+        // avatar itself and its transparent container. This makes dragging work
+        // when the finger starts directly on the visible character.
+        val dragListener = View.OnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX
@@ -124,6 +127,8 @@ class CompanionOverlayService : Service() {
                 else -> true
             }
         }
+        container.setOnTouchListener(dragListener)
+        avatar.setOnTouchListener(dragListener)
         params = lp
         root = container
         runCatching { wm.addView(container, lp) }.onFailure {
