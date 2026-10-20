@@ -582,6 +582,13 @@ root.addView(wakeWordButton, LinearLayout.LayoutParams(-1, dp(42)).apply {
     bottomMargin = dp(3)
 })
 
+root.addView(makeButton("📅 REMINDERS & BIRTHDAYS", panel) {
+    startActivity(Intent(this, ReminderActivity::class.java))
+}, LinearLayout.LayoutParams(-1, dp(42)).apply {
+    topMargin = dp(2)
+    bottomMargin = dp(3)
+})
+
 val libraryActions = LinearLayout(this).apply {
     orientation = LinearLayout.HORIZONTAL
     gravity = Gravity.CENTER
