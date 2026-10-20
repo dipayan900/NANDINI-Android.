@@ -571,12 +571,26 @@ LinearLayout.LayoutParams(0, dp(44), 1f)
 
 root.addView(actions, LinearLayout.LayoutParams(-1, dp(50)))
 
-wakeWordButton = makeButton("🎙 VOICE INPUT (STABLE MODE)", panel) {
-    // Safe fallback: bypass Sherpa-ONNX native decode, which is crashing
-    // the process on this device. Use Android's speech recognizer instead.
-    stopWakeWordListening()
-    saveWakeDiagnostic("SAFE MODE: Native keyword decoding disabled; starting Android speech input")
-    startVoiceInput()
+wakeWordButton = makeButton("🎧 HEY NANDINI: OFF", panel) {
+    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 301)
+    } else if (wakeWordActive || wakeWordStarting) {
+        stopService(Intent(this, WakeWordService::class.java))
+        stopWakeWordListening()
+        wakeWordButton?.text = "🎧 HEY NANDINI: OFF"
+        statusText.text = "● WAKE WORD OFF"
+    } else {
+        try {
+            val serviceIntent = Intent(this, WakeWordService::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(serviceIntent)
+            else startService(serviceIntent)
+            wakeWordButton?.text = "🎧 HEY NANDINI: STARTING..."
+            statusText.text = "● STARTING OFFLINE WAKE WORD"
+        } catch (e: Exception) {
+            Log.e("NANDINI_WAKE", "Could not start wake service", e)
+            Toast.makeText(this, "Couldn't start wake-word service: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
 }
 root.addView(wakeWordButton, LinearLayout.LayoutParams(-1, dp(42)).apply {
     topMargin = dp(2)
@@ -2083,6 +2097,11 @@ override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
     handleSpotifyCallback(intent)
+    if (intent.action == WakeWordService.ACTION_WAKE_DETECTED) {
+        statusText.text = "● HEY NANDINI DETECTED"
+        addMessage("NANDINI", "I heard you 💜 I'm listening.")
+        startVoiceInput()
+    }
 }
 
 private fun isSpotifyCommand(command: String): Boolean {
