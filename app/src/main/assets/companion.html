@@ -87,6 +87,27 @@ loader.load('./nandini-companion.vrm', gltf => {
   const bounds = new THREE.Box3().setFromObject(vrm.scene);
   const height = Math.max(0.1, bounds.max.y - bounds.min.y);
   vrm.scene.scale.setScalar(1.48 / height);
+  // Relax the default wide/T-pose into a natural, arms-down resting pose.
+  // VRM normalized humanoid bones make this consistent across compatible VRM models.
+  const leftUpperArm = vrm.humanoid?.getNormalizedBoneNode('leftUpperArm');
+  const rightUpperArm = vrm.humanoid?.getNormalizedBoneNode('rightUpperArm');
+  const leftLowerArm = vrm.humanoid?.getNormalizedBoneNode('leftLowerArm');
+  const rightLowerArm = vrm.humanoid?.getNormalizedBoneNode('rightLowerArm');
+  if (leftUpperArm) {
+    leftUpperArm.rotation.z = 1.08;
+    leftUpperArm.rotation.x = 0.04;
+  }
+  if (rightUpperArm) {
+    rightUpperArm.rotation.z = -1.08;
+    rightUpperArm.rotation.x = 0.04;
+  }
+  if (leftLowerArm) {
+    leftLowerArm.rotation.z = 0.12;
+  }
+  if (rightLowerArm) {
+    rightLowerArm.rotation.z = -0.12;
+  }
+
   // Keep the avatar comfortably framed from head to feet in the narrow chat stage.
   camera.position.set(0, 0.76, 2.75);
   camera.lookAt(0, 0.76, 0);
