@@ -19,7 +19,7 @@ import kotlin.math.sin
  * Lightweight procedural 3D anime-style companion. Uses low-poly shaded meshes,
  * transparent GL surface and sparse idle frames to keep battery/GPU use modest.
  */
-class Anime3DView(context: Context) : GLSurfaceView(context) {
+class Anime3DView(context: Context, private val chatBackgroundMode: Boolean = false) : GLSurfaceView(context) {
     private val avatarRenderer = AvatarRenderer()
     private val idleRandom = Random()
     private val idleBlinkPulse = object : Runnable {
@@ -36,7 +36,8 @@ class Anime3DView(context: Context) : GLSurfaceView(context) {
         // Explicit alpha is essential: RGB-only EGL surfaces show as a black rectangle.
         setEGLConfigChooser(8, 8, 8, 8, 16, 0)
         holder.setFormat(PixelFormat.TRANSLUCENT)
-        setZOrderOnTop(true)
+        setZOrderOnTop(!chatBackgroundMode)
+        if (chatBackgroundMode) setZOrderMediaOverlay(true)
         setRenderer(avatarRenderer)
         renderMode = RENDERMODE_WHEN_DIRTY
         setLayerType(View.LAYER_TYPE_NONE, null)
