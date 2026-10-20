@@ -12,6 +12,8 @@ import android.graphics.Typeface
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.RecognitionListener
+import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
 import android.view.View
@@ -80,6 +82,9 @@ private lateinit var voiceButton: Button
 private lateinit var speakButton: Button
 private lateinit var statusText: TextView
 private var wakeWordButton: Button? = null
+private var wakeWordRecognizer: SpeechRecognizer? = null
+private var wakeWordEnabled = false
+private var wakeWordSessionStarting = false
 
 private var tts: TextToSpeech? = null
 private var ttsReady = false
@@ -556,13 +561,19 @@ LinearLayout.LayoutParams(0, dp(44), 1f)
 
 root.addView(actions, LinearLayout.LayoutParams(-1, dp(50)))
 
-wakeWordButton = makeButton("🎙 VOICE INPUT (STABLE MODE)", panel) {
-    // Temporarily disable the experimental Sherpa native wake-word service.
-    // Use Android's built-in speech recognizer while startup stability is restored.
-    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC_PERMISSION)
+wakeWordButton = makeButton("🎙 WAKE WORD: OFF", panel) {
+    if (wakeWordEnabled) {
+        stopWakeWordListening()
+        wakeWordEnabled = false
+        wakeWordButton?.text = "🎙 WAKE WORD: OFF"
+        statusText.text = "● READY"
+        Toast.makeText(this, "Wake word turned off.", Toast.LENGTH_SHORT).show()
     } else {
-        startVoiceInput()
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC_PERMISSION)
+        } else {
+            startWakeWordListening()
+        }
     }
 }
 root.addView(wakeWordButton, LinearLayout.LayoutParams(-1, dp(42)).apply {
@@ -709,6 +720,139 @@ try {
 
 
 
+private fun startWakeWordListening() {
+    if (wakeWordEnabled || isFinishing || isDestroyed) return
+    if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+        Toast.makeText(this, "Android speech recognition isn't available on this phone.", Toast.LENGTH_LONG).show()
+        return
+    }
+    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC_PERMISSION)
+        return
+    }
+
+    wakeWordEnabled = true
+    wakeWordButton?.text = "🎙 WAKE WORD: ON"
+    statusText.text = "● WAITING FOR “HEY NANDINI”"
+    startWakeWordSession()
+    Toast.makeText(this, "Say “Hey NANDINI” while NANDINI stays open.", Toast.LENGTH_LONG).show()
+}
+
+private fun stopWakeWordListening() {
+    wakeWordSessionStarting = false
+    try {
+        wakeWordRecognizer?.cancel()
+        wakeWordRecognizer?.destroy()
+    } catch (e: Exception) {
+        Log.w("NANDINI_WAKE", "Could not cleanly stop wake-word recognition", e)
+    }
+    wakeWordRecognizer = null
+}
+
+private fun startWakeWordSession() {
+    if (!wakeWordEnabled || isFinishing || isDestroyed || wakeWordSessionStarting) return
+    if (isBusy || isListening) return
+
+    try {
+        wakeWordSessionStarting = true
+        val recognizer = wakeWordRecognizer ?: SpeechRecognizer.createSpeechRecognizer(this).also {
+            wakeWordRecognizer = it
+            it.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    statusText.text = "● LISTENING FOR “HEY NANDINI”"
+                }
+
+                override fun onBeginningOfSpeech() {}
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onEndOfSpeech() {
+                    statusText.text = "● CHECKING WAKE WORD..."
+                }
+
+                override fun onError(error: Int) {
+                    wakeWordSessionStarting = false
+                    if (wakeWordEnabled && !isFinishing && !isDestroyed) {
+                        scope.launch {
+                            delay(if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) 900L else 450L)
+                            startWakeWordSession()
+                        }
+                    }
+                }
+
+                override fun onResults(results: Bundle?) {
+                    wakeWordSessionStarting = false
+                    val phrases = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
+                    val heardWakeWord = phrases.any { phrase ->
+                        val normalized = phrase.lowercase(Locale.ROOT)
+                            .replace(Regex("[^a-z0-9 ]"), " ")
+                            .replace(Regex("\\s+"), " ")
+                            .trim()
+                        normalized.contains("hey nandini") ||
+                            normalized.contains("hey nandin") ||
+                            normalized.contains("hey nandi")
+                    }
+
+                    if (heardWakeWord && wakeWordEnabled) {
+                        wakeWordEnabled = false
+                        stopWakeWordListening()
+                        wakeWordButton?.text = "🎙 WAKE WORD: OFF"
+                        statusText.text = "● WAKE WORD DETECTED"
+                        Toast.makeText(this@MainActivity, "I'm listening 💜", Toast.LENGTH_SHORT).show()
+                        startVoiceInput()
+                    } else if (wakeWordEnabled) {
+                        scope.launch {
+                            delay(250L)
+                            startWakeWordSession()
+                        }
+                    }
+                }
+
+                override fun onPartialResults(partialResults: Bundle?) {
+                    val phrases = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
+                    val heardWakeWord = phrases.any { phrase ->
+                        val normalized = phrase.lowercase(Locale.ROOT)
+                            .replace(Regex("[^a-z0-9 ]"), " ")
+                            .replace(Regex("\\s+"), " ")
+                            .trim()
+                        normalized.contains("hey nandini") ||
+                            normalized.contains("hey nandin") ||
+                            normalized.contains("hey nandi")
+                    }
+                    if (heardWakeWord && wakeWordEnabled) {
+                        wakeWordEnabled = false
+                        stopWakeWordListening()
+                        wakeWordButton?.text = "🎙 WAKE WORD: OFF"
+                        statusText.text = "● WAKE WORD DETECTED"
+                        startVoiceInput()
+                    }
+                }
+
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+            })
+        }
+
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-IN")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+        }
+        recognizer.startListening(intent)
+    } catch (e: Exception) {
+        wakeWordSessionStarting = false
+        Log.e("NANDINI_WAKE", "Android wake-word listening failed", e)
+        if (wakeWordEnabled) {
+            statusText.text = "● WAKE WORD RETRYING..."
+            scope.launch {
+                delay(1000L)
+                startWakeWordSession()
+            }
+        }
+    }
+}
+
 private fun startVoiceInput() {
 if (isBusy || isListening) return
 
@@ -838,14 +982,16 @@ Toast.LENGTH_LONG
 return
 }
 
-if (requestCode == REQUEST_MIC_PERMISSION) {    
-    if (grantResults.isNotEmpty() &&    
-        grantResults[0] == PackageManager.PERMISSION_GRANTED    
-    ) {    
-        launchSpeechRecognizer()    
-    } else {    
-        Toast.makeText(this, "Microphone permission is needed for voice input.", Toast.LENGTH_LONG).show()    
-    }    
+if (requestCode == REQUEST_MIC_PERMISSION) {
+    if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        if (wakeWordButton?.text?.toString()?.contains("WAKE WORD") == true) {
+            startWakeWordListening()
+        } else {
+            launchSpeechRecognizer()
+        }
+    } else {
+        Toast.makeText(this, "Microphone permission is needed for voice input.", Toast.LENGTH_LONG).show()
+    }
 }
 
 }
@@ -1888,9 +2034,25 @@ try {
 
 }
 
-override fun onDestroy() {  
-    super.onDestroy()  
-    scope.cancel()  
+override fun onPause() {
+    super.onPause()
+    if (wakeWordEnabled) {
+        stopWakeWordListening()
+        statusText.text = "● WAKE WORD PAUSED"
+    }
+}
+
+override fun onResume() {
+    super.onResume()
+    if (wakeWordEnabled) {
+        startWakeWordSession()
+    }
+}
+
+override fun onDestroy() {
+    stopWakeWordListening()
+    super.onDestroy()
+    scope.cancel()
     tts?.stop()  
     tts?.shutdown()  
     tts = null  
