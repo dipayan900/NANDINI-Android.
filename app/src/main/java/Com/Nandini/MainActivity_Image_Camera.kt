@@ -764,7 +764,7 @@ private fun startWakeWordListening() {
     }
 
     wakeWordEnabled = true
-    wakeWordButton?.text = "🎙 WAKE WORD: ON"
+    wakeWordButton?.text = "🎙 WAKE: ON"
     statusText.text = "● WAITING FOR “HEY NANDINI”"
     startWakeWordSession()
     Toast.makeText(this, "Say “Hey NANDINI” while NANDINI stays open.", Toast.LENGTH_LONG).show()
@@ -827,7 +827,7 @@ private fun startWakeWordSession() {
                     if (heardWakeWord && wakeWordEnabled) {
                         wakeWordEnabled = false
                         stopWakeWordListening()
-                        wakeWordButton?.text = "🎙 WAKE WORD: OFF"
+                        wakeWordButton?.text = "🎙 WAKE: OFF"
                         statusText.text = "● WAKE WORD DETECTED"
                         Toast.makeText(this@MainActivity, "I'm listening 💜", Toast.LENGTH_SHORT).show()
                         startVoiceInput()
@@ -853,7 +853,7 @@ private fun startWakeWordSession() {
                     if (heardWakeWord && wakeWordEnabled) {
                         wakeWordEnabled = false
                         stopWakeWordListening()
-                        wakeWordButton?.text = "🎙 WAKE WORD: OFF"
+                        wakeWordButton?.text = "🎙 WAKE: OFF"
                         statusText.text = "● WAKE WORD DETECTED"
                         startVoiceInput()
                     }
