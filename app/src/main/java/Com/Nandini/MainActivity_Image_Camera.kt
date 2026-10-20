@@ -596,6 +596,20 @@ quickAccess.addView(makeButton("🧠 MEMORY", panel) { showMemoryManager() },
     LinearLayout.LayoutParams(0, dp(38), 1.0f))
 root.addView(quickAccess, LinearLayout.LayoutParams(-1, dp(43)))
 
+val companionActions = LinearLayout(this).apply {
+    orientation = LinearLayout.HORIZONTAL
+    gravity = Gravity.CENTER
+    setPadding(0, dp(2), 0, dp(3))
+}
+companionActions.addView(makeButton("♡ COMPANION", panel) {
+    toggleCompanionOverlay()
+}, LinearLayout.LayoutParams(0, dp(40), 1f).apply { rightMargin = dp(5) })
+companionActions.addView(makeButton("◉ SCREEN VISION", panel) {
+    showScreenUnderstanding()
+}, LinearLayout.LayoutParams(0, dp(40), 1f))
+root.addView(companionActions, LinearLayout.LayoutParams(-1, dp(44)))
+
+
 val composer = LinearLayout(this).apply {    
     orientation = LinearLayout.HORIZONTAL    
     gravity = Gravity.CENTER_VERTICAL    
@@ -664,6 +678,58 @@ input.setOnEditorActionListener { _, actionId, _ ->
     }    
 }
 
+}
+
+
+private fun toggleCompanionOverlay() {
+    if (!Settings.canDrawOverlays(this)) {
+        Toast.makeText(this, "Allow NANDINI to display over other apps to use the floating companion.", Toast.LENGTH_LONG).show()
+        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+        startActivity(intent)
+        return
+    }
+    try {
+        startService(Intent(this, CompanionOverlayService::class.java))
+        Toast.makeText(this, "NANDINI companion is floating. Drag her to move; tap to animate; × to close.", Toast.LENGTH_LONG).show()
+    } catch (e: Exception) {
+        Toast.makeText(this, "Couldn't start the companion: ${e.message ?: "please retry"}", Toast.LENGTH_LONG).show()
+    }
+}
+
+private fun showScreenUnderstanding() {
+    val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
+    val serviceName = "$packageName/.NandiniAccessibilityService"
+    val isEnabled = enabled.split(':').any { it.equals(serviceName, ignoreCase = true) || it.contains("NandiniAccessibilityService", ignoreCase = true) }
+    if (!isEnabled) {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Enable Screen Understanding")
+            .setMessage("Optional Android Accessibility access lets NANDINI read text and labels exposed by the current app and identify which app is open. This is not OCR and some secure screens hide their content. Screen context is stored locally and is not automatically sent to AI. Enable it only if you're comfortable with this access.")
+            .setNegativeButton("NOT NOW", null)
+            .setPositiveButton("OPEN SETTINGS") { _, _ ->
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+            .showPremium()
+        return
+    }
+    val prefs = getSharedPreferences("nandini_screen_context", MODE_PRIVATE)
+    val appId = prefs.getString("package", "Not detected yet") ?: "Not detected yet"
+    val screenText = prefs.getString("visible_text", "").orEmpty()
+    val age = System.currentTimeMillis() - prefs.getLong("updated_at", 0L)
+    val message = if (screenText.isBlank() || age > 120_000L) {
+        "No recent visible text is available. Open the app you want NANDINI to inspect, then try again."
+    } else {
+        "Current app: $appId\n\nVisible text found:\n" + screenText.take(6500)
+    }
+    android.app.AlertDialog.Builder(this)
+        .setTitle("Screen Understanding")
+        .setMessage(message)
+        .setPositiveButton("DONE", null)
+        .setNeutralButton("ASK NANDINI ABOUT THIS") { _, _ ->
+            input.setText("Explain this screen and help me navigate it:\n$appId\n$screenText".take(7000))
+            input.setSelection(input.text.length)
+            input.requestFocus()
+        }
+        .showPremium()
 }
 
 private fun makeButton(
