@@ -27,9 +27,6 @@ import android.content.Intent
 import android.provider.AlarmClock
 import android.provider.Settings
 import android.net.Uri
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraCharacteristics
 import android.widget.Toast
@@ -72,11 +69,6 @@ import java.security.SecureRandom
 
 import java.util.Locale
 import kotlin.concurrent.thread
-import com.k2fsa.sherpa.onnx.FeatureConfig
-import com.k2fsa.sherpa.onnx.KeywordSpotter
-import com.k2fsa.sherpa.onnx.KeywordSpotterConfig
-import com.k2fsa.sherpa.onnx.OnlineModelConfig
-import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
 
 class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
@@ -92,14 +84,6 @@ private var tts: TextToSpeech? = null
 private var ttsReady = false
 private var isSpeakingEnabled = true
 private var isListening = false
-@Volatile private var wakeWordActive = false
-@Volatile private var wakeWordStarting = false
-private var wakeWordThread: Thread? = null
-private var wakeAudioRecord: AudioRecord? = null
-private var keywordSpotter: KeywordSpotter? = null
-private var wakeStream: com.k2fsa.sherpa.onnx.OnlineStream? = null
-private var wakeWordButton: Button? = null
-private val wakeSampleRate = 16000
 private var isBusy = false
 private var pendingImage: Bitmap? = null
 
@@ -723,175 +707,6 @@ try {
 }
 
 
-
-private fun saveWakeDiagnostic(stage: String) {
-    try {
-        getSharedPreferences("wake_word_diagnostics", Context.MODE_PRIVATE)
-            .edit()
-            .putString("last_stage", stage)
-            .putLong("updated_at", System.currentTimeMillis())
-            .commit()
-    } catch (e: Exception) {
-        Log.e("NANDINI_WAKE_DIAG", "Could not save diagnostic stage", e)
-    }
-}
-
-private fun startWakeWordListening() {
-    if (wakeWordActive || wakeWordStarting) return
-    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 301)
-        Toast.makeText(this, "Allow microphone permission, then tap HEY NANDINI again.", Toast.LENGTH_LONG).show()
-        return
-    }
-
-    saveWakeDiagnostic("0: Button tapped; permission granted")
-    wakeWordStarting = true
-    wakeWordButton?.text = "⏳ STARTING WAKE WORD..."
-
-    scope.launch(Dispatchers.IO) {
-        var spotter: KeywordSpotter? = null
-        var recorder: AudioRecord? = null
-        var stream: com.k2fsa.sherpa.onnx.OnlineStream? = null
-        var detectedWakeWord = false
-        var failure: Exception? = null
-
-        try {
-            saveWakeDiagnostic("1: Creating native KeywordSpotter; loading ONNX models")
-            spotter = KeywordSpotter(
-                assetManager = assets,
-                config = KeywordSpotterConfig(
-                    featConfig = FeatureConfig(sampleRate = wakeSampleRate, featureDim = 80),
-                    modelConfig = OnlineModelConfig(
-                        transducer = OnlineTransducerModelConfig(
-                            encoder = "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
-                            decoder = "decoder-epoch-12-avg-2-chunk-16-left-64.onnx",
-                            joiner = "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx"
-                        ),
-                        tokens = "tokens.txt",
-                        modelType = "zipformer2",
-                        numThreads = 1,
-                        provider = "cpu"
-                    ),
-                    keywordsFile = "keywords.txt",
-                    keywordsScore = 1.5f,
-                    keywordsThreshold = 0.25f
-                )
-            )
-            saveWakeDiagnostic("2: KeywordSpotter created successfully")
-
-            val minBuffer = AudioRecord.getMinBufferSize(
-                wakeSampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
-            )
-            if (minBuffer <= 0) throw IllegalStateException("Microphone buffer setup failed ($minBuffer)")
-
-            saveWakeDiagnostic("3: Microphone buffer configured")
-            recorder = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                wakeSampleRate,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                maxOf(minBuffer, wakeSampleRate / 5 * 2)
-            )
-            if (recorder.state != AudioRecord.STATE_INITIALIZED) {
-                throw IllegalStateException("Could not open microphone")
-            }
-
-            saveWakeDiagnostic("4: Creating native audio stream")
-            stream = spotter.createStream()
-            saveWakeDiagnostic("5: Audio stream created")
-            val activeRecorder = recorder
-            val activeSpotter = spotter
-            val activeStream = stream
-
-            withContext(Dispatchers.Main) {
-                keywordSpotter = activeSpotter
-                wakeAudioRecord = activeRecorder
-                wakeStream = activeStream
-                wakeWordStarting = false
-                wakeWordActive = true
-                wakeWordButton?.text = "🎧 HEY NANDINI: ON"
-                statusText.text = "● LISTENING FOR HEY NANDINI (OFFLINE)"
-                statusText.setTextColor(accent)
-                Toast.makeText(this@MainActivity, "Wake word is ON. Say “Hey NANDINI”.", Toast.LENGTH_SHORT).show()
-            }
-
-            activeRecorder.startRecording()
-            saveWakeDiagnostic("6: Microphone recording started; waiting for keyword")
-            val buffer = ShortArray(1600)
-            while (wakeWordActive && !Thread.currentThread().isInterrupted) {
-                saveWakeDiagnostic("7: About to read microphone buffer")
-                val count = activeRecorder.read(buffer, 0, buffer.size)
-                saveWakeDiagnostic("8: Microphone read returned $count samples")
-                if (count < 0) throw IllegalStateException("Microphone read failed ($count)")
-                if (count == 0) continue
-
-                val samples = FloatArray(count) { buffer[it] / 32768.0f }
-                saveWakeDiagnostic("9: About to pass audio to ONNX stream")
-                activeStream.acceptWaveform(samples, wakeSampleRate)
-                saveWakeDiagnostic("10: Audio accepted; checking decoder")
-                while (wakeWordActive && activeSpotter.isReady(activeStream)) {
-                    saveWakeDiagnostic("11: About to run native ONNX decode")
-                    activeSpotter.decode(activeStream)
-                    saveWakeDiagnostic("12: Native ONNX decode returned")
-                    saveWakeDiagnostic("13: About to read keyword result")
-                    val keyword = activeSpotter.getResult(activeStream).keyword
-                    saveWakeDiagnostic("14: Keyword result read")
-                    if (keyword.isNotBlank()) {
-                        activeSpotter.reset(activeStream)
-                        detectedWakeWord = true
-                        wakeWordActive = false
-                        try { activeRecorder.stop() } catch (_: Exception) {}
-                        break
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            failure = e
-            saveWakeDiagnostic("ERROR: ${e.javaClass.simpleName}: ${e.message ?: "no message"}")
-            Log.e("NANDINI_WAKE", "Wake-word listener failed", e)
-        } finally {
-            wakeWordActive = false
-            try { recorder?.let { if (it.recordingState == AudioRecord.RECORDSTATE_RECORDING) it.stop() } } catch (_: Exception) {}
-            try { recorder?.release() } catch (_: Exception) {}
-            try { stream?.release() } catch (_: Exception) {}
-            try { spotter?.release() } catch (_: Exception) {}
-
-            withContext(Dispatchers.Main) {
-                if (wakeAudioRecord === recorder) wakeAudioRecord = null
-                if (wakeStream === stream) wakeStream = null
-                if (keywordSpotter === spotter) keywordSpotter = null
-                wakeWordStarting = false
-                wakeWordActive = false
-                wakeWordButton?.text = "🎧 HEY NANDINI: OFF"
-
-                if (detectedWakeWord) {
-                    statusText.text = "● WAKE WORD DETECTED"
-                    addMessage("NANDINI", "I'm listening 💜")
-                    startVoiceInput()
-                } else if (failure != null) {
-                    statusText.text = "● WAKE WORD ERROR"
-                    Toast.makeText(this@MainActivity, "Wake-word error: ${failure?.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
-                } else {
-                    statusText.text = "● READY"
-                    statusText.setTextColor(muted)
-                }
-            }
-        }
-    }
-}
-
-private fun stopWakeWordListening() {
-    // Signal the worker to exit. The worker owns and releases native resources
-    // after its current decode finishes; releasing them here can crash JNI.
-    wakeWordActive = false
-    wakeWordStarting = false
-    try { wakeAudioRecord?.stop() } catch (_: Exception) {}
-    wakeWordButton?.text = "🎧 HEY NANDINI: OFF"
-    if (::statusText.isInitialized) {
-        statusText.text = "● READY"
-        statusText.setTextColor(muted)
-    }
-}
 
 private fun startVoiceInput() {
 if (isBusy || isListening) return
@@ -2073,7 +1888,6 @@ try {
 }
 
 override fun onDestroy() {  
-    stopWakeWordListening()
     super.onDestroy()  
     scope.cancel()  
     tts?.stop()  
