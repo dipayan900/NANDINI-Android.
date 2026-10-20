@@ -43,6 +43,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
     implementation("com.google.code.gson:gson:2.6.1")
     implementation("com.spotify.android:auth:2.1.2")
+    implementation("androidx.webkit:webkit:1.12.1")
 
     debugImplementation("com.google.firebase:firebase-appcheck-debug")
 }
