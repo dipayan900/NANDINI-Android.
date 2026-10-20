@@ -78,7 +78,7 @@ window.setCompanionState = setCompanionState;
 
 const loader = new GLTFLoader();
 loader.register(parser => new VRMLoaderPlugin(parser));
-loader.load('./moon-girl.vrm', gltf => {
+loader.load('./nandini-companion.vrm', gltf => {
   vrm = gltf.userData.vrm;
   if (!vrm) throw new Error('The VRM avatar could not be parsed.');
   VRMUtils.rotateVRM0(vrm);
