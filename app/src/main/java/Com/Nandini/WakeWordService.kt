@@ -146,10 +146,9 @@ class WakeWordService : Service() {
         try { startActivity(openIntent) } catch (e: Exception) {
             Log.w("NANDINI_WAKE_SERVICE", "System deferred activity launch; use notification", e)
         }
-        val pending = PendingIntent.getActivity(
-            this, 7702, openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
-        )
+        val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or
+            (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
+        val pending = PendingIntent.getActivity(this, 7702, openIntent, pendingFlags)
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, notification("“Hey NANDINI” detected — tap to talk", pending))
         stopSelf()
@@ -171,9 +170,10 @@ class WakeWordService : Service() {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
         }
+        val openFlags = PendingIntent.FLAG_UPDATE_CURRENT or
+            (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
         val openApp = PendingIntent.getActivity(
-            this, 7703, Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
+            this, 7703, Intent(this, MainActivity::class.java), openFlags
         )
         builder.setContentTitle("NANDINI")
             .setContentText(text)
