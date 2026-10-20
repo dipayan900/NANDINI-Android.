@@ -1555,7 +1555,7 @@ private fun showMemoryManager() {
                             val updated = loadMemories()
                             if (updated.none { it.equals(value, ignoreCase = true) }) updated.add(value)
                             saveMemories(updated)
-                            Toast.makeText(this, "Memory saved 💜", Toast.LENGTH_SHORT).showPremium()
+                            Toast.makeText(this, "Memory saved 💜", Toast.LENGTH_SHORT).show()
                         }
                         display()
                     }
