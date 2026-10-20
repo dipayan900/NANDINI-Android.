@@ -641,7 +641,11 @@ composer.addView(sendButton, LinearLayout.LayoutParams(dp(78), dp(52)).apply {
 })    
 
 root.addView(composer, LinearLayout.LayoutParams(-1, dp(58)))    
-setContentView(root)    
+setContentView(root)
+root.alpha = 0f
+root.translationY = dp(14).toFloat()
+root.animate().alpha(1f).translationY(0f).setDuration(420L)
+    .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
 
 input.setOnEditorActionListener { _, actionId, _ ->    
     if (actionId == EditorInfo.IME_ACTION_SEND) {    
@@ -678,7 +682,14 @@ background = android.graphics.drawable.GradientDrawable(
     setStroke(dp(1), if (color == accent) Color.rgb(255, 193, 224) else Color.rgb(102, 61, 112))
 }
 elevation = dp(2).toFloat()
-setOnClickListener { action() }
+setOnClickListener {
+    animate().cancel()
+    scaleX = 0.97f
+    scaleY = 0.97f
+    animate().scaleX(1f).scaleY(1f).setDuration(150L)
+        .setInterpolator(android.view.animation.OvershootInterpolator(1.5f)).start()
+    action()
+}
 }
 }
 
@@ -1639,7 +1650,11 @@ private fun addMessage(
             LinearLayout.LayoutParams.MATCH_PARENT,  
             LinearLayout.LayoutParams.WRAP_CONTENT  
         )  
-    )  
+    )
+    row.alpha = 0f
+    row.translationY = dp(10).toFloat()
+    row.animate().alpha(1f).translationY(0f).setDuration(240L)
+        .setInterpolator(android.view.animation.DecelerateInterpolator()).start()  
 
     scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }  
     return bubble  
