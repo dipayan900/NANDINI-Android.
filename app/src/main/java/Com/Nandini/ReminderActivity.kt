@@ -66,6 +66,10 @@ class ReminderActivity : Activity() {
         root.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(makeButton("← BACK TO NANDINI") { finish() })
         setContentView(root)
+        root.alpha = 0f
+        root.translationY = dp(12).toFloat()
+        root.animate().alpha(1f).translationY(0f).setDuration(420L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
         refreshList()
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 700)
@@ -165,6 +169,10 @@ class ReminderActivity : Activity() {
                 refreshList()
             })
             list.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+            card.alpha = 0f
+            card.translationY = dp(8).toFloat()
+            card.animate().alpha(1f).translationY(0f).setStartDelay((i * 45L).coerceAtMost(270L))
+                .setDuration(260L).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
         }
     }
 
@@ -187,7 +195,14 @@ class ReminderActivity : Activity() {
             setStroke(dp(1), if (primary) Color.rgb(255, 193, 224) else Color.rgb(102, 61, 112))
         }
         elevation = dp(2).toFloat()
-        setOnClickListener { action() }
+        setOnClickListener {
+            animate().cancel()
+            scaleX = 0.97f
+            scaleY = 0.97f
+            animate().scaleX(1f).scaleY(1f).setDuration(150L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.5f)).start()
+            action()
+        }
     }
 
     private fun createNotificationChannel() {
