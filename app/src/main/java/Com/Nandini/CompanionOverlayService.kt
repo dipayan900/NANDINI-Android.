@@ -47,17 +47,12 @@ class CompanionOverlayService : Service() {
     private fun createOverlay() {
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val container = FrameLayout(this)
-        container.setPadding(dp(6), dp(6), dp(6), dp(6))
-        container.background = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.argb(238, 31, 12, 49), Color.argb(230, 65, 19, 82))
-        ).apply {
-            cornerRadius = dp(28).toFloat()
-            setStroke(dp(1), Color.rgb(230, 115, 255))
-        }
+        container.setPadding(0, 0, 0, 0)
+        // Fully transparent overlay: only the character and small close control are drawn.
+        container.setBackgroundColor(Color.TRANSPARENT)
 
         val avatar = AnimeCompanionView()
-        container.addView(avatar, FrameLayout.LayoutParams(dp(86), dp(106), Gravity.CENTER))
+        container.addView(avatar, FrameLayout.LayoutParams(dp(174), dp(300), Gravity.CENTER))
         val close = TextView(this).apply {
             text = "×"
             textSize = 20f
@@ -76,8 +71,8 @@ class CompanionOverlayService : Service() {
         }
 
         val lp = WindowManager.LayoutParams(
-            dp(if (expanded) 116 else 96),
-            dp(if (expanded) 138 else 116),
+            dp(if (expanded) 190 else 174),
+            dp(if (expanded) 320 else 300),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -154,18 +149,27 @@ class CompanionOverlayService : Service() {
         private val p = Paint(Paint.ANTI_ALIAS_FLAG)
         private var blink = false
         private var speaking = false
+        private var sway = 0f
+        private var blinkOpen = true
         private val face = RectF()
         private val hair = Paint(Paint.ANTI_ALIAS_FLAG)
         private val tick: Runnable = object : Runnable {
             override fun run() {
-                blink = !blink
+                // Tiny idle motion and irregular, natural-looking blinks without a busy render loop.
+                sway = if (sway > 0f) -0.8f else 0.8f
+                blink = true
                 invalidate()
-                this@AnimeCompanionView.postDelayed(this, if (blink) 140L else 2200L)
+                postDelayed({
+                    blink = false
+                    invalidate()
+                    postDelayed(this, 1800L + (System.nanoTime() % 2600L))
+                }, 115L)
             }
         }
 
         init {
-            postDelayed(tick, 1200L)
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            postDelayed(tick, 900L + (System.nanoTime() % 1700L))
         }
 
         fun setSpeaking(value: Boolean) {
@@ -177,75 +181,113 @@ class CompanionOverlayService : Service() {
             super.onDraw(canvas)
             val w = width.toFloat()
             val h = height.toFloat()
+            if (w <= 0f || h <= 0f) return
             val cx = w * .5f
-            // soft aura
-            p.shader = android.graphics.RadialGradient(cx, h * .47f, w * .52f,
-                intArrayOf(Color.argb(110, 222, 92, 255), Color.argb(0, 122, 45, 255)),
+            val unit = w / 174f
+            canvas.save()
+            canvas.translate(sway * unit, 0f)
+
+            // Subtle glow is drawn directly on transparent pixels; no opaque panel behind the character.
+            p.shader = android.graphics.RadialGradient(cx, h * .24f, w * .46f,
+                intArrayOf(Color.argb(52, 180, 95, 255), Color.TRANSPARENT),
                 null, android.graphics.Shader.TileMode.CLAMP)
-            canvas.drawCircle(cx, h * .48f, w * .5f, p)
+            canvas.drawCircle(cx, h * .24f, w * .46f, p)
             p.shader = null
-            // flowing purple hair silhouette
-            p.color = Color.rgb(54, 23, 101)
-            canvas.drawOval(w*.12f, h*.08f, w*.88f, h*.72f, p)
-            p.color = Color.rgb(115, 48, 173)
-            canvas.drawOval(w*.20f, h*.09f, w*.80f, h*.66f, p)
-            // face
-            face.set(w*.28f, h*.19f, w*.72f, h*.62f)
-            p.color = Color.rgb(255, 218, 231)
-            canvas.drawOval(face, p)
-            // bangs
-            p.color = Color.rgb(47, 18, 88)
+
+            // Long violet hair behind the body.
+            p.color = Color.rgb(48, 21, 91)
+            canvas.drawOval(w*.20f, h*.035f, w*.80f, h*.43f, p)
+            val hairTail = android.graphics.Path().apply {
+                moveTo(w*.24f,h*.22f); quadTo(w*.08f,h*.42f,w*.20f,h*.55f)
+                quadTo(w*.31f,h*.44f,w*.34f,h*.31f); close()
+                moveTo(w*.76f,h*.22f); quadTo(w*.92f,h*.42f,w*.80f,h*.55f)
+                quadTo(w*.69f,h*.44f,w*.66f,h*.31f); close()
+            }
+            canvas.drawPath(hairTail,p)
+
+            // Neck and a complete standing silhouette.
+            p.color = Color.rgb(255, 211, 226)
+            canvas.drawRoundRect(w*.455f,h*.255f,w*.545f,h*.335f,w*.025f,w*.025f,p)
+            p.color = Color.rgb(255, 211, 226)
+            val arms = android.graphics.Path().apply {
+                moveTo(w*.34f,h*.34f); quadTo(w*.20f,h*.40f,w*.25f,h*.53f)
+                lineTo(w*.30f,h*.52f); lineTo(w*.40f,h*.40f)
+                moveTo(w*.66f,h*.34f); quadTo(w*.80f,h*.40f,w*.75f,h*.53f)
+                lineTo(w*.70f,h*.52f); lineTo(w*.60f,h*.40f)
+            }
+            p.style = Paint.Style.FILL
+            canvas.drawPath(arms,p)
+
+            // Legs and shoes.
+            p.color = Color.rgb(255, 211, 226)
+            canvas.drawRoundRect(w*.405f,h*.67f,w*.485f,h*.91f,w*.035f,w*.035f,p)
+            canvas.drawRoundRect(w*.515f,h*.67f,w*.595f,h*.91f,w*.035f,w*.035f,p)
+            p.color = Color.rgb(62, 28, 100)
+            canvas.drawRoundRect(w*.385f,h*.89f,w*.49f,h*.93f,w*.02f,w*.02f,p)
+            canvas.drawRoundRect(w*.51f,h*.89f,w*.615f,h*.93f,w*.02f,w*.02f,p)
+
+            // Short, modest purple dress with layered skirt and bright trim.
+            p.color = Color.rgb(106, 45, 168)
+            val dress = android.graphics.Path().apply {
+                moveTo(w*.39f,h*.30f); lineTo(w*.61f,h*.30f)
+                lineTo(w*.70f,h*.52f); quadTo(cx,h*.58f,w*.30f,h*.52f); close()
+            }
+            canvas.drawPath(dress,p)
+            p.color = Color.rgb(205, 119, 255)
+            p.strokeWidth = dp(1).toFloat()
+            p.style = Paint.Style.STROKE
+            canvas.drawLine(w*.31f,h*.52f,w*.69f,h*.52f,p)
+            p.style = Paint.Style.FILL
+            canvas.drawRoundRect(w*.455f,h*.32f,w*.545f,h*.345f,w*.01f,w*.01f,p)
+
+            // Face, hair cap and bangs.
+            face.set(w*.285f,h*.085f,w*.715f,h*.29f)
+            p.color = Color.rgb(255, 220, 232)
+            canvas.drawOval(face,p)
+            p.color = Color.rgb(70, 27, 125)
+            canvas.drawOval(w*.245f,h*.045f,w*.755f,h*.235f,p)
+            p.color = Color.rgb(54, 19, 98)
             val fringe = android.graphics.Path().apply {
-                moveTo(w*.20f, h*.37f); quadTo(w*.18f,h*.10f,w*.49f,h*.13f)
-                quadTo(w*.82f,h*.08f,w*.81f,h*.38f)
-                quadTo(w*.68f,h*.26f,w*.60f,h*.30f)
-                quadTo(w*.49f,h*.20f,w*.42f,h*.34f)
-                quadTo(w*.31f,h*.25f,w*.20f,h*.37f); close()
+                moveTo(w*.25f,h*.18f); quadTo(w*.20f,h*.04f,w*.49f,h*.055f)
+                quadTo(w*.80f,h*.035f,w*.75f,h*.18f)
+                quadTo(w*.66f,h*.13f,w*.59f,h*.16f)
+                quadTo(w*.48f,h*.09f,w*.40f,h*.17f)
+                quadTo(w*.32f,h*.12f,w*.25f,h*.18f); close()
             }
-            canvas.drawPath(fringe, p)
-            // eyes
-            p.color = Color.rgb(95, 53, 193)
+            canvas.drawPath(fringe,p)
+
+            // Random blink closes briefly; eye highlights and blush remain lightweight Canvas primitives.
+            p.color = Color.rgb(71, 37, 151)
             if (!blink) {
-                canvas.drawOval(w*.36f,h*.39f,w*.44f,h*.46f,p)
-                canvas.drawOval(w*.56f,h*.39f,w*.64f,h*.46f,p)
+                canvas.drawOval(w*.365f,h*.165f,w*.445f,h*.205f,p)
+                canvas.drawOval(w*.555f,h*.165f,w*.635f,h*.205f,p)
                 p.color = Color.WHITE
-                canvas.drawCircle(w*.395f,h*.405f,w*.014f,p)
-                canvas.drawCircle(w*.595f,h*.405f,w*.014f,p)
-            } else {
-                p.strokeWidth = dp(2).toFloat()
-                p.style = Paint.Style.STROKE
-                canvas.drawArc(w*.35f,h*.40f,w*.45f,h*.45f,5f,170f,false,p)
-                canvas.drawArc(w*.55f,h*.40f,w*.65f,h*.45f,5f,170f,false,p)
-                p.style = Paint.Style.FILL
-            }
-            // blush and mouth
-            p.color = Color.argb(110, 255, 105, 160)
-            canvas.drawOval(w*.29f,h*.47f,w*.39f,h*.51f,p)
-            canvas.drawOval(w*.61f,h*.47f,w*.71f,h*.51f,p)
-            p.color = Color.rgb(177, 54, 120)
-            if (speaking) {
-                canvas.drawOval(w*.45f,h*.50f,w*.55f,h*.56f,p)
+                canvas.drawCircle(w*.395f,h*.176f,w*.012f,p)
+                canvas.drawCircle(w*.585f,h*.176f,w*.012f,p)
             } else {
                 p.style = Paint.Style.STROKE
-                p.strokeWidth = dp(2).toFloat()
-                canvas.drawArc(w*.43f,h*.49f,w*.57f,h*.56f,20f,140f,false,p)
+                p.strokeWidth = dp(1.5).toFloat()
+                canvas.drawArc(w*.36f,h*.18f,w*.45f,h*.205f,5f,170f,false,p)
+                canvas.drawArc(w*.55f,h*.18f,w*.64f,h*.205f,5f,170f,false,p)
                 p.style = Paint.Style.FILL
             }
-            // collar and outfit
-            p.color = Color.rgb(122, 54, 190)
-            val body = android.graphics.Path().apply {
-                moveTo(w*.25f,h*.65f); quadTo(cx,h*.55f,w*.75f,h*.65f)
-                lineTo(w*.92f,h*.96f); lineTo(w*.08f,h*.96f); close()
+            p.color = Color.argb(105,255,105,160)
+            canvas.drawOval(w*.30f,h*.205f,w*.38f,h*.225f,p)
+            canvas.drawOval(w*.62f,h*.205f,w*.70f,h*.225f,p)
+            p.color = Color.rgb(177,54,120)
+            if (speaking) canvas.drawOval(w*.475f,h*.225f,w*.525f,h*.248f,p)
+            else {
+                p.style = Paint.Style.STROKE
+                p.strokeWidth = dp(1).toFloat()
+                canvas.drawArc(w*.46f,h*.22f,w*.54f,h*.245f,20f,140f,false,p)
+                p.style = Paint.Style.FILL
             }
-            canvas.drawPath(body,p)
-            p.color = Color.rgb(255, 132, 190)
-            canvas.drawCircle(cx,h*.69f,dp(3).toFloat(),p)
-            // label
-            p.color = Color.rgb(255, 225, 250)
-            p.textAlign = Paint.Align.CENTER
-            p.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-            p.textSize = dp(10).toFloat()
-            canvas.drawText("NANDINI",cx,h*.99f,p)
+
+            // Small highlight ornaments.
+            p.color = Color.rgb(255,190,245)
+            canvas.drawCircle(w*.285f,h*.145f,w*.018f,p)
+            canvas.drawCircle(w*.715f,h*.145f,w*.018f,p)
+            canvas.restore()
         }
 
         override fun onDetachedFromWindow() {
