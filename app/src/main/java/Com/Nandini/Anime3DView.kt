@@ -21,14 +21,33 @@ import kotlin.math.sin
  */
 class Anime3DView(context: Context) : GLSurfaceView(context) {
     private val avatarRenderer = AvatarRenderer()
+    private val idleRandom = Random()
+    private val idleBlinkPulse = object : Runnable {
+        override fun run() {
+            requestRender()
+            // Draw again after the eyelid has had time to close, then sleep again.
+            postDelayed({ requestRender() }, 145L)
+            postDelayed(this, 1900L + idleRandom.nextInt(3300).toLong())
+        }
+    }
+
     init {
         setEGLContextClientVersion(2)
+        // Explicit alpha is essential: RGB-only EGL surfaces show as a black rectangle.
+        setEGLConfigChooser(8, 8, 8, 8, 16, 0)
         holder.setFormat(PixelFormat.TRANSLUCENT)
         setZOrderOnTop(true)
         setRenderer(avatarRenderer)
         renderMode = RENDERMODE_WHEN_DIRTY
-        setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        setLayerType(View.LAYER_TYPE_NONE, null)
+        postDelayed(idleBlinkPulse, 1600L)
     }
+
+    override fun onDetachedFromWindow() {
+        removeCallbacks(idleBlinkPulse)
+        super.onDetachedFromWindow()
+    }
+
     fun setSpeaking(value: Boolean) { avatarRenderer.speaking = value; requestRender() }
 
     private class AvatarRenderer : Renderer {
