@@ -758,7 +758,7 @@ private fun startWakeWordListening() {
                     featConfig = FeatureConfig(sampleRate = wakeSampleRate, featureDim = 80),
                     modelConfig = OnlineModelConfig(
                         transducer = OnlineTransducerModelConfig(
-                            encoder = "encoder-epoch-12-avg-2-chunk-16-left-64.onnx",
+                            encoder = "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
                             decoder = "decoder-epoch-12-avg-2-chunk-16-left-64.onnx",
                             joiner = "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx"
                         ),
