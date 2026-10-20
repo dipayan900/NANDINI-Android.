@@ -1,10 +1,12 @@
 NANDINI 3D companion avatar asset
 
-Model: Moon Girl (Polygonal Mind, 100 Avatars Round 2)
-File downloaded at build time as moon-girl.vrm
-Source page: https://vtubeme.com/free-vrm-avatars/cc0/moon-girl
-Direct source: https://vtubeme.com/media/free/cc0/moon-girl/moon-girl.vrm
-License: CC0 1.0 Universal (public domain dedication)
-The model page states that commercial use, modification, and redistribution are permitted.
+Model: Sendagaya Shino (official VRoid Project sample character)
+Runtime filename: nandini-companion.vrm
+Download archive: https://opengameart.org/sites/default/files/sendagaya_shino.zip
+Source/license information:
+- Official VRoid Project model information: https://vroid.pixiv.help/hc/en-us/articles/360013482714-Sendagaya-Shino
+- OpenGameArt archive page: https://opengameart.org/content/vroid-studio-cc0-models
+License: CC0 1.0 Universal, as stated by the official VRoid Project model information.
+The model is a stylized anime 3D character, not a photorealistic human and not the proprietary MYRAA character. It is being used as a legally reusable visual alternative while preserving the existing NANDINI VRM animation pipeline.
 
-The Three.js and @pixiv/three-vrm libraries are loaded from jsDelivr at runtime under their respective open-source licenses. This file is a record of the avatar asset's provenance and license.
+The Three.js and @pixiv/three-vrm libraries are loaded from jsDelivr at runtime under their respective open-source licenses.
