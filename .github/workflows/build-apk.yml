@@ -38,6 +38,26 @@ jobs:
           test -s app/libs/sherpa-onnx-1.13.8.aar
           ls -lh app/libs/sherpa-onnx-1.13.8.aar
 
+      - name: Download matching official mobile keyword-spotter model files
+        run: |
+          set -euo pipefail
+          MODEL_DIR="sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01-mobile"
+          curl --fail --location --retry 3 \
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/${MODEL_DIR}.tar.bz2" \
+            --output /tmp/kws-model.tar.bz2
+          mkdir -p /tmp/kws-model app/src/main/assets
+          tar -xjf /tmp/kws-model.tar.bz2 -C /tmp/kws-model
+          SRC="/tmp/kws-model/${MODEL_DIR}"
+          test -s "${SRC}/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx"
+          test -s "${SRC}/decoder-epoch-12-avg-2-chunk-16-left-64.onnx"
+          test -s "${SRC}/joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx"
+          test -s "${SRC}/tokens.txt"
+          cp "${SRC}/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx" app/src/main/assets/
+          cp "${SRC}/decoder-epoch-12-avg-2-chunk-16-left-64.onnx" app/src/main/assets/
+          cp "${SRC}/joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx" app/src/main/assets/
+          cp "${SRC}/tokens.txt" app/src/main/assets/
+          ls -lh app/src/main/assets/*epoch-12-avg-2-chunk-16-left-64* app/src/main/assets/tokens.txt
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
