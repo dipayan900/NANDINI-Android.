@@ -14,11 +14,11 @@ import java.util.*
 
 class ReminderActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("nandini_reminders", Context.MODE_PRIVATE) }
-    private val bg = Color.rgb(10, 12, 24)
-    private val panel = Color.rgb(22, 25, 44)
-    private val accent = Color.rgb(184, 142, 255)
-    private val white = Color.rgb(245, 243, 255)
-    private val muted = Color.rgb(174, 176, 202)
+    private val bg = Color.rgb(13, 7, 22)
+    private val panel = Color.rgb(35, 17, 43)
+    private val accent = Color.rgb(255, 132, 190)
+    private val white = Color.rgb(255, 247, 252)
+    private val muted = Color.rgb(198, 169, 201)
     private lateinit var list: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,17 +30,21 @@ class ReminderActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(12), dp(16), dp(12))
-            setBackgroundColor(bg)
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.rgb(31, 10, 38), bg, Color.rgb(10, 7, 20))
+            )
         }
         root.addView(TextView(this).apply {
-            text = "REMINDERS & SCHEDULE"
-            textSize = 21f
+            text = "♡  YOUR MOMENTS  ♡"
+            textSize = 23f
             gravity = Gravity.CENTER
             setTextColor(accent)
+            letterSpacing = 0.035f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }, LinearLayout.LayoutParams(-1, dp(48)))
         root.addView(TextView(this).apply {
-            text = "Events • Daily routine • Birthdays at midnight"
+            text = "IMPORTANT DATES  ·  DAILY RITUALS  ·  BIRTHDAYS"
             textSize = 12f
             gravity = Gravity.CENTER
             setTextColor(muted)
@@ -140,7 +144,16 @@ class ReminderActivity : Activity() {
                 String.format(Locale.getDefault(), "%02d %s", item.optInt("day"), listOf("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec").getOrElse(item.optInt("month")) { "?" })
             } else formatter.format(Date(item.optLong("time")))
             val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(10), dp(12), dp(8)); setBackgroundColor(panel)
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(14), dp(12), dp(14), dp(10))
+                background = android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(Color.rgb(49, 24, 57), Color.rgb(29, 17, 41))
+                ).apply {
+                    cornerRadius = dp(20).toFloat()
+                    setStroke(dp(1), Color.rgb(105, 55, 112))
+                }
+                elevation = dp(2).toFloat()
             }
             card.addView(TextView(this).apply { text = title; textSize = 16f; setTextColor(white); typeface = android.graphics.Typeface.DEFAULT_BOLD })
             card.addView(TextView(this).apply { text = "$type\n$timeText\n" + item.optString("message"); textSize = 12f; setTextColor(muted) })
@@ -156,9 +169,24 @@ class ReminderActivity : Activity() {
     }
 
     private fun makeButton(label: String, action: () -> Unit) = Button(this).apply {
-        text = label; textSize = 11f; isAllCaps = false
-        setTextColor(if (label.startsWith("+")) bg else white)
-        backgroundTintList = android.content.res.ColorStateList.valueOf(if (label.startsWith("+")) accent else panel)
+        text = label
+        textSize = 11f
+        isAllCaps = false
+        letterSpacing = 0.02f
+        minHeight = dp(46)
+        stateListAnimator = null
+        setPadding(dp(10), dp(4), dp(10), dp(4))
+        val primary = label.startsWith("+")
+        setTextColor(if (primary) Color.rgb(35, 10, 29) else white)
+        background = android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+            if (primary) intArrayOf(Color.rgb(255, 164, 207), Color.rgb(188, 119, 255))
+            else intArrayOf(Color.rgb(53, 25, 61), Color.rgb(34, 20, 48))
+        ).apply {
+            cornerRadius = dp(16).toFloat()
+            setStroke(dp(1), if (primary) Color.rgb(255, 193, 224) else Color.rgb(102, 61, 112))
+        }
+        elevation = dp(2).toFloat()
         setOnClickListener { action() }
     }
 
