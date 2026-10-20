@@ -58,6 +58,17 @@ jobs:
           cp "${SRC}/tokens.txt" app/src/main/assets/
           ls -lh app/src/main/assets/*epoch-12-avg-2-chunk-16-left-64* app/src/main/assets/tokens.txt
 
+      - name: Download CC0 VRM companion avatar
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets
+          curl --fail --location --retry 3 --user-agent "NANDINI-Android build" \
+            https://vtubeme.com/media/free/cc0/moon-girl/moon-girl.vrm \
+            --output app/src/main/assets/moon-girl.vrm
+          test -s app/src/main/assets/moon-girl.vrm
+          test "$(head -c 4 app/src/main/assets/moon-girl.vrm)" = "glTF"
+          ls -lh app/src/main/assets/moon-girl.vrm
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
