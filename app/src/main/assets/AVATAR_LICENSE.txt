@@ -1,0 +1,10 @@
+NANDINI 3D companion avatar asset
+
+Model: Moon Girl (Polygonal Mind, 100 Avatars Round 2)
+File downloaded at build time as moon-girl.vrm
+Source page: https://vtubeme.com/free-vrm-avatars/cc0/moon-girl
+Direct source: https://vtubeme.com/media/free/cc0/moon-girl/moon-girl.vrm
+License: CC0 1.0 Universal (public domain dedication)
+The model page states that commercial use, modification, and redistribution are permitted.
+
+The Three.js and @pixiv/three-vrm libraries are loaded from jsDelivr at runtime under their respective open-source licenses. This file is a record of the avatar asset's provenance and license.
