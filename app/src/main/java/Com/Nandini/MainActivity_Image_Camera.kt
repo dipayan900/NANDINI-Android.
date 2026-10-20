@@ -607,23 +607,33 @@ val cameraButton = makeButton("📷", panel) { openCamera() }
 composer.addView(pickImageButton, LinearLayout.LayoutParams(dp(46), dp(52)).apply { rightMargin = dp(4) })
 composer.addView(cameraButton, LinearLayout.LayoutParams(dp(46), dp(52)).apply { rightMargin = dp(6) })
 
-input = EditText(this).apply {    
-    hint = "Message NANDINI..."    
-    setHintTextColor(muted)    
-    setTextColor(white)    
-    textSize = 15f    
-    setSingleLine(true)    
-    setPadding(dp(14), 0, dp(10), 0)    
+input = EditText(this).apply {
+    hint = "Message NANDINI..."
+    setHintTextColor(Color.rgb(203, 170, 207))
+    setTextColor(Color.WHITE)
+    textSize = 16f
+    setSingleLine(true)
+    setPadding(dp(14), 0, dp(10), 0)
     background = android.graphics.drawable.GradientDrawable().apply {
         setColor(Color.rgb(39, 20, 48))
         cornerRadius = dp(18).toFloat()
-        setStroke(dp(1), Color.rgb(111, 62, 121))
+        setStroke(dp(1), Color.rgb(170, 92, 178))
     }
-    imeOptions = EditorInfo.IME_ACTION_SEND    
-    maxLines = 1    
+    // Keep typed text bright and readable while the keyboard is open.
+    setSelectAllOnFocus(false)
+    imeOptions = EditorInfo.IME_ACTION_SEND
+    inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+    maxLines = 1
 }    
 
-composer.addView(input, LinearLayout.LayoutParams(0, dp(52), 1f))    
+composer.addView(input, LinearLayout.LayoutParams(0, dp(52), 1f))
+input.setOnFocusChangeListener { view, hasFocus ->
+    view.background = android.graphics.drawable.GradientDrawable().apply {
+        setColor(Color.rgb(39, 20, 48))
+        cornerRadius = dp(18).toFloat()
+        setStroke(dp(1), if (hasFocus) Color.rgb(255, 132, 190) else Color.rgb(111, 62, 121))
+    }
+}    
 
 sendButton = makeButton("SEND", accent) {    
     sendMessage()    
@@ -634,6 +644,7 @@ composer.addView(sendButton, LinearLayout.LayoutParams(dp(78), dp(52)).apply {
 })    
 
 root.addView(composer, LinearLayout.LayoutParams(-1, dp(58)))    
+window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
 setContentView(root)
 root.alpha = 0f
 root.translationY = dp(14).toFloat()
@@ -1629,13 +1640,52 @@ private fun addMessage(
 
     row.addView(name)  
 
-    row.addView(  
-        bubble,  
-        LinearLayout.LayoutParams(  
-            LinearLayout.LayoutParams.WRAP_CONTENT,  
-            LinearLayout.LayoutParams.WRAP_CONTENT  
-        )  
-    )  
+    row.addView(
+        bubble,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    )
+
+    val feedbackRow = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = if (isUser) Gravity.END else Gravity.START
+        setPadding(dp(2), dp(3), dp(2), 0)
+    }
+    fun messageAction(label: String, action: () -> Unit): TextView {
+        return TextView(this).apply {
+            text = label
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(muted)
+            setPadding(dp(9), dp(5), dp(9), dp(5))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.rgb(27, 13, 34))
+                cornerRadius = dp(12).toFloat()
+                setStroke(dp(1), Color.rgb(77, 45, 86))
+            }
+            setOnClickListener {
+                animate().cancel()
+                scaleX = 0.94f
+                scaleY = 0.94f
+                animate().scaleX(1f).scaleY(1f).setDuration(130L).start()
+                action()
+            }
+        }
+    }
+    feedbackRow.addView(messageAction("⧉  Copy") {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText(label, messageText))
+        Toast.makeText(this, "Message copied", Toast.LENGTH_SHORT).show()
+    }, LinearLayout.LayoutParams(-2, dp(30)).apply { rightMargin = dp(5) })
+    feedbackRow.addView(messageAction("♡  Like") {
+        Toast.makeText(this, if (isUser) "Message marked helpful" else "Thanks for the feedback 💜", Toast.LENGTH_SHORT).show()
+    }, LinearLayout.LayoutParams(-2, dp(30)).apply { rightMargin = dp(5) })
+    feedbackRow.addView(messageAction("☹  Dislike") {
+        Toast.makeText(this, "Feedback noted", Toast.LENGTH_SHORT).show()
+    }, LinearLayout.LayoutParams(-2, dp(30)))
+    row.addView(feedbackRow)  
 
     messages.addView(  
         row,  
