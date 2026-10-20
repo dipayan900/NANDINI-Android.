@@ -7,6 +7,8 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.*
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -77,17 +79,25 @@ class ReminderActivity : Activity() {
     }
 
     private fun chooseDateAndTime(daily: Boolean, birthday: Boolean) {
-        val name = EditText(this).apply {
-            hint = if (birthday) "Person's name" else "Event / reminder title"
-            setTextColor(white); setHintTextColor(muted); setSingleLine(true)
+        fun premiumField(hintText: String) = EditText(this).apply {
+            hint = hintText
+            setTextColor(white)
+            setHintTextColor(muted)
+            textSize = 16f
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(48, 25, 58))
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), Color.rgb(113, 63, 127))
+            }
         }
-        val note = EditText(this).apply {
-            hint = if (birthday) "Birthday wish (optional)" else "Notification message (optional)"
-            setTextColor(white); setHintTextColor(muted)
-        }
+        val name = premiumField(if (birthday) "Person's name" else "Event / reminder title").apply { setSingleLine(true) }
+        val note = premiumField(if (birthday) "Birthday wish (optional)" else "Notification message (optional)")
         val wrap = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), 0)
-            addView(name); addView(note)
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(4))
+            addView(name, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+            addView(note, LinearLayout.LayoutParams(-1, -2))
         }
         val cal = Calendar.getInstance()
         val datePicker = DatePickerDialog(this, { _, year, month, day ->
@@ -120,9 +130,14 @@ class ReminderActivity : Activity() {
             if (birthday) timeAction(0, 0) else TimePickerDialog(this, { _, hour, minute -> timeAction(hour, minute) }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
         }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
         datePicker.datePicker.minDate = if (birthday) 0L else System.currentTimeMillis() - 1000L
-        AlertDialog.Builder(this).setTitle(if (birthday) "Add birthday" else if (daily) "Add daily reminder" else "Add event")
-            .setView(wrap).setPositiveButton("Choose date/time") { _, _ -> datePicker.show() }
-            .setNegativeButton("Cancel", null).show()
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (birthday) "♡  ADD BIRTHDAY" else if (daily) "✦  DAILY RITUAL" else "✦  IMPORTANT MOMENT")
+            .setView(wrap)
+            .setPositiveButton("CHOOSE DATE / TIME") { _, _ -> datePicker.show() }
+            .setNegativeButton("CANCEL", null)
+            .create()
+        dialog.show()
+        styleDialog(dialog)
     }
 
     private fun readAll(): JSONArray = try { JSONArray(prefs.getString("items", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
@@ -203,6 +218,24 @@ class ReminderActivity : Activity() {
                 .setInterpolator(android.view.animation.OvershootInterpolator(1.5f)).start()
             action()
         }
+    }
+
+    private fun styleDialog(dialog: AlertDialog) {
+        dialog.window?.setBackgroundDrawable(GradientDrawable().apply {
+            setColor(Color.rgb(30, 13, 39))
+            cornerRadius = dp(26).toFloat()
+            setStroke(dp(1), Color.rgb(171, 80, 177))
+        })
+        dialog.window?.setDimAmount(0.72f)
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(accent)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(muted)
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(accent)
+        dialog.findViewById<TextView>(resources.getIdentifier("alertTitle", "id", "android"))?.apply {
+            setTextColor(white)
+            textSize = 20f
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        dialog.findViewById<TextView>(android.R.id.message)?.setTextColor(muted)
     }
 
     private fun createNotificationChannel() {
