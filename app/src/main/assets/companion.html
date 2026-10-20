@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="color-scheme" content="dark">
+<style>
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent!important}
+  body{touch-action:pan-y}
+  #stage{position:fixed;inset:0;background:transparent;overflow:hidden}
+  canvas{display:block;width:100%;height:100%;outline:none;background:transparent}
+  #fallback{display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:rgba(224,210,255,.72);font:12px system-ui,sans-serif;text-align:center;pointer-events:none}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.1.2/lib/three-vrm.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<div id="stage"><div id="fallback">NANDINI 3D companion</div></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+
+const stage = document.getElementById('stage');
+const fallback = document.getElementById('fallback');
+const renderer = new THREE.WebGLRenderer({
+  alpha: true,
+  antialias: true,
+  powerPreference: 'low-power',
+  premultipliedAlpha: false
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.setSize(stage.clientWidth, stage.clientHeight, false);
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+stage.insertBefore(renderer.domElement, fallback);
+
+const scene = new THREE.Scene();
+scene.background = null;
+const camera = new THREE.PerspectiveCamera(38, stage.clientWidth / Math.max(1, stage.clientHeight), 0.05, 30);
+camera.position.set(0, 0.82, 2.65);
+camera.lookAt(0, 0.82, 0);
+scene.add(new THREE.HemisphereLight(0xe6e5ff, 0x32213f, 2.0));
+const keyLight = new THREE.DirectionalLight(0xffe7f2, 2.3);
+keyLight.position.set(-2.5, 4, 3);
+scene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x9c8bff, 1.25);
+rimLight.position.set(2, 2.5, -2);
+scene.add(rimLight);
+
+let vrm = null;
+let state = 'idle';
+let lastTime = 0;
+let elapsed = 0;
+let nextBlinkAt = 2.5 + Math.random() * 2.0;
+let blinkStart = -1;
+let failed = false;
+
+function setExpression(name, value) {
+  try { vrm?.expressionManager?.setValue(name, value); } catch (_) {}
+}
+function setCompanionState(next) {
+  state = ['listening','thinking','speaking'].includes(next) ? next : 'idle';
+  if (state === 'listening') setExpression('happy', 0.10);
+  else if (state === 'thinking') setExpression('happy', 0.0);
+  else setExpression('happy', 0.0);
+}
+window.setCompanionState = setCompanionState;
+
+const loader = new GLTFLoader();
+loader.register(parser => new VRMLoaderPlugin(parser));
+loader.load('./moon-girl.vrm', gltf => {
+  vrm = gltf.userData.vrm;
+  if (!vrm) throw new Error('The VRM avatar could not be parsed.');
+  VRMUtils.rotateVRM0(vrm);
+  scene.add(vrm.scene);
+  vrm.scene.position.set(0, -0.025, 0);
+  const bounds = new THREE.Box3().setFromObject(vrm.scene);
+  const height = Math.max(0.1, bounds.max.y - bounds.min.y);
+  vrm.scene.scale.setScalar(1.48 / height);
+  // Keep the avatar comfortably framed from head to feet in the narrow chat stage.
+  camera.position.set(0, 0.76, 2.75);
+  camera.lookAt(0, 0.76, 0);
+  fallback.style.display = 'none';
+}, undefined, err => {
+  failed = true;
+  fallback.style.display = 'flex';
+  fallback.textContent = 'NANDINI companion is temporarily unavailable';
+  console.error('NANDINI VRM load failed', err);
+});
+
+function resize() {
+  const w = Math.max(1, stage.clientWidth);
+  const h = Math.max(1, stage.clientHeight);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+}
+new ResizeObserver(resize).observe(stage);
+
+function animate(now) {
+  requestAnimationFrame(animate);
+  if (document.hidden) return;
+  const fpsInterval = state === 'idle' ? 50 : 33;
+  if (now - lastTime < fpsInterval) return;
+  const delta = Math.min((now - (lastTime || now)) / 1000, 0.05);
+  lastTime = now;
+  elapsed += delta;
+
+  if (vrm) {
+    const head = vrm.humanoid?.getNormalizedBoneNode('head');
+    if (head) {
+      const sway = Math.sin(elapsed * (state === 'speaking' ? 2.8 : 0.75));
+      head.rotation.y = sway * (state === 'thinking' ? 0.16 : state === 'listening' ? 0.035 : 0.075);
+      head.rotation.x = state === 'thinking' ? -0.10 + Math.sin(elapsed * 0.7) * 0.025
+        : state === 'listening' ? 0.035 : Math.sin(elapsed * 1.15) * 0.018;
+    }
+    vrm.scene.position.y = -0.025 + Math.sin(elapsed * (state === 'speaking' ? 3.2 : 1.25)) *
+      (state === 'speaking' ? 0.014 : 0.008);
+
+    if (elapsed >= nextBlinkAt && blinkStart < 0) blinkStart = elapsed;
+    if (blinkStart >= 0) {
+      const t = (elapsed - blinkStart) / 0.13;
+      const blink = t < 0.5 ? t * 2 : Math.max(0, 1 - (t - 0.5) * 2);
+      setExpression('blink', Math.min(1, blink));
+      if (t >= 1) {
+        setExpression('blink', 0);
+        blinkStart = -1;
+        nextBlinkAt = elapsed + 2.2 + Math.random() * 3.5;
+      }
+    }
+    const mouth = state === 'speaking' ? 0.18 + (0.5 + 0.5 * Math.sin(elapsed * 11.5)) * 0.58 : 0;
+    setExpression('aa', mouth);
+    if (state !== 'speaking') setExpression('aa', 0);
+    vrm.update(delta);
+  }
+  renderer.render(scene, camera);
+}
+document.addEventListener('visibilitychange', () => { lastTime = 0; });
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
