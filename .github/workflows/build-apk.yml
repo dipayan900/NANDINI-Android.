@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/myraa-style-avatar-safe
 
 permissions:
   contents: read
