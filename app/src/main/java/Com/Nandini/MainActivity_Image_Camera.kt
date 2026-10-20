@@ -773,10 +773,15 @@ private fun toggleCompanionOverlay() {
         return
     }
     try {
-        startService(Intent(this, CompanionOverlayService::class.java))
-        Toast.makeText(this, "NANDINI companion is floating. Drag her to move; tap to animate; × to close.", Toast.LENGTH_LONG).show()
+        val intent = Intent(this, CompanionOverlayService::class.java).setAction(CompanionOverlayService.ACTION_TOGGLE)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+        Toast.makeText(this, "Companion toggled. When you minimize NANDINI, drag her anywhere; tap × to close.", Toast.LENGTH_LONG).show()
     } catch (e: Exception) {
-        Toast.makeText(this, "Couldn't start the companion: ${e.message ?: "please retry"}", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Couldn't toggle the companion: ${e.message ?: "please retry"}", Toast.LENGTH_LONG).show()
     }
 }
 
