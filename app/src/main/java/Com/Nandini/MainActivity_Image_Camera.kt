@@ -564,11 +564,11 @@ LinearLayout.LayoutParams(0, dp(44), 1f)
 
 root.addView(actions, LinearLayout.LayoutParams(-1, dp(50)))
 
-wakeWordButton = makeButton("🎙 WAKE WORD: OFF", panel) {
+wakeWordButton = makeButton("🎙 WAKE: OFF", panel) {
     if (wakeWordEnabled) {
         stopWakeWordListening()
         wakeWordEnabled = false
-        wakeWordButton?.text = "🎙 WAKE WORD: OFF"
+        wakeWordButton?.text = "🎙 WAKE: OFF"
         statusText.text = "● READY"
         Toast.makeText(this, "Wake word turned off.", Toast.LENGTH_SHORT).show()
     } else {
@@ -580,28 +580,21 @@ wakeWordButton = makeButton("🎙 WAKE WORD: OFF", panel) {
         }
     }
 }
-root.addView(wakeWordButton, LinearLayout.LayoutParams(-1, dp(42)).apply {
-    topMargin = dp(2)
-    bottomMargin = dp(3)
-})
 
-root.addView(makeButton("📅 REMINDERS & BIRTHDAYS", panel) {
-    startActivity(Intent(this, ReminderActivity::class.java))
-}, LinearLayout.LayoutParams(-1, dp(42)).apply {
-    topMargin = dp(2)
-    bottomMargin = dp(3)
-})
-
-val libraryActions = LinearLayout(this).apply {
+val quickAccess = LinearLayout(this).apply {
     orientation = LinearLayout.HORIZONTAL
     gravity = Gravity.CENTER
-    setPadding(0, dp(2), 0, dp(4))
+    setPadding(0, dp(2), 0, dp(3))
 }
-libraryActions.addView(makeButton("💬 HISTORY", panel) { showChatHistory() },
-    LinearLayout.LayoutParams(0, dp(40), 1f).apply { rightMargin = dp(6) })
-libraryActions.addView(makeButton("🧠 MEMORY", panel) { showMemoryManager() },
-    LinearLayout.LayoutParams(0, dp(40), 1f))
-root.addView(libraryActions, LinearLayout.LayoutParams(-1, dp(44)))
+quickAccess.addView(wakeWordButton, LinearLayout.LayoutParams(0, dp(38), 1f).apply { rightMargin = dp(5) })
+quickAccess.addView(makeButton("📅 DATES", panel) {
+    startActivity(Intent(this, ReminderActivity::class.java))
+}, LinearLayout.LayoutParams(0, dp(38), 0.9f).apply { rightMargin = dp(5) })
+quickAccess.addView(makeButton("💬 HISTORY", panel) { showChatHistory() },
+    LinearLayout.LayoutParams(0, dp(38), 1.05f).apply { rightMargin = dp(5) })
+quickAccess.addView(makeButton("🧠 MEMORY", panel) { showMemoryManager() },
+    LinearLayout.LayoutParams(0, dp(38), 1.0f))
+root.addView(quickAccess, LinearLayout.LayoutParams(-1, dp(43)))
 
 val composer = LinearLayout(this).apply {    
     orientation = LinearLayout.HORIZONTAL    
