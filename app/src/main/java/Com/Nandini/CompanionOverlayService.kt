@@ -51,7 +51,7 @@ class CompanionOverlayService : Service() {
         // Fully transparent overlay: only the character and small close control are drawn.
         container.setBackgroundColor(Color.TRANSPARENT)
 
-        val avatar = AnimeCompanionView()
+        val avatar = Anime3DView(this)
         container.addView(avatar, FrameLayout.LayoutParams(dp(174), dp(300), Gravity.CENTER))
         val close = TextView(this).apply {
             text = "×"
