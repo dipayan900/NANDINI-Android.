@@ -814,15 +814,23 @@ private fun startWakeWordListening() {
             saveWakeDiagnostic("6: Microphone recording started; waiting for keyword")
             val buffer = ShortArray(1600)
             while (wakeWordActive && !Thread.currentThread().isInterrupted) {
+                saveWakeDiagnostic("7: About to read microphone buffer")
                 val count = activeRecorder.read(buffer, 0, buffer.size)
+                saveWakeDiagnostic("8: Microphone read returned $count samples")
                 if (count < 0) throw IllegalStateException("Microphone read failed ($count)")
                 if (count == 0) continue
 
                 val samples = FloatArray(count) { buffer[it] / 32768.0f }
+                saveWakeDiagnostic("9: About to pass audio to ONNX stream")
                 activeStream.acceptWaveform(samples, wakeSampleRate)
+                saveWakeDiagnostic("10: Audio accepted; checking decoder")
                 while (wakeWordActive && activeSpotter.isReady(activeStream)) {
+                    saveWakeDiagnostic("11: About to run native ONNX decode")
                     activeSpotter.decode(activeStream)
+                    saveWakeDiagnostic("12: Native ONNX decode returned")
+                    saveWakeDiagnostic("13: About to read keyword result")
                     val keyword = activeSpotter.getResult(activeStream).keyword
+                    saveWakeDiagnostic("14: Keyword result read")
                     if (keyword.isNotBlank()) {
                         activeSpotter.reset(activeStream)
                         detectedWakeWord = true
