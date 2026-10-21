@@ -83,7 +83,26 @@ class Anime3DView(
         )
     }
 
+    private fun setRendererVisible(visible: Boolean) {
+        if (!pageReady) return
+        evaluateJavascript(
+            "window.setCompanionVisible && window.setCompanionVisible($visible)",
+            null
+        )
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        setRendererVisible(visibility == View.VISIBLE && isShown)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        post { setRendererVisible(isShown && windowVisibility == View.VISIBLE) }
+    }
+
     override fun onDetachedFromWindow() {
+        setRendererVisible(false)
         pageReady = false
         stopLoading()
         super.onDetachedFromWindow()
