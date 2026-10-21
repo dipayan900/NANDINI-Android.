@@ -511,13 +511,20 @@ root.addView(TextView(this).apply {
     letterSpacing = 0.12f    
 }, LinearLayout.LayoutParams(-1, dp(22)))    
 
-statusText = TextView(this).apply {    
-    text = "●  READY"    
-    textSize = 11f    
-    setTextColor(muted)    
-    gravity = Gravity.CENTER    
-    setPadding(0, dp(5), 0, dp(5))    
-}    
+statusText = TextView(this).apply {
+    text = "●  READY"
+    textSize = 10f
+    setTextColor(Color.rgb(225, 201, 255))
+    gravity = Gravity.CENTER
+    letterSpacing = 0.08f
+    setPadding(dp(14), dp(5), dp(14), dp(5))
+    background = android.graphics.drawable.GradientDrawable().apply {
+        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+        cornerRadius = dp(14).toFloat()
+        setColor(Color.argb(105, 83, 48, 112))
+        setStroke(dp(1), Color.argb(125, 184, 133, 255))
+    }
+}
 root.addView(statusText, LinearLayout.LayoutParams(-1, dp(28)))    
 
 scroll = ScrollView(this).apply {    
@@ -536,12 +543,20 @@ scroll.setBackgroundColor(Color.TRANSPARENT)
 // Chat-stage composition: the animated avatar is the background layer;
 // the existing scrollable conversation is placed above it and remains interactive.
 val chatStage = FrameLayout(this).apply {
-    setBackgroundColor(Color.TRANSPARENT)
+    background = android.graphics.drawable.GradientDrawable(
+        android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+        intArrayOf(Color.rgb(33, 16, 48), Color.rgb(18, 10, 30), Color.rgb(12, 7, 22))
+    ).apply {
+        cornerRadius = dp(24).toFloat()
+        setStroke(dp(1), Color.argb(165, 130, 78, 157))
+    }
+    clipToOutline = true
     clipChildren = true
     clipToPadding = false
+    elevation = dp(2).toFloat()
 }
 val chatAvatar = Anime3DView(this, chatBackgroundMode = true).apply {
-    alpha = 0.88f
+    alpha = 0.94f
     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
 }
 chatAvatarView = chatAvatar
