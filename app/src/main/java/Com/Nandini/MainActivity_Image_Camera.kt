@@ -430,12 +430,12 @@ private val savedChats = mutableListOf<SavedChat>()
 private var currentChatId: String = System.currentTimeMillis().toString()
 private val memoryPrefs by lazy { getSharedPreferences("nandini_memory", Context.MODE_PRIVATE) }
 
-private val bg = Color.rgb(13, 7, 22)
-private val panel = Color.rgb(35, 17, 43)
-private val accent = Color.rgb(255, 132, 190)
-private val white = Color.rgb(255, 247, 252)
-private val muted = Color.rgb(198, 169, 201)
-private val userBubble = Color.rgb(91, 35, 83)
+private val bg = Color.rgb(10, 8, 22)
+private val panel = Color.rgb(29, 20, 48)
+private val accent = Color.rgb(190, 139, 255)
+private val white = Color.rgb(250, 247, 255)
+private val muted = Color.rgb(185, 174, 215)
+private val userBubble = Color.rgb(76, 47, 111)
 
 companion object {
 private const val REQUEST_MIC_PERMISSION = 201
@@ -540,23 +540,39 @@ messages = LinearLayout(this).apply {
 scroll.addView(messages)
 scroll.setBackgroundColor(Color.TRANSPARENT)
 
-// Chat-stage composition: the animated avatar is the background layer;
-// the existing scrollable conversation is placed above it and remains interactive.
+// Cinematic chat stage: radial light sits behind the 3D avatar while
+// the scrollable conversation stays on top and fully interactive.
 val chatStage = FrameLayout(this).apply {
     background = android.graphics.drawable.GradientDrawable(
         android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(Color.rgb(33, 16, 48), Color.rgb(18, 10, 30), Color.rgb(12, 7, 22))
+        intArrayOf(Color.rgb(24, 14, 43), Color.rgb(14, 10, 29), Color.rgb(10, 8, 22))
     ).apply {
         cornerRadius = dp(24).toFloat()
-        setStroke(dp(1), Color.argb(165, 130, 78, 157))
+        setStroke(dp(1), Color.argb(175, 145, 106, 208))
     }
     clipToOutline = true
     clipChildren = true
     clipToPadding = false
     elevation = dp(2).toFloat()
 }
+val stageAura = View(this).apply {
+    isClickable = false
+    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+    background = android.graphics.drawable.GradientDrawable(
+        android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+        intArrayOf(Color.argb(100, 139, 92, 246), Color.argb(5, 139, 92, 246))
+    ).apply {
+        shape = android.graphics.drawable.GradientDrawable.OVAL
+        gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
+        gradientRadius = dp(210).toFloat()
+    }
+    alpha = 0.78f
+}
+chatStage.addView(stageAura, FrameLayout.LayoutParams(dp(320), dp(320), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+    bottomMargin = dp(78)
+})
 val chatAvatar = Anime3DView(this, chatBackgroundMode = true).apply {
-    alpha = 0.94f
+    alpha = 0.98f
     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
 }
 chatAvatarView = chatAvatar
@@ -853,11 +869,11 @@ setTextColor(if (color == accent) Color.rgb(35, 10, 29) else white)
 backgroundTintList = null
 background = android.graphics.drawable.GradientDrawable(
     android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-    if (color == accent) intArrayOf(Color.rgb(255, 164, 207), Color.rgb(188, 119, 255))
-    else intArrayOf(Color.rgb(53, 25, 61), Color.rgb(34, 20, 48))
+    if (color == accent) intArrayOf(Color.rgb(207, 173, 255), Color.rgb(255, 157, 218))
+    else intArrayOf(Color.rgb(45, 31, 69), Color.rgb(26, 20, 43))
 ).apply {
     cornerRadius = dp(16).toFloat()
-    setStroke(dp(1), if (color == accent) Color.rgb(255, 193, 224) else Color.rgb(102, 61, 112))
+    setStroke(dp(1), if (color == accent) Color.rgb(229, 204, 255) else Color.rgb(103, 79, 145))
 }
 elevation = dp(2).toFloat()
 setOnClickListener {
