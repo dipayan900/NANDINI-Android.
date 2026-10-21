@@ -56,6 +56,24 @@ class Anime3DView(
                 pageReady = true
                 pushStateToRenderer()
             }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: android.webkit.WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request?.isForMainFrame == true) {
+                    pageReady = true
+                    val message = "NANDINI renderer failed to load. Check your connection and reopen the companion."
+                    val safeMessage = message.replace("'", "\\'")
+                    view?.evaluateJavascript(
+                        "window.__nandiniShowFallback && window.__nandiniShowFallback('$safeMessage')",
+                        null
+                    )
+                    android.util.Log.w("NANDINI_3D", "Renderer page load failed: ${error?.description}")
+                }
+            }
         }
 
         // AndroidX's asset loader gives bundled HTML/model files a safe HTTPS origin.
