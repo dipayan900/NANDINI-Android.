@@ -54,9 +54,9 @@ class SplashActivity : Activity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(36, 32, 36, 30)
+            setPadding(dp(24), dp(20), dp(24), dp(20))
         }
-        content.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+        
         content.addView(TextView(this).apply {
             text = "✦"
             textSize = 54f
@@ -96,7 +96,7 @@ class SplashActivity : Activity() {
             setTextColor(Color.WHITE)
             typeface = Typeface.DEFAULT_BOLD
         }
-        content.addView(percent, LinearLayout.LayoutParams(-1, 30))
+        content.addView(percent, LinearLayout.LayoutParams(-1, dp(32)))
         bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             progressTintList = android.content.res.ColorStateList.valueOf(Color.rgb(194, 111, 255))
@@ -113,17 +113,23 @@ class SplashActivity : Activity() {
             setTextColor(Color.rgb(220, 201, 245))
         }, LinearLayout.LayoutParams(-1, 42))
         content.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
-        content.addView(TextView(this).apply {
+        val centered = FrameLayout(this).apply {
+            addView(content, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
+        }
+        root.addView(centered, FrameLayout.LayoutParams(-1, -1))
+        root.addView(TextView(this).apply {
             text = "CREATED WITH ♡ BY DIPAYAN"
             textSize = 10f
             gravity = Gravity.CENTER
             letterSpacing = .10f
             setTextColor(Color.rgb(192, 145, 246))
-        }, LinearLayout.LayoutParams(-1, 30))
-        root.addView(content, FrameLayout.LayoutParams(-1, -1))
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+        }, FrameLayout.LayoutParams(-1, dp(34), Gravity.BOTTOM))
         setContentView(root)
         handler.postDelayed(tick, 40L)
     }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
