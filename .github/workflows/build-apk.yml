@@ -74,6 +74,21 @@ jobs:
           test "$(head -c 4 app/src/main/assets/nandini-companion.vrm)" = "glTF"
           ls -lh app/src/main/assets/nandini-companion.vrm
 
+      - name: Bundle Three.js and VRM renderer modules for offline runtime
+        run: |
+          set -euo pipefail
+          VENDOR="app/src/main/assets/vendor"
+          mkdir -p "$VENDOR/three/addons/loaders" "$VENDOR/three/addons/utils"
+          curl --fail --location --retry 3 "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js" --output "$VENDOR/three.module.js"
+          curl --fail --location --retry 3 "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/GLTFLoader.js" --output "$VENDOR/three/addons/loaders/GLTFLoader.js"
+          curl --fail --location --retry 3 "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/utils/BufferGeometryUtils.js" --output "$VENDOR/three/addons/utils/BufferGeometryUtils.js"
+          curl --fail --location --retry 3 "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.1.2/lib/three-vrm.module.js" --output "$VENDOR/three-vrm.module.js"
+          test -s "$VENDOR/three.module.js"
+          test -s "$VENDOR/three/addons/loaders/GLTFLoader.js"
+          test -s "$VENDOR/three/addons/utils/BufferGeometryUtils.js"
+          test -s "$VENDOR/three-vrm.module.js"
+          ls -lh "$VENDOR/three.module.js" "$VENDOR/three/addons/loaders/GLTFLoader.js" "$VENDOR/three/addons/utils/BufferGeometryUtils.js" "$VENDOR/three-vrm.module.js"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
