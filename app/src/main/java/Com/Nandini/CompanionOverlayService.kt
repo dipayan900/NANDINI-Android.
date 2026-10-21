@@ -61,9 +61,10 @@ class CompanionOverlayService : Service() {
         container.setBackgroundColor(Color.TRANSPARENT)
 
         val avatar = Anime3DView(this)
-        container.addView(avatar, FrameLayout.LayoutParams(dp(174), dp(300), Gravity.CENTER))
+        container.addView(avatar, FrameLayout.LayoutParams(dp(164), dp(280), Gravity.CENTER))
         val close = TextView(this).apply {
             text = "×"
+            contentDescription = "Close NANDINI floating companion"
             textSize = 20f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
@@ -79,17 +80,18 @@ class CompanionOverlayService : Service() {
             stopSelf()
         }
 
+        val savedPosition = getSharedPreferences("nandini_companion_overlay", Context.MODE_PRIVATE)
         val lp = WindowManager.LayoutParams(
-            dp(if (expanded) 190 else 174),
-            dp(if (expanded) 320 else 300),
+            dp(if (expanded) 210 else 174),
+            dp(if (expanded) 350 else 300),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dp(18)
-            y = dp(180)
+            x = savedPosition.getInt("x", dp(18)).coerceAtLeast(0)
+            y = savedPosition.getInt("y", dp(180)).coerceAtLeast(0)
         }
         // WebView consumes touch events, so attach the drag handler to BOTH the
         // avatar itself and its transparent container. This makes dragging work
@@ -116,11 +118,24 @@ class CompanionOverlayService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     val moved = abs(event.rawX - downX) > dp(8) || abs(event.rawY - downY) > dp(8)
-                    if (!moved && System.currentTimeMillis() - downAt < 500L) {
+                    if (moved) {
+                        getSharedPreferences("nandini_companion_overlay", Context.MODE_PRIVATE)
+                            .edit().putInt("x", lp.x).putInt("y", lp.y).apply()
+                    } else if (System.currentTimeMillis() - downAt < 500L) {
                         expanded = !expanded
-                        avatar.setSpeaking(expanded)
-                        container.animate().scaleX(1.06f).scaleY(1.06f).setDuration(100)
-                            .withEndAction { container.animate().scaleX(1f).scaleY(1f).setDuration(140).start() }.start()
+                        lp.width = dp(if (expanded) 210 else 174)
+                        lp.height = dp(if (expanded) 350 else 300)
+                        avatar.layoutParams = FrameLayout.LayoutParams(
+                            dp(if (expanded) 196 else 164),
+                            dp(if (expanded) 330 else 280),
+                            Gravity.CENTER
+                        )
+                        avatar.setCompanionState(if (expanded) "listening" else "idle")
+                        runCatching { wm.updateViewLayout(container, lp) }
+                        container.animate().scaleX(1.035f).scaleY(1.035f).setDuration(110)
+                            .withEndAction {
+                                container.animate().scaleX(1f).scaleY(1f).setDuration(160).start()
+                            }.start()
                     }
                     true
                 }
