@@ -59,6 +59,12 @@
         </activity>
 
         <activity
+            android:name=".NandiniStudioActivity"
+            android:exported="false"
+            android:label="NANDINI Studio"
+            android:theme="@style/NandiniTheme" />
+
+        <activity
             android:name=".ReminderActivity"
             android:exported="false"
             android:label="NANDINI Reminders"
