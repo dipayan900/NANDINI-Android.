@@ -271,6 +271,7 @@ class NandiniStudioActivity : Activity() {
     private fun showCreatorMode() {
         val options = arrayOf(
             "Open NANDINI repository",
+            "Check latest GitHub Actions build status",
             "Open latest GitHub Actions builds",
             "Open feature pull request",
             "Copy build-error diagnosis prompt",
@@ -279,12 +280,58 @@ class NandiniStudioActivity : Activity() {
         AlertDialog.Builder(this).setTitle("🛠 Creator Mode").setItems(options) { _, which ->
             when (which) {
                 0 -> openUrl("https://github.com/dipayan900/NANDINI-Android.")
-                1 -> openUrl("https://github.com/dipayan900/NANDINI-Android./actions")
-                2 -> openUrl("https://github.com/dipayan900/NANDINI-Android./pull/1")
-                3 -> copyText("NANDINI Android/Kotlin build diagnosis:\n1. Read the first real compiler error, not only later cascading errors.\n2. Inspect the referenced file and surrounding code.\n3. Identify the confirmed root cause and smallest reversible fix.\n4. Preserve chat/history, Firebase AI, voice, camera, image generation, wake word and companion overlay.\n5. Run the GitHub Actions APK build and inspect its complete log if it fails.\n6. Never claim a fix is verified until the build succeeds.")
+                1 -> showLatestBuildStatus()
+                2 -> openUrl("https://github.com/dipayan900/NANDINI-Android./actions")
+                3 -> openUrl("https://github.com/dipayan900/NANDINI-Android./pull/1")
+                4 -> copyText("NANDINI Android/Kotlin build diagnosis:\n1. Read the first real compiler error, not only later cascading errors.\n2. Inspect the referenced file and surrounding code.\n3. Identify the confirmed root cause and smallest reversible fix.\n4. Preserve chat/history, Firebase AI, voice, camera, image generation, wake word and companion overlay.\n5. Run the GitHub Actions APK build and inspect its complete log if it fails.\n6. Never claim a fix is verified until the build succeeds.")
                 4 -> copyText("NANDINI APK release checklist:\n1. Build on feature/myraa-style-avatar-safe.\n2. Confirm the latest GitHub Actions run succeeded and the artifact belongs to the latest commit.\n3. Install on the target Android phone.\n4. Test all six Studio features plus chat, saved history, voice, wake word, camera, image generation and companion overlay.\n5. Check logs for crashes and test offline/permission-denied cases.\n6. Keep the last known-good APK for rollback.")
             }
         }.setNegativeButton("CLOSE", null).show()
+    }
+
+    private fun showLatestBuildStatus() {
+        Toast.makeText(this, "Checking the latest public GitHub Actions run…", Toast.LENGTH_SHORT).show()
+        Thread {
+            var message = "Couldn't read the latest build status. Open GitHub Actions to check manually."
+            var runUrl = "https://github.com/dipayan900/NANDINI-Android./actions"
+            try {
+                val connection = (java.net.URL("https://api.github.com/repos/dipayan900/NANDINI-Android./actions/runs?per_page=1")
+                    .openConnection() as java.net.HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 8000
+                    readTimeout = 8000
+                    setRequestProperty("Accept", "application/vnd.github+json")
+                    setRequestProperty("User-Agent", "NANDINI-Android")
+                }
+                try {
+                    if (connection.responseCode !in 200..299) error("GitHub returned HTTP " + connection.responseCode)
+                    val root = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+                    val runs = root.optJSONArray("workflow_runs") ?: JSONArray()
+                    val run = runs.optJSONObject(0)
+                    if (run != null) {
+                        val title = run.optString("display_title", "NANDINI APK build")
+                        val branch = run.optString("head_branch", "unknown")
+                        val status = run.optString("status", "unknown")
+                        val conclusion = run.optString("conclusion", "pending")
+                        val sha = run.optString("head_sha", "").take(7)
+                        runUrl = run.optString("html_url", runUrl)
+                        message = "LATEST BUILD\n\n$title\nBranch: $branch\nStatus: $status\nResult: $conclusion\nCommit: $sha\n\nThis checks the build status only; it doesn't install or device-test the APK."
+                    } else {
+                        message = "No GitHub Actions runs were returned. Open Actions to inspect the repository."
+                    }
+                } finally {
+                    connection.disconnect()
+                }
+            } catch (e: Exception) {
+                message = "Build status check failed: " + (e.message ?: "network error") + "\n\nOpen GitHub Actions to inspect it manually."
+            }
+            runOnUiThread {
+                AlertDialog.Builder(this).setTitle("🛠 Creator Build Monitor")
+                    .setMessage(message)
+                    .setPositiveButton("OPEN RUN") { _, _ -> openUrl(runUrl) }
+                    .setNegativeButton("CLOSE", null).show()
+            }
+        }.start()
     }
 
     private fun openUrl(url: String) {
