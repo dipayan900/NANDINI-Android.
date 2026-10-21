@@ -148,7 +148,7 @@ class NandiniStudioActivity : Activity() {
         val log = TextView(this).apply {
             setTextColor(muted); textSize = 12f
             val lines = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("title") }
-            text = if (lines.isEmpty()) "No saved plans yet." else "RECENT PLANS\\n" + lines.takeLast(8).joinToString("\\n") { "• " + it }
+            text = if (lines.isEmpty()) "No saved plans yet." else "RECENT PLANS\n" + lines.takeLast(8).joinToString("\n") { "• " + it }
             setPadding(0, dp(10), 0, 0)
         }
         val wrap = LinearLayout(this).apply {
@@ -212,8 +212,8 @@ class NandiniStudioActivity : Activity() {
                 else -> "Connected"
             }
         } else "Status unavailable on this Android version"
-        val info = "BATTERY: " + battery + "\\n\\nNETWORK: " + network + "\\n\\nDEVICE MEMORY: " + ram +
-            "\\n\\nThese are diagnostic readings, not a guarantee that AI services are reachable."
+        val info = "BATTERY: " + battery + "\n\nNETWORK: " + network + "\n\nDEVICE MEMORY: " + ram +
+            "\n\nThese are diagnostic readings, not a guarantee that AI services are reachable."
         AlertDialog.Builder(this).setTitle("📱 System Intelligence").setMessage(info)
             .setPositiveButton("NETWORK SETTINGS") { _, _ ->
                 try { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
@@ -229,7 +229,7 @@ class NandiniStudioActivity : Activity() {
             when (which) {
                 0 -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dipayan900/NANDINI-Android.")))
                 1 -> copyText("Analyse this Android/Kotlin build failure. Inspect the exact error and relevant source context. Identify the root cause, propose the smallest safe fix, preserve existing features, and list tests to run. Do not guess missing files.")
-                2 -> copyText("NANDINI APK release checklist:\\n1. Build on a dedicated feature branch.\\n2. Confirm GitHub Actions succeeded.\\n3. Install on the target Android phone.\\n4. Test chat, saved history, voice, wake word, camera, image generation, companion overlay, memory and permissions.\\n5. Check logs for crashes.\\n6. Keep the last known-good APK for rollback.")
+                2 -> copyText("NANDINI APK release checklist:\n1. Build on a dedicated feature branch.\n2. Confirm GitHub Actions succeeded.\n3. Install on the target Android phone.\n4. Test chat, saved history, voice, wake word, camera, image generation, companion overlay, memory and permissions.\n5. Check logs for crashes.\n6. Keep the last known-good APK for rollback.")
             }
         }.setNegativeButton("CLOSE", null).show()
     }
