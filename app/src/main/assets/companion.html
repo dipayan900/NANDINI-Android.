@@ -116,7 +116,13 @@ let blinkStart = -1;
 let lastFrameAt = 0;
 let targetHappy = 0;
 let currentHappy = 0;
+let currentEmotion = 'neutral';
 let base = {};
+
+function setCompanionEmotion(next) {
+  currentEmotion = ['happy','sad','surprised','serious','calm'].includes(next) ? next : 'neutral';
+}
+window.setCompanionEmotion = setCompanionEmotion;
 
 function setExpression(name, value) {
   try { vrm?.expressionManager?.setValue(name, value); } catch (_) {}
@@ -243,7 +249,20 @@ function animate(now) {
     vrm.scene.position.y = -0.025 + breath * 0.65 + Math.sin(elapsed * (state === 'speaking' ? 3.2 : 1.0)) * (state === 'speaking' ? 0.006 : 0.003);
 
     currentHappy += (targetHappy - currentHappy) * Math.min(1, delta * 4);
-    setExpression('happy', currentHappy);
+    const moodTargets = {
+      happy: { happy: 0.68, sad: 0, surprised: 0, angry: 0, relaxed: 0.08 },
+      sad: { happy: 0, sad: 0.58, surprised: 0, angry: 0, relaxed: 0.05 },
+      surprised: { happy: 0.12, sad: 0, surprised: 0.65, angry: 0, relaxed: 0 },
+      serious: { happy: 0, sad: 0, surprised: 0, angry: 0.12, relaxed: 0 },
+      calm: { happy: 0.08, sad: 0, surprised: 0, angry: 0, relaxed: 0.48 },
+      neutral: { happy: 0, sad: 0, surprised: 0, angry: 0, relaxed: 0 }
+    };
+    const mood = moodTargets[currentEmotion] || moodTargets.neutral;
+    const moodBlend = Math.min(1, delta * 3.5);
+    ['happy','sad','surprised','angry','relaxed'].forEach(name => {
+      const baseValue = name === 'happy' ? currentHappy : 0;
+      setExpression(name, Math.max(baseValue, mood[name] || 0) * moodBlend);
+    });
     if (elapsed >= nextBlinkAt && blinkStart < 0) blinkStart = elapsed;
     if (blinkStart >= 0) {
       const t = (elapsed - blinkStart) / 0.13;
