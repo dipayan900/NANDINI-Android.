@@ -55,6 +55,7 @@ class Anime3DView(
                 super.onPageFinished(view, url)
                 pageReady = true
                 pushStateToRenderer()
+                setRendererVisible(isShown && windowVisibility == View.VISIBLE)
             }
 
             override fun onReceivedError(
