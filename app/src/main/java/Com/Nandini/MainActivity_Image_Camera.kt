@@ -3,6 +3,7 @@ package com.dipayan.nandini
 import android.Manifest
 import android.provider.ContactsContract
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -1128,57 +1129,185 @@ private fun startWakeWordSession() {
 }
 
 private fun startVoiceInput() {
-if (isBusy || isListening) return
-
-if (!SpeechRecognizer.isRecognitionAvailable(this)) {    
-    Toast.makeText(this, "Speech recognition isn't available on this phone.", Toast.LENGTH_LONG).show()    
-    return    
-}    
-
-if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-    pendingWakePermission = false
-    requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC_PERMISSION)
-    return
-}    
-
-launchSpeechRecognizer()
-
+    if (isBusy || isListening) return
+    if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+        Toast.makeText(this, "Speech recognition isn't available on this phone.", Toast.LENGTH_LONG).show()
+        return
+    }
+    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        pendingWakePermission = false
+        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MIC_PERMISSION)
+        return
+    }
+    launchSpeechRecognizer()
 }
 
 private fun launchSpeechRecognizer() {
-try {
-val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-putExtra(
-RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-)
-putExtra(
-RecognizerIntent.EXTRA_LANGUAGE,
-"en-IN"
-)
-putExtra(
-RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE,
-"en-IN"
-)
-putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
-putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak in Hindi, English, or Hinglish")
-}
-
-isListening = true
-    setAvatarState("listening")
-    voiceButton.isEnabled = false
-    statusText.text = "●  LISTENING..."    
-    startActivityForResult(intent, REQUEST_SPEECH)    
-} catch (e: Exception) {    
-    isListening = false
-    setAvatarState("idle")
-    voiceButton.isEnabled = true
-    statusText.text = "●  READY"
-    Toast.makeText(this, "Couldn't start voice input.", Toast.LENGTH_SHORT).show()    
-    Log.e("NANDINI", "Voice input failed to launch", e)    
-}
-
+    val bg = Color.rgb(22, 8, 31)
+    val panel = Color.rgb(43, 17, 57)
+    val pink = Color.rgb(255, 126, 190)
+    val lavender = Color.rgb(211, 164, 255)
+    val listeningText = TextView(this).apply {
+        text = "NANDINI IS READY"
+        textSize = 14f
+        gravity = Gravity.CENTER
+        letterSpacing = .08f
+        setTextColor(lavender)
+        typeface = Typeface.DEFAULT_BOLD
+    }
+    val mic = TextView(this).apply {
+        text = "🎙"
+        textSize = 42f
+        gravity = Gravity.CENTER
+        setTextColor(Color.WHITE)
+        background = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(panel)
+            setStroke(dp(2), pink)
+        }
+        elevation = dp(8).toFloat()
+    }
+    val hint = TextView(this).apply {
+        text = "Speak in Hindi, English, or Hinglish"
+        textSize = 15f
+        gravity = Gravity.CENTER
+        setTextColor(Color.rgb(235, 216, 247))
+    }
+    val transcript = TextView(this).apply {
+        text = "I'm listening…"
+        textSize = 14f
+        gravity = Gravity.CENTER
+        setTextColor(lavender)
+        minHeight = dp(42)
+    }
+    val content = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER_HORIZONTAL
+        setPadding(dp(24), dp(20), dp(24), dp(8))
+        addView(listeningText, LinearLayout.LayoutParams(-1, dp(34)))
+        addView(mic, LinearLayout.LayoutParams(dp(104), dp(104)).apply {
+            gravity = Gravity.CENTER
+            topMargin = dp(18)
+            bottomMargin = dp(18)
+        })
+        addView(hint, LinearLayout.LayoutParams(-1, dp(46)))
+        addView(transcript, LinearLayout.LayoutParams(-1, dp(52)))
+    }
+    val dialog = AlertDialog.Builder(this).setView(content)
+        .setNegativeButton("CANCEL", null)
+        .setPositiveButton("DONE", null)
+        .create()
+    dialog.setOnShowListener {
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.GradientDrawable().apply {
+            setColor(bg)
+            cornerRadius = dp(28).toFloat()
+            setStroke(dp(1), Color.rgb(146, 67, 171))
+        })
+        dialog.window?.setDimAmount(0.78f)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(lavender)
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(pink)
+    }
+    var recognizer: SpeechRecognizer? = null
+    var finished = false
+    fun finishVoice(cancel: Boolean) {
+        if (finished) return
+        finished = true
+        isListening = false
+        setAvatarState("idle")
+        voiceButton.isEnabled = true
+        statusText.text = "● READY"
+        try { recognizer?.cancel() } catch (_: Exception) {}
+        try { recognizer?.destroy() } catch (_: Exception) {}
+        recognizer = null
+        if (dialog.isShowing) dialog.dismiss()
+    }
+    dialog.setOnCancelListener { finishVoice(true) }
+    dialog.setOnDismissListener {
+        if (!finished) finishVoice(true)
+    }
+    dialog.setButton(AlertDialog.BUTTON_NEGATIVE, "CANCEL") { _, _ -> finishVoice(true) }
+    dialog.setButton(AlertDialog.BUTTON_POSITIVE, "DONE") { _, _ ->
+        val spoken = input.text?.toString()?.trim().orEmpty()
+        finishVoice(true)
+        if (spoken.isNotEmpty()) sendMessage()
+    }
+    try {
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(lavender)
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(pink)
+        isListening = true
+        setAvatarState("listening")
+        voiceButton.isEnabled = false
+        statusText.text = "● LISTENING..."
+        listeningText.text = "NANDINI IS LISTENING"
+        val speech = SpeechRecognizer.createSpeechRecognizer(this)
+        recognizer = speech
+        speech.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                listeningText.text = "NANDINI IS LISTENING"
+                transcript.text = "Speak naturally…"
+            }
+            override fun onBeginningOfSpeech() {
+                listeningText.text = "I'M LISTENING"
+                mic.animate().scaleX(1.08f).scaleY(1.08f).setDuration(220).start()
+            }
+            override fun onRmsChanged(rmsdB: Float) {
+                val scale = (1f + (rmsdB / 100f).coerceIn(0f, .12f))
+                mic.scaleX = scale
+                mic.scaleY = scale
+            }
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {
+                listeningText.text = "PROCESSING YOUR VOICE…"
+                mic.scaleX = 1f
+                mic.scaleY = 1f
+            }
+            override fun onError(error: Int) {
+                if (finished) return
+                transcript.text = when (error) {
+                    SpeechRecognizer.ERROR_NO_MATCH -> "I didn't catch that. Tap Voice to try again."
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech heard. Tap Voice to try again."
+                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network issue. Check connection and try again."
+                    else -> "Voice input ended. You can close this panel."
+                }
+                listeningText.text = "VOICE INPUT PAUSED"
+                finishVoice(false)
+            }
+            override fun onResults(results: Bundle?) {
+                if (finished) return
+                val words = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
+                if (words.isNotEmpty()) {
+                    input.setText(words)
+                    input.setSelection(words.length)
+                    transcript.text = words
+                    listeningText.text = "VOICE CAPTURED"
+                    finishVoice(true)
+                    sendMessage()
+                } else {
+                    transcript.text = "No words detected. Please try again."
+                    finishVoice(false)
+                }
+            }
+            override fun onPartialResults(partialResults: Bundle?) {
+                val words = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                if (words.isNotBlank()) transcript.text = words
+            }
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-IN")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+        }
+        speech.startListening(intent)
+    } catch (e: Exception) {
+        Log.e("NANDINI", "Custom voice input failed", e)
+        finishVoice(true)
+        Toast.makeText(this, "Couldn't start voice input.", Toast.LENGTH_SHORT).show()
+    }
 }
 
 @Deprecated("Uses the compatible Activity result API")
