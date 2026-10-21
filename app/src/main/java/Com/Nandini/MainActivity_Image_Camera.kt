@@ -1464,7 +1464,7 @@ try {
 val studioMemoryContext = try {
     val saved = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
     val notes = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf { value -> value.isNotBlank() } }.takeLast(30)
-    if (notes.isEmpty()) "" else "\\n\\nUSER-APPROVED NANDINI STUDIO MEMORIES (use only when relevant; these were explicitly saved by the user):\\n" + notes.joinToString("\\n") { "- " + it }
+    if (notes.isEmpty()) "" else "\n\nUSER-APPROVED NANDINI STUDIO MEMORIES (use only when relevant; these were explicitly saved by the user):\n" + notes.joinToString("\n") { "- " + it }
 } catch (_: Exception) { "" }
 
 val model = Firebase.ai(    
@@ -1625,7 +1625,7 @@ private fun saveCurrentChat() {
     if (history.isEmpty()) return
     val existing = savedChats.indexOfFirst { it.id == currentChatId }
     val firstUser = history.firstOrNull { it.role == "user" }?.text.orEmpty()
-    val title = firstUser.replace("\\n", " ").take(36).ifBlank { "New conversation" }
+    val title = firstUser.replace("\n", " ").take(36).ifBlank { "New conversation" }
     val chat = SavedChat(currentChatId, title, history.toMutableList())
     if (existing >= 0) savedChats[existing] = chat else savedChats.add(chat)
     while (savedChats.size > MAX_SAVED_CHATS) savedChats.removeAt(0)
@@ -1673,8 +1673,8 @@ private fun showChatHistory() {
         return
     }
     val labels = savedChats.asReversed().map { chat ->
-        val preview = chat.messages.lastOrNull()?.text.orEmpty().replace("\\n", " ").take(50)
-        "${chat.title}\\n$preview"
+        val preview = chat.messages.lastOrNull()?.text.orEmpty().replace("\n", " ").take(50)
+        "${chat.title}\n$preview"
     }.toTypedArray()
     android.app.AlertDialog.Builder(this)
         .setTitle("Chat history")
@@ -1714,7 +1714,7 @@ private fun saveMemories(items: List<String>) {
 
 private fun loadMemoriesText(): String {
     val items = loadMemories()
-    return if (items.isEmpty()) "No saved memories yet." else items.joinToString("\\n") { "- $it" }
+    return if (items.isEmpty()) "No saved memories yet." else items.joinToString("\n") { "- $it" }
 }
 
 private fun android.app.AlertDialog.Builder.showPremium(): android.app.AlertDialog {
