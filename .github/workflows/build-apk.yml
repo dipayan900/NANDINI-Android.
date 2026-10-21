@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feature/myraa-style-avatar-safe
+      - feature/nandini-quick-splash
 
 permissions:
   contents: read
