@@ -484,6 +484,18 @@ private fun setAvatarState(state: String) {
     runOnUiThread { chatAvatarView?.setCompanionState(state) }
 }
 
+private fun setAvatarEmotionFromText(text: String) {
+    val value = text.lowercase(Locale.ROOT)
+    val emotion = when {
+        listOf("i'm sorry", "im sorry", "that sounds painful", "that sounds hard", "i'm here for you", "im here for you", "sorry you're", "sorry you are", "grief", "heartbroken", "upset", "sad").any { it in value } -> "sad"
+        listOf("congratulations", "congrats", "that's amazing", "thats amazing", "so proud", "great job", "you did it", "yay", "wonderful", "happy for you").any { it in value } -> "happy"
+        listOf("surprised", "wow!", "no way!", "really?!", "that's unexpected", "thats unexpected").any { it in value } -> "surprised"
+        listOf("careful", "warning", "danger", "important safety", "don't do that", "do not do that").any { it in value } -> "serious"
+        else -> "neutral"
+    }
+    runOnUiThread { chatAvatarView?.setCompanionEmotion(emotion) }
+}
+
 private fun buildUi() {
 val root = LinearLayout(this).apply {
 orientation = LinearLayout.VERTICAL
@@ -1305,6 +1317,7 @@ if (deviceReply != null) {
     imm.hideSoftInputFromWindow(input.windowToken, 0)
 
     addMessage("NANDINI", deviceReply)
+    setAvatarEmotionFromText(deviceReply)
     history.add(ChatMessage("model", deviceReply))
 
     trimHistory()
@@ -1332,7 +1345,8 @@ val reply = withContext(Dispatchers.IO) {
 generateReplyWithRetry(userText)
 }
 
-replyView.text = reply    
+replyView.text = reply
+    setAvatarEmotionFromText(reply)
     history.add(ChatMessage("model", reply))    
     trimHistory()    
     saveHistory()
@@ -1467,10 +1481,21 @@ val studioMemoryContext = try {
     if (notes.isEmpty()) "" else "\n\nUSER-APPROVED NANDINI STUDIO MEMORIES (use only when relevant; these were explicitly saved by the user):\n" + notes.joinToString("\n") { "- " + it }
 } catch (_: Exception) { "" }
 
-val model = Firebase.ai(    
-        backend = GenerativeBackend.googleAI()    
-                ).generativeModel(    
-        modelName = "gemini-3.8-flash",    
+val studioModeContext = try {
+    val mode = getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("mode", "Companion") ?: "Companion"
+    when (mode) {
+        "Developer" -> "\n\nACTIVE USER-SELECTED MODE: DEVELOPER. Prioritise Kotlin/Android debugging, minimal safe patches, build verification, and preserving existing functionality. Distinguish confirmed causes from hypotheses."
+        "Researcher" -> "\n\nACTIVE USER-SELECTED MODE: RESEARCHER. Structure answers around evidence, uncertainty, and actionable next steps. Never claim live research unless a tool was actually used."
+        "Vision" -> "\n\nACTIVE USER-SELECTED MODE: VISION. For image-related requests, describe visible evidence accurately and separate observation from inference. Ask for an image if needed."
+        "Hands-free" -> "\n\nACTIVE USER-SELECTED MODE: HANDS-FREE. Keep replies concise and easy to hear aloud. Avoid long lists unless requested."
+        else -> "\n\nACTIVE USER-SELECTED MODE: COMPANION. Be warm and conversational while remaining honest and helpful."
+    }
+} catch (_: Exception) { "" }
+
+val model = Firebase.ai(
+        backend = GenerativeBackend.googleAI()
+                ).generativeModel(
+        modelName = "gemini-3.8-flash",
        systemInstruction = content {    
    text(    
     """    
@@ -1506,7 +1531,7 @@ CREATOR PROFILE RULES:
 LANGUAGE:
 Reply naturally in Hindi, English, or Hinglish based on the user's language.
 
-    """.trimIndent() + studioMemoryContext
+    """.trimIndent() + studioMemoryContext + studioModeContext
 )
 
 }
