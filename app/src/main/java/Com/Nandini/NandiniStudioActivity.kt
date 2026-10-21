@@ -136,7 +136,7 @@ class NandiniStudioActivity : Activity() {
                     val arr = readArray("memory")
                     arr.put(JSONObject().put("text", value).put("createdAt", System.currentTimeMillis()))
                     writeArray("memory", arr)
-                    Toast.makeText(this, "Memory saved on this device.", Toast.LENGTH_SHORT).show().also { styleDialog(it); it }
+                    Toast.makeText(this, "Memory saved on this device.", Toast.LENGTH_SHORT).show()
                     showMemoryPalace()
                 }
             }.setNegativeButton("CANCEL", null).show().also { styleDialog(it); it }
@@ -262,7 +262,7 @@ class NandiniStudioActivity : Activity() {
         AlertDialog.Builder(this).setTitle("📱 System Intelligence").setMessage(info)
             .setPositiveButton("NETWORK SETTINGS") { _, _ ->
                 try { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
-                catch (_: Exception) { Toast.makeText(this, "Settings couldn't be opened.", Toast.LENGTH_SHORT).show().also { styleDialog(it); it } }
+                catch (_: Exception) { Toast.makeText(this, "Settings couldn't be opened.", Toast.LENGTH_SHORT).show() }
             }.setNeutralButton("APP SETTINGS") { _, _ ->
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + packageName)))
             }.setNegativeButton("CLOSE", null).show().also { styleDialog(it); it }
@@ -290,7 +290,7 @@ class NandiniStudioActivity : Activity() {
     }
 
     private fun showLatestBuildStatus() {
-        Toast.makeText(this, "Checking the latest public GitHub Actions run…", Toast.LENGTH_SHORT).show().also { styleDialog(it); it }
+        Toast.makeText(this, "Checking the latest public GitHub Actions run…", Toast.LENGTH_SHORT).show()
         Thread {
             var message = "Couldn't read the latest build status. Open GitHub Actions to check manually."
             var runUrl = "https://github.com/dipayan900/NANDINI-Android./actions"
@@ -338,7 +338,7 @@ class NandiniStudioActivity : Activity() {
         try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         } catch (_: Exception) {
-            Toast.makeText(this, "Couldn't open the link on this device.", Toast.LENGTH_SHORT).show().also { styleDialog(it); it }
+            Toast.makeText(this, "Couldn't open the link on this device.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -357,14 +357,14 @@ class NandiniStudioActivity : Activity() {
             val text = "NANDINI mode: " + modes[which] + ". " + descriptions[which]
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("NANDINI mode prompt", text))
-            Toast.makeText(this, modes[which] + " mode saved. It will guide new AI replies.", Toast.LENGTH_LONG).show().also { styleDialog(it); it }
+            Toast.makeText(this, modes[which] + " mode saved. It will guide new AI replies.", Toast.LENGTH_LONG).show()
         }.setNegativeButton("CLOSE", null).show().also { styleDialog(it); it }
     }
 
     private fun copyText(value: String) {
         val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("NANDINI Creator Mode", value))
-        Toast.makeText(this, "Copied to clipboard.", Toast.LENGTH_SHORT).show().also { styleDialog(it); it }
+        Toast.makeText(this, "Copied to clipboard.", Toast.LENGTH_SHORT).show()
     }
 
     private fun readArray(key: String): JSONArray = try { JSONArray(prefs.getString(key, "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
