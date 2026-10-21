@@ -7,9 +7,11 @@
 <style>
   html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent!important}
   body{touch-action:pan-y}
-  #stage{position:fixed;inset:0;background:transparent;overflow:hidden}
-  canvas{display:block;width:100%;height:100%;outline:none;background:transparent}
-  #fallback{display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:rgba(224,210,255,.72);font:12px system-ui,sans-serif;text-align:center;pointer-events:none}
+  #stage{position:fixed;inset:0;background:transparent;overflow:hidden;isolation:isolate}
+  #stage>canvas{position:absolute;inset:0;display:block;width:100%;height:100%;outline:none;background:transparent}
+  #fx{z-index:2;pointer-events:none;opacity:.92}
+  #fallback{display:none;position:absolute;z-index:4;inset:0;align-items:center;justify-content:center;color:rgba(224,210,255,.82);font:12px system-ui,sans-serif;text-align:center;pointer-events:none;padding:24px;box-sizing:border-box}
+  #stage:after{content:"";position:absolute;inset:0;pointer-events:none;z-index:3;background:radial-gradient(ellipse at 50% 42%,transparent 32%,rgba(8,4,18,.13) 70%,rgba(8,4,18,.32) 100%)}
 </style>
 <script type="importmap">
 {
@@ -22,7 +24,7 @@
 </script>
 </head>
 <body>
-<div id="stage"><div id="fallback">NANDINI 3D companion</div></div>
+<div id="stage"><canvas id="fx" aria-hidden="true"></canvas><div id="fallback">NANDINI 3D companion</div></div>
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -36,7 +38,7 @@ const renderer = new THREE.WebGLRenderer({
   powerPreference: 'low-power',
   premultipliedAlpha: false
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
 renderer.setSize(stage.clientWidth, stage.clientHeight, false);
 renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -64,17 +66,34 @@ let elapsed = 0;
 let nextBlinkAt = 2.5 + Math.random() * 2.0;
 let blinkStart = -1;
 let failed = false;
+let companionVisible = true;
+let animationFrameId = 0;
+const fxCanvas = document.getElementById('fx');
+const fx = fxCanvas.getContext('2d', { alpha: true });
+const particles = Array.from({length: 34}, (_, i) => ({
+  seed: i * 17.31 + 2.7,
+  x: Math.random(), y: Math.random(),
+  size: 0.6 + Math.random() * 1.5,
+  speed: 0.018 + Math.random() * 0.035,
+  phase: Math.random() * Math.PI * 2
+}));
 
 function setExpression(name, value) {
   try { vrm?.expressionManager?.setValue(name, value); } catch (_) {}
 }
 function setCompanionState(next) {
   state = ['listening','thinking','speaking'].includes(next) ? next : 'idle';
-  if (state === 'listening') setExpression('happy', 0.10);
-  else if (state === 'thinking') setExpression('happy', 0.0);
-  else setExpression('happy', 0.0);
+  setExpression('happy', state === 'listening' ? 0.10 : state === 'speaking' ? 0.055 : 0.0);
+  setExpression('relaxed', state === 'idle' ? 0.12 : 0.0);
 }
 window.setCompanionState = setCompanionState;
+window.setCompanionVisible = visible => {
+  companionVisible = !!visible;
+  if (companionVisible && !document.hidden && !animationFrameId) {
+    lastTime = 0;
+    animationFrameId = requestAnimationFrame(animate);
+  }
+};
 
 const loader = new GLTFLoader();
 loader.register(parser => new VRMLoaderPlugin(parser));
@@ -125,14 +144,47 @@ function resize() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
 }
 new ResizeObserver(resize).observe(stage);
 
+function drawAtmosphere(now, w, h) {
+  if (!fx) return;
+  fx.clearRect(0, 0, w, h);
+  const cx = w * 0.5, cy = h * 0.53;
+  const pulse = 0.5 + 0.5 * Math.sin(now * 0.00065);
+  const radius = Math.min(w, h) * (0.23 + pulse * 0.012);
+  const halo = fx.createRadialGradient(cx, cy, radius * 0.15, cx, cy, radius * 1.8);
+  halo.addColorStop(0, 'rgba(171,105,255,0.075)');
+  halo.addColorStop(0.52, 'rgba(134,81,225,0.035)');
+  halo.addColorStop(1, 'rgba(134,81,225,0)');
+  fx.fillStyle = halo;
+  fx.fillRect(0, 0, w, h);
+  fx.save();
+  fx.translate(cx, cy);
+  fx.rotate(now * 0.00008);
+  fx.setLineDash([3, 9]);
+  fx.lineWidth = 0.7;
+  fx.strokeStyle = 'rgba(202,160,255,0.13)';
+  fx.beginPath(); fx.ellipse(0, 0, radius * 1.03, radius * 1.58, 0, 0, Math.PI * 2); fx.stroke();
+  fx.setLineDash([1, 13]);
+  fx.strokeStyle = 'rgba(255,164,219,0.10)';
+  fx.beginPath(); fx.ellipse(0, 0, radius * 1.18, radius * 1.72, 0, 0, Math.PI * 2); fx.stroke();
+  fx.restore();
+  for (const p of particles) {
+    p.y -= p.speed * (state === 'speaking' ? 1.5 : 1) * 0.016;
+    if (p.y < -0.04) { p.y = 1.04; p.x = Math.random(); }
+    const twinkle = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(now * 0.0014 + p.phase));
+    const x = p.x * w + Math.sin(now * 0.00025 + p.seed) * 5;
+    const y = p.y * h;
+    fx.fillStyle = 'rgba(220,188,255,' + (0.12 + twinkle * 0.42) + ')';
+    fx.beginPath(); fx.arc(x, y, p.size * twinkle, 0, Math.PI * 2); fx.fill();
+  }
+}
 function animate(now) {
-  requestAnimationFrame(animate);
-  if (document.hidden) return;
-  const fpsInterval = state === 'idle' ? 50 : 33;
+  animationFrameId = 0;
+  if (!companionVisible || document.hidden) return;
+  const fpsInterval = state === 'idle' ? 42 : 33;
   if (now - lastTime < fpsInterval) return;
   const delta = Math.min((now - (lastTime || now)) / 1000, 0.05);
   lastTime = now;
@@ -140,6 +192,11 @@ function animate(now) {
 
   if (vrm) {
     const head = vrm.humanoid?.getNormalizedBoneNode('head');
+    const chest = vrm.humanoid?.getNormalizedBoneNode('chest') || vrm.humanoid?.getNormalizedBoneNode('upperChest');
+    if (chest) {
+      chest.rotation.z = Math.sin(elapsed * 0.62) * (state === 'speaking' ? 0.018 : 0.009);
+      chest.rotation.x = Math.sin(elapsed * 0.9) * (state === 'thinking' ? 0.012 : 0.006);
+    }
     if (head) {
       const sway = Math.sin(elapsed * (state === 'speaking' ? 2.8 : 0.75));
       head.rotation.y = sway * (state === 'thinking' ? 0.16 : state === 'listening' ? 0.035 : 0.075);
@@ -160,15 +217,22 @@ function animate(now) {
         nextBlinkAt = elapsed + 2.2 + Math.random() * 3.5;
       }
     }
-    const mouth = state === 'speaking' ? 0.18 + (0.5 + 0.5 * Math.sin(elapsed * 11.5)) * 0.58 : 0;
+    const mouth = state === 'speaking' ? 0.12 + (0.5 + 0.5 * Math.sin(elapsed * 10.5)) * 0.48 : 0;
     setExpression('aa', mouth);
     if (state !== 'speaking') setExpression('aa', 0);
     vrm.update(delta);
   }
+  drawAtmosphere(now, stage.clientWidth, stage.clientHeight);
   renderer.render(scene, camera);
+  animationFrameId = requestAnimationFrame(animate);
 }
-document.addEventListener('visibilitychange', () => { lastTime = 0; });
-requestAnimationFrame(animate);
+document.addEventListener('visibilitychange', () => {
+  lastTime = 0;
+  if (!document.hidden && companionVisible && !animationFrameId) {
+    animationFrameId = requestAnimationFrame(animate);
+  }
+});
+animationFrameId = requestAnimationFrame(animate);
 </script>
 </body>
 </html>
