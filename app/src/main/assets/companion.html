@@ -82,7 +82,7 @@ try {
   window.__nandiniShowFallback('3D graphics are unavailable on this device right now.');
   throw error;
 }
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
 renderer.setSize(Math.max(1, stage.clientWidth), Math.max(1, stage.clientHeight), false);
 renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -127,6 +127,16 @@ function setCompanionState(next) {
   if (state === 'thinking') targetHappy = 0;
 }
 window.setCompanionState = setCompanionState;
+let companionVisible = true;
+let animationFrameId = 0;
+window.setCompanionVisible = visible => {
+  companionVisible = !!visible;
+  if (companionVisible && !document.hidden && !animationFrameId) {
+    lastTime = 0;
+    lastFrameAt = 0;
+    animationFrameId = requestAnimationFrame(animate);
+  }
+};
 
 const loader = new GLTFLoader();
 loader.register(parser => new VRMLoaderPlugin(parser));
@@ -179,16 +189,19 @@ function resize() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
 }
 if ('ResizeObserver' in window) new ResizeObserver(resize).observe(stage);
 else window.addEventListener('resize', resize);
 
 function animate(now) {
-  requestAnimationFrame(animate);
-  if (document.hidden) { lastTime = 0; return; }
+  animationFrameId = 0;
+  if (!companionVisible || document.hidden) { lastTime = 0; return; }
   const fpsInterval = state === 'idle' ? 50 : 33;
-  if (now - lastFrameAt < fpsInterval) return;
+  if (now - lastFrameAt < fpsInterval) {
+    animationFrameId = requestAnimationFrame(animate);
+    return;
+  }
   const delta = Math.min((now - (lastTime || now)) / 1000, 0.05);
   lastTime = now;
   lastFrameAt = now;
@@ -248,9 +261,16 @@ function animate(now) {
     vrm.update(delta);
   }
   renderer.render(scene, camera);
+  animationFrameId = requestAnimationFrame(animate);
 }
-document.addEventListener('visibilitychange', () => { lastTime = 0; lastFrameAt = 0; });
-requestAnimationFrame(animate);
+document.addEventListener('visibilitychange', () => {
+  lastTime = 0;
+  lastFrameAt = 0;
+  if (!document.hidden && companionVisible && !animationFrameId) {
+    animationFrameId = requestAnimationFrame(animate);
+  }
+});
+animationFrameId = requestAnimationFrame(animate);
 </script>
 </body>
 </html>
