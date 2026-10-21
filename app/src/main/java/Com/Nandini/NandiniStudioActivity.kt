@@ -224,14 +224,30 @@ class NandiniStudioActivity : Activity() {
     }
 
     private fun showCreatorMode() {
-        val options = arrayOf("Open NANDINI GitHub repository", "Copy build-error diagnosis prompt", "Copy APK release checklist")
+        val options = arrayOf(
+            "Open NANDINI repository",
+            "Open latest GitHub Actions builds",
+            "Open feature pull request",
+            "Copy build-error diagnosis prompt",
+            "Copy APK release checklist"
+        )
         AlertDialog.Builder(this).setTitle("🛠 Creator Mode").setItems(options) { _, which ->
             when (which) {
-                0 -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dipayan900/NANDINI-Android.")))
-                1 -> copyText("Analyse this Android/Kotlin build failure. Inspect the exact error and relevant source context. Identify the root cause, propose the smallest safe fix, preserve existing features, and list tests to run. Do not guess missing files.")
-                2 -> copyText("NANDINI APK release checklist:\n1. Build on a dedicated feature branch.\n2. Confirm GitHub Actions succeeded.\n3. Install on the target Android phone.\n4. Test chat, saved history, voice, wake word, camera, image generation, companion overlay, memory and permissions.\n5. Check logs for crashes.\n6. Keep the last known-good APK for rollback.")
+                0 -> openUrl("https://github.com/dipayan900/NANDINI-Android.")
+                1 -> openUrl("https://github.com/dipayan900/NANDINI-Android./actions")
+                2 -> openUrl("https://github.com/dipayan900/NANDINI-Android./pull/1")
+                3 -> copyText("NANDINI Android/Kotlin build diagnosis:\n1. Read the first real compiler error, not only later cascading errors.\n2. Inspect the referenced file and surrounding code.\n3. Identify the confirmed root cause and smallest reversible fix.\n4. Preserve chat/history, Firebase AI, voice, camera, image generation, wake word and companion overlay.\n5. Run the GitHub Actions APK build and inspect its complete log if it fails.\n6. Never claim a fix is verified until the build succeeds.")
+                4 -> copyText("NANDINI APK release checklist:\n1. Build on feature/myraa-style-avatar-safe.\n2. Confirm the latest GitHub Actions run succeeded and the artifact belongs to the latest commit.\n3. Install on the target Android phone.\n4. Test all six Studio features plus chat, saved history, voice, wake word, camera, image generation and companion overlay.\n5. Check logs for crashes and test offline/permission-denied cases.\n6. Keep the last known-good APK for rollback.")
             }
         }.setNegativeButton("CLOSE", null).show()
+    }
+
+    private fun openUrl(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: Exception) {
+            Toast.makeText(this, "Couldn't open the link on this device.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun showModes() {
@@ -243,12 +259,13 @@ class NandiniStudioActivity : Activity() {
             "Work with an image or camera input only when I provide or activate it",
             "Prefer short voice-friendly replies and explicit listening controls"
         )
-        AlertDialog.Builder(this).setTitle("🎭 Adaptive Mode").setItems(modes) { _, which ->
+        val current = prefs.getString("mode", "Companion") ?: "Companion"
+        AlertDialog.Builder(this).setTitle("🎭 Adaptive Mode • Current: " + current).setItems(modes) { _, which ->
             prefs.edit().putString("mode", modes[which]).apply()
             val text = "NANDINI mode: " + modes[which] + ". " + descriptions[which]
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("NANDINI mode prompt", text))
-            Toast.makeText(this, "Mode saved locally and copied. Paste it into chat to apply it.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, modes[which] + " mode saved. It will guide new AI replies.", Toast.LENGTH_LONG).show()
         }.setNegativeButton("CLOSE", null).show()
     }
 
