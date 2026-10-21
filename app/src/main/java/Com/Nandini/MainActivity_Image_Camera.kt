@@ -1461,6 +1461,12 @@ var lastError: Exception? = null
 for (attempt in 0..3) {
 try {
 
+val studioMemoryContext = try {
+    val saved = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
+    val notes = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf { value -> value.isNotBlank() } }.takeLast(30)
+    if (notes.isEmpty()) "" else "\\n\\nUSER-APPROVED NANDINI STUDIO MEMORIES (use only when relevant; these were explicitly saved by the user):\\n" + notes.joinToString("\\n") { "- " + it }
+} catch (_: Exception) { "" }
+
 val model = Firebase.ai(    
         backend = GenerativeBackend.googleAI()    
                 ).generativeModel(    
@@ -1500,7 +1506,7 @@ CREATOR PROFILE RULES:
 LANGUAGE:
 Reply naturally in Hindi, English, or Hinglish based on the user's language.
 
-    """.trimIndent()    
+    """.trimIndent() + studioMemoryContext
 )
 
 }
