@@ -143,11 +143,21 @@ class NandiniStudioActivity : Activity() {
     }
 
     private fun showTaskEngine() {
-        val input = EditText(this).apply { hint = "Describe a goal to plan..."; setTextColor(white); setHintTextColor(muted) }
+        val input = EditText(this).apply {
+            hint = "Describe a goal to plan..."
+            setTextColor(white); setHintTextColor(muted)
+        }
         val saved = readArray("tasks")
         val log = TextView(this).apply {
             setTextColor(muted); textSize = 12f
-            val lines = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("title") }
+            val lines = (0 until saved.length()).mapNotNull { i ->
+                saved.optJSONObject(i)?.let { task ->
+                    val steps = task.optJSONArray("steps") ?: JSONArray()
+                    var complete = 0
+                    for (j in 0 until steps.length()) if (steps.optJSONObject(j)?.optBoolean("done", false) == true) complete++
+                    task.optString("title") + "  •  " + complete + "/" + steps.length() + " steps"
+                }
+            }
             text = if (lines.isEmpty()) "No saved plans yet." else "RECENT PLANS\n" + lines.takeLast(8).joinToString("\n") { "• " + it }
             setPadding(0, dp(10), 0, 0)
         }
@@ -155,7 +165,7 @@ class NandiniStudioActivity : Activity() {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8))
             addView(input)
             addView(TextView(this@NandiniStudioActivity).apply {
-                text = "Planning is local and transparent. Review the checklist before taking real-world actions."
+                text = "Plans and checkbox progress are saved locally. Review steps before real-world actions."
                 setTextColor(muted); textSize = 12f
             })
             addView(log)
@@ -164,32 +174,67 @@ class NandiniStudioActivity : Activity() {
             .setPositiveButton("MAKE PLAN") { _, _ ->
                 val title = input.text.toString().trim()
                 if (title.isNotEmpty()) {
+                    val taskId = System.currentTimeMillis().toString()
+                    val steps = JSONArray()
+                    listOf(
+                        "Define the desired result and constraints",
+                        "Inspect current files, settings and dependencies",
+                        "Break the work into small, reversible steps",
+                        "Implement one step and run the relevant checks",
+                        "Review failures and fix the confirmed cause",
+                        "Test the result and keep a rollback path"
+                    ).forEach { steps.put(JSONObject().put("title", it).put("done", false)) }
                     val arr = readArray("tasks")
-                    arr.put(JSONObject().put("title", title).put("createdAt", System.currentTimeMillis()))
+                    arr.put(JSONObject().put("id", taskId).put("title", title)
+                        .put("createdAt", System.currentTimeMillis()).put("steps", steps))
                     while (arr.length() > 30) arr.remove(0)
-                    writeArray("tasks", arr); showPlan(title)
+                    writeArray("tasks", arr)
+                    showPlan(taskId)
                 }
             }.setNegativeButton("CLOSE", null).show()
     }
 
-    private fun showPlan(title: String) {
-        val steps = listOf(
-            "Clarify the desired result and constraints",
-            "Inspect current files, settings and dependencies before changing anything",
-            "Break work into small, reversible steps",
-            "Implement one step and run relevant checks",
-            "Review errors and fix only the confirmed cause",
-            "Test the result and keep a rollback path"
-        )
-        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(8), dp(18), dp(8)) }
-        box.addView(TextView(this).apply { text = title; textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setTextColor(white) })
-        steps.forEach { step ->
-            box.addView(CheckBox(this).apply {
-                text = step; textSize = 13f; setTextColor(white)
-                buttonTintList = android.content.res.ColorStateList.valueOf(accent)
-            })
+    private fun showPlan(taskId: String) {
+        val tasks = readArray("tasks")
+        var task: JSONObject? = null
+        for (i in 0 until tasks.length()) {
+            val candidate = tasks.optJSONObject(i)
+            if (candidate?.optString("id") == taskId) { task = candidate; break }
         }
-        AlertDialog.Builder(this).setTitle("Your task plan").setView(box).setPositiveButton("DONE", null).show()
+        val current = task ?: return
+        val steps = current.optJSONArray("steps") ?: JSONArray()
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(8), dp(18), dp(8))
+        }
+        box.addView(TextView(this).apply {
+            text = current.optString("title"); textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD; setTextColor(white)
+        })
+        val progress = TextView(this).apply { setTextColor(muted); textSize = 12f }
+        fun refreshProgress() {
+            var complete = 0
+            for (i in 0 until steps.length()) if (steps.optJSONObject(i)?.optBoolean("done", false) == true) complete++
+            progress.text = "Progress: " + complete + " / " + steps.length() + " complete"
+        }
+        box.addView(progress)
+        refreshProgress()
+        for (i in 0 until steps.length()) {
+            val step = steps.optJSONObject(i) ?: continue
+            val checkbox = CheckBox(this).apply {
+                text = step.optString("title"); textSize = 13f; setTextColor(white)
+                isChecked = step.optBoolean("done", false)
+                buttonTintList = android.content.res.ColorStateList.valueOf(accent)
+            }
+            checkbox.setOnCheckedChangeListener { _, checked ->
+                step.put("done", checked)
+                writeArray("tasks", tasks)
+                refreshProgress()
+            }
+            box.addView(checkbox)
+        }
+        AlertDialog.Builder(this).setTitle("Your saved task plan").setView(box)
+            .setPositiveButton("DONE", null).show()
     }
 
     private fun showSystemCentre() {
