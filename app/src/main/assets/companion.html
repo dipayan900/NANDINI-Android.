@@ -117,6 +117,7 @@ let lastFrameAt = 0;
 let targetHappy = 0;
 let currentHappy = 0;
 let currentEmotion = 'neutral';
+const expressionValues = {};
 let base = {};
 
 function setCompanionEmotion(next) {
@@ -261,7 +262,11 @@ function animate(now) {
     const moodBlend = Math.min(1, delta * 3.5);
     ['happy','sad','surprised','angry','relaxed'].forEach(name => {
       const baseValue = name === 'happy' ? currentHappy : 0;
-      setExpression(name, Math.max(baseValue, mood[name] || 0) * moodBlend);
+      const target = Math.max(baseValue, mood[name] || 0);
+      const previous = expressionValues[name] || 0;
+      const next = previous + (target - previous) * moodBlend;
+      expressionValues[name] = next;
+      setExpression(name, next);
     });
     if (elapsed >= nextBlinkAt && blinkStart < 0) blinkStart = elapsed;
     if (blinkStart >= 0) {
