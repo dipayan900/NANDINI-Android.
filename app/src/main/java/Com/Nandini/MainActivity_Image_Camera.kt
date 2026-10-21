@@ -718,10 +718,13 @@ val companionActions = LinearLayout(this).apply {
 }
 companionActions.addView(makeButton("♡ COMPANION", panel) {
     toggleCompanionOverlay()
-}, LinearLayout.LayoutParams(0, dp(40), 1f).apply { rightMargin = dp(5) })
-companionActions.addView(makeButton("◉ SCREEN VISION", panel) {
+}, LinearLayout.LayoutParams(0, dp(40), 1f).apply { rightMargin = dp(4) })
+companionActions.addView(makeButton("◉ SCREEN", panel) {
     showScreenUnderstanding()
-}, LinearLayout.LayoutParams(0, dp(40), 1f))
+}, LinearLayout.LayoutParams(0, dp(40), 0.8f).apply { rightMargin = dp(4) })
+companionActions.addView(makeButton("✦ STUDIO", panel) {
+    startActivity(Intent(this, NandiniStudioActivity::class.java))
+}, LinearLayout.LayoutParams(0, dp(40), 0.8f))
 root.addView(companionActions, LinearLayout.LayoutParams(-1, dp(44)))
 
 
