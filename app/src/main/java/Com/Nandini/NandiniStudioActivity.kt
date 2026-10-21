@@ -123,7 +123,7 @@ class NandiniStudioActivity : Activity() {
         }
         AlertDialog.Builder(this).setTitle("🧠 Memory Palace").setView(view)
             .setPositiveButton("ADD MEMORY") { _, _ -> addMemoryDialog() }
-            .setNegativeButton("CLOSE", null).show()
+            .setNegativeButton("CLOSE", null).show().also { styleDialog(it) }
     }
 
     private fun addMemoryDialog() {
@@ -136,10 +136,10 @@ class NandiniStudioActivity : Activity() {
                     val arr = readArray("memory")
                     arr.put(JSONObject().put("text", value).put("createdAt", System.currentTimeMillis()))
                     writeArray("memory", arr)
-                    Toast.makeText(this, "Memory saved on this device.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Memory saved on this device.", Toast.LENGTH_SHORT).show().also { styleDialog(it) }
                     showMemoryPalace()
                 }
-            }.setNegativeButton("CANCEL", null).show()
+            }.setNegativeButton("CANCEL", null).show().also { styleDialog(it) }
     }
 
     private fun showTaskEngine() {
@@ -191,7 +191,7 @@ class NandiniStudioActivity : Activity() {
                     writeArray("tasks", arr)
                     showPlan(taskId)
                 }
-            }.setNegativeButton("CLOSE", null).show()
+            }.setNegativeButton("CLOSE", null).show().also { styleDialog(it) }
     }
 
     private fun showPlan(taskId: String) {
@@ -234,7 +234,7 @@ class NandiniStudioActivity : Activity() {
             box.addView(checkbox)
         }
         AlertDialog.Builder(this).setTitle("Your saved task plan").setView(box)
-            .setPositiveButton("DONE", null).show()
+            .setPositiveButton("DONE", null).show().also { styleDialog(it) }
     }
 
     private fun showSystemCentre() {
@@ -262,10 +262,10 @@ class NandiniStudioActivity : Activity() {
         AlertDialog.Builder(this).setTitle("📱 System Intelligence").setMessage(info)
             .setPositiveButton("NETWORK SETTINGS") { _, _ ->
                 try { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
-                catch (_: Exception) { Toast.makeText(this, "Settings couldn't be opened.", Toast.LENGTH_SHORT).show() }
+                catch (_: Exception) { Toast.makeText(this, "Settings couldn't be opened.", Toast.LENGTH_SHORT).show().also { styleDialog(it) } }
             }.setNeutralButton("APP SETTINGS") { _, _ ->
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + packageName)))
-            }.setNegativeButton("CLOSE", null).show()
+            }.setNegativeButton("CLOSE", null).show().also { styleDialog(it) }
     }
 
     private fun showCreatorMode() {
@@ -286,11 +286,11 @@ class NandiniStudioActivity : Activity() {
                 4 -> copyText("NANDINI Android/Kotlin build diagnosis:\n1. Read the first real compiler error, not only later cascading errors.\n2. Inspect the referenced file and surrounding code.\n3. Identify the confirmed root cause and smallest reversible fix.\n4. Preserve chat/history, Firebase AI, voice, camera, image generation, wake word and companion overlay.\n5. Run the GitHub Actions APK build and inspect its complete log if it fails.\n6. Never claim a fix is verified until the build succeeds.")
                 4 -> copyText("NANDINI APK release checklist:\n1. Build on feature/myraa-style-avatar-safe.\n2. Confirm the latest GitHub Actions run succeeded and the artifact belongs to the latest commit.\n3. Install on the target Android phone.\n4. Test all six Studio features plus chat, saved history, voice, wake word, camera, image generation and companion overlay.\n5. Check logs for crashes and test offline/permission-denied cases.\n6. Keep the last known-good APK for rollback.")
             }
-        }.setNegativeButton("CLOSE", null).show()
+        }.setNegativeButton("CLOSE", null).show().also { styleDialog(it) }
     }
 
     private fun showLatestBuildStatus() {
-        Toast.makeText(this, "Checking the latest public GitHub Actions run…", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Checking the latest public GitHub Actions run…", Toast.LENGTH_SHORT).show().also { styleDialog(it) }
         Thread {
             var message = "Couldn't read the latest build status. Open GitHub Actions to check manually."
             var runUrl = "https://github.com/dipayan900/NANDINI-Android./actions"
@@ -329,7 +329,7 @@ class NandiniStudioActivity : Activity() {
                 AlertDialog.Builder(this).setTitle("🛠 Creator Build Monitor")
                     .setMessage(message)
                     .setPositiveButton("OPEN RUN") { _, _ -> openUrl(runUrl) }
-                    .setNegativeButton("CLOSE", null).show()
+                    .setNegativeButton("CLOSE", null).show().also { styleDialog(it) }
             }
         }.start()
     }
@@ -338,7 +338,7 @@ class NandiniStudioActivity : Activity() {
         try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         } catch (_: Exception) {
-            Toast.makeText(this, "Couldn't open the link on this device.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Couldn't open the link on this device.", Toast.LENGTH_SHORT).show().also { styleDialog(it) }
         }
     }
 
@@ -357,14 +357,14 @@ class NandiniStudioActivity : Activity() {
             val text = "NANDINI mode: " + modes[which] + ". " + descriptions[which]
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("NANDINI mode prompt", text))
-            Toast.makeText(this, modes[which] + " mode saved. It will guide new AI replies.", Toast.LENGTH_LONG).show()
-        }.setNegativeButton("CLOSE", null).show()
+            Toast.makeText(this, modes[which] + " mode saved. It will guide new AI replies.", Toast.LENGTH_LONG).show().also { styleDialog(it) }
+        }.setNegativeButton("CLOSE", null).show().also { styleDialog(it) }
     }
 
     private fun copyText(value: String) {
         val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("NANDINI Creator Mode", value))
-        Toast.makeText(this, "Copied to clipboard.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Copied to clipboard.", Toast.LENGTH_SHORT).show().also { styleDialog(it) }
     }
 
     private fun readArray(key: String): JSONArray = try { JSONArray(prefs.getString(key, "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
@@ -374,5 +374,33 @@ class NandiniStudioActivity : Activity() {
         backgroundTintList = android.content.res.ColorStateList.valueOf(panel)
         setOnClickListener { action() }
     }
+    private fun styleDialog(dialog: AlertDialog) {
+        val bg = android.graphics.Color.rgb(25, 8, 35)
+        val pink = android.graphics.Color.rgb(255, 126, 190)
+        val lavender = android.graphics.Color.rgb(211, 164, 255)
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.GradientDrawable().apply {
+            setColor(bg)
+            cornerRadius = dp(26).toFloat()
+            setStroke(dp(1), android.graphics.Color.rgb(123, 55, 150))
+        })
+        dialog.window?.setDimAmount(0.72f)
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(pink)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(lavender)
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.setTextColor(lavender)
+            val titleId = resources.getIdentifier("alertTitle", "id", "android")
+            dialog.findViewById<android.widget.TextView>(titleId)?.setTextColor(pink)
+            val messageId = resources.getIdentifier("message", "id", "android")
+            dialog.findViewById<android.widget.TextView>(messageId)?.setTextColor(lavender)
+            val listId = resources.getIdentifier("select_dialog_listview", "id", "android")
+            dialog.findViewById<android.widget.ListView>(listId)?.let { list ->
+                list.setBackgroundColor(bg)
+                for (i in 0 until list.childCount) {
+                    (list.getChildAt(i) as? android.widget.TextView)?.setTextColor(lavender)
+                }
+            }
+        }
+    }
+
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
