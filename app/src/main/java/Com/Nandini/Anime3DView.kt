@@ -55,6 +55,7 @@ class Anime3DView(
                 super.onPageFinished(view, url)
                 pageReady = true
                 pushStateToRenderer()
+                pushEmotionToRenderer()
                 setRendererVisible(isShown && windowVisibility == View.VISIBLE)
             }
 
@@ -85,6 +86,8 @@ class Anime3DView(
         setCompanionState(if (value) "speaking" else "idle")
     }
 
+    @Volatile private var companionEmotion: String = "neutral"
+
     fun setCompanionState(value: String) {
         companionState = when (value.lowercase()) {
             "listening", "thinking", "speaking" -> value.lowercase()
@@ -93,11 +96,28 @@ class Anime3DView(
         post { pushStateToRenderer() }
     }
 
+    fun setCompanionEmotion(value: String) {
+        companionEmotion = when (value.lowercase()) {
+            "happy", "sad", "surprised", "serious", "calm" -> value.lowercase()
+            else -> "neutral"
+        }
+        post { pushEmotionToRenderer() }
+    }
+
     private fun pushStateToRenderer() {
         if (!pageReady) return
         val state = companionState
         evaluateJavascript(
             "window.setCompanionState && window.setCompanionState('$state')",
+            null
+        )
+    }
+
+    private fun pushEmotionToRenderer() {
+        if (!pageReady) return
+        val emotion = companionEmotion
+        evaluateJavascript(
+            "window.setCompanionEmotion && window.setCompanionEmotion('$emotion')",
             null
         )
     }
