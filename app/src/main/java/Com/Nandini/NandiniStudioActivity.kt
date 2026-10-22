@@ -311,7 +311,45 @@ class NandiniStudioActivity : Activity() {
             box.addView(checkbox)
         }
         AlertDialog.Builder(this).setTitle("Your saved task plan").setView(box)
-            .setPositiveButton("DONE", null).show().also { styleDialog(it); it }
+            .setPositiveButton("EDIT TITLE") { _, _ -> renameTask(taskId) }
+            .setNeutralButton("DELETE PLAN") { _, _ -> deleteTask(taskId) }
+            .setNegativeButton("CLOSE", null).show().also { styleDialog(it); it }
+    }
+
+    private fun renameTask(taskId: String) {
+        val tasks = readArray("tasks")
+        val task = (0 until tasks.length()).mapNotNull { tasks.optJSONObject(it) }
+            .firstOrNull { it.optString("id") == taskId } ?: return
+        val input = EditText(this).apply {
+            setText(task.optString("title"))
+            setTextColor(white)
+            setHintTextColor(muted)
+            hint = "Task title"
+        }
+        AlertDialog.Builder(this).setTitle("Rename task plan").setView(input)
+            .setPositiveButton("SAVE") { _, _ ->
+                val title = input.text.toString().trim()
+                if (title.isNotEmpty()) {
+                    task.put("title", title)
+                    writeArray("tasks", tasks)
+                    showPlan(taskId)
+                }
+            }.setNegativeButton("CANCEL", null).show().also { styleDialog(it); it }
+    }
+
+    private fun deleteTask(taskId: String) {
+        AlertDialog.Builder(this).setTitle("Delete task plan?")
+            .setMessage("This removes this plan and its checklist from this device.")
+            .setPositiveButton("DELETE") { _, _ ->
+                val current = readArray("tasks")
+                val rebuilt = JSONArray()
+                for (i in 0 until current.length()) {
+                    val task = current.optJSONObject(i) ?: continue
+                    if (task.optString("id") != taskId) rebuilt.put(task)
+                }
+                writeArray("tasks", rebuilt)
+                Toast.makeText(this, "Task plan deleted.", Toast.LENGTH_SHORT).show()
+            }.setNegativeButton("CANCEL", null).show().also { styleDialog(it); it }
     }
 
     private fun showSystemCentre() {
