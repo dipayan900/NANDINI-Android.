@@ -48,7 +48,7 @@ class NandiniCommandCenterActivity : Activity() {
             )
         }
         root.addView(TextView(this).apply {
-            text = "N A N D I N I"; textSize = 24f; gravity = Gravity.CENTER
+            text = "A R U S H I"; textSize = 24f; gravity = Gravity.CENTER
             letterSpacing = .12f; typeface = Typeface.DEFAULT_BOLD; setTextColor(accent)
         }, LinearLayout.LayoutParams(-1, dp(42)))
         root.addView(TextView(this).apply {
