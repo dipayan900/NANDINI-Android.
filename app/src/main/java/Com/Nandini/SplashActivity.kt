@@ -65,7 +65,7 @@ class SplashActivity : Activity() {
             setShadowLayer(24f, 0f, 0f, Color.MAGENTA)
         }, LinearLayout.LayoutParams(-1, 70))
         content.addView(TextView(this).apply {
-            text = "N A N D I N I"
+            text = "A R U S H I"
             textSize = 30f
             gravity = Gravity.CENTER
             letterSpacing = .10f
