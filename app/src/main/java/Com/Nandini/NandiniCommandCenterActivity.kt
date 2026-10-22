@@ -87,7 +87,7 @@ class NandiniCommandCenterActivity : Activity() {
         })
     }
 
-    private fun cardButton(title: String, subtitle: String? = null, action: () -> Unit): TextView {
+    private fun cardButton(title: String, subtitle: String? = null, action: () -> Unit): LinearLayout {
         val view = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(15), dp(13), dp(15), dp(13))
             background = android.graphics.drawable.GradientDrawable().apply {
@@ -100,7 +100,7 @@ class NandiniCommandCenterActivity : Activity() {
             text = subtitle; textSize = 12f; setTextColor(muted); setPadding(0, dp(5), 0, 0)
         })
         content.addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) })
-        return TextView(this)
+        return view
     }
 
     private fun calculator() {
