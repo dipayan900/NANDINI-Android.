@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="color-scheme" content="dark">
+<style>
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent!important}
+  body{touch-action:pan-y;-webkit-tap-highlight-color:transparent}
+  #stage{position:fixed;inset:0;overflow:hidden;background:transparent;isolation:isolate}
+  canvas{position:absolute;inset:0;z-index:2;display:block;width:100%;height:100%;outline:none;background:transparent;touch-action:pan-y}
+  .ambient{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}
+  .aura{position:absolute;width:72%;aspect-ratio:1;left:14%;bottom:8%;border-radius:50%;
+    background:radial-gradient(circle,rgba(151,83,255,.20) 0%,rgba(111,54,205,.12) 38%,rgba(111,54,205,0) 72%);
+    filter:blur(5px);animation:auraBreathe 6.5s ease-in-out infinite}
+  .ring{position:absolute;left:50%;bottom:9%;width:66%;aspect-ratio:1;border:1px solid rgba(196,151,255,.24);
+    border-radius:50%;transform:translateX(-50%) rotateX(68deg);box-shadow:0 0 16px rgba(151,83,255,.10),inset 0 0 12px rgba(151,83,255,.08)}
+  .ring.r2{width:52%;bottom:12%;border-color:rgba(255,151,211,.18);transform:translateX(-50%) rotateX(68deg) rotate(22deg)}
+  .ring.r3{width:77%;bottom:6%;border-style:dashed;border-color:rgba(155,132,255,.12);transform:translateX(-50%) rotateX(68deg) rotate(-12deg)}
+  .frontFx{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden}
+  .spark{position:absolute;width:3px;height:3px;border-radius:50%;background:#e8d6ff;box-shadow:0 0 8px 2px rgba(176,121,255,.55);opacity:0;animation:floatSpark 7s ease-in-out infinite}
+  .s1{left:16%;top:35%;animation-delay:-1s}.s2{left:78%;top:43%;animation-delay:-4s;width:2px;height:2px}
+  .s3{left:23%;top:66%;animation-delay:-2.5s;width:2px;height:2px}.s4{left:83%;top:72%;animation-delay:-5s}
+  #fallback{display:none;position:absolute;inset:0;z-index:5;align-items:center;justify-content:center;padding:18px;
+    color:rgba(235,220,255,.86);font:12px system-ui,sans-serif;text-align:center;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 65%,rgba(100,54,160,.16),transparent 70%)}
+  @keyframes auraBreathe{0%,100%{opacity:.55;transform:scale(.94)}50%{opacity:1;transform:scale(1.06)}}
+  @keyframes floatSpark{0%,100%{opacity:0;transform:translate3d(0,10px,0) scale(.7)}25%,70%{opacity:.8}50%{transform:translate3d(5px,-15px,0) scale(1.15)}}
+  @media(prefers-reduced-motion:reduce){.aura,.spark{animation:none}}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/three/addons/",
+    "@pixiv/three-vrm": "./vendor/three-vrm.module.js"
+  }
+}
+</script>
+<script>
+  // Keep a useful, transparent fallback if WebGL or a remote module fails to load.
+  window.__nandiniShowFallback = function(message) {
+    var node = document.getElementById('fallback');
+    if (node) { node.style.display = 'flex'; node.textContent = message || 'NANDINI 3D companion is temporarily unavailable'; }
+  };
+  window.addEventListener('error', function(event) {
+    if (event && event.target && event.target.tagName === 'SCRIPT') {
+      window.__nandiniShowFallback('3D renderer could not load. Check your internet connection and reopen NANDINI.');
+    }
+  }, true);
+  window.addEventListener('unhandledrejection', function() {
+    window.__nandiniShowFallback('3D renderer could not start. Check your internet connection and reopen NANDINI.');
+  });
+  setTimeout(function() {
+    if (!window.__nandiniRendererReady) window.__nandiniShowFallback('Loading the 3D companion is taking longer than expected. Check your internet connection.');
+  }, 12000);
+</script>
+</head>
+<body>
+<div id="stage">
+  <div class="ambient" aria-hidden="true">
+    <div class="aura"></div><div class="ring"></div><div class="ring r2"></div><div class="ring r3"></div>
+  </div>
+  <div class="frontFx" aria-hidden="true"><i class="spark s1"></i><i class="spark s2"></i><i class="spark s3"></i><i class="spark s4"></i></div>
+  <div id="fallback">NANDINI 3D companion</div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+
+const stage = document.getElementById('stage');
+const fallback = document.getElementById('fallback');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({
+    alpha: true, antialias: true, powerPreference: 'low-power', premultipliedAlpha: false
+  });
+} catch (error) {
+  window.__nandiniShowFallback('3D graphics are unavailable on this device right now.');
+  throw error;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+renderer.setSize(Math.max(1, stage.clientWidth), Math.max(1, stage.clientHeight), false);
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+stage.insertBefore(renderer.domElement, fallback);
+window.__nandiniRendererReady = true;
+
+const scene = new THREE.Scene();
+scene.background = null;
+const camera = new THREE.PerspectiveCamera(38, stage.clientWidth / Math.max(1, stage.clientHeight), 0.05, 30);
+camera.position.set(0, 0.76, 2.75);
+camera.lookAt(0, 0.76, 0);
+scene.add(new THREE.HemisphereLight(0xe6e5ff, 0x32213f, 1.8));
+const keyLight = new THREE.DirectionalLight(0xffe7f2, 2.1);
+keyLight.position.set(-2.5, 4, 3);
+scene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x9c8bff, 1.35);
+rimLight.position.set(2, 2.5, -2);
+scene.add(rimLight);
+const fillLight = new THREE.PointLight(0x9b69ff, 0.42, 5);
+fillLight.position.set(0, 1.1, 1.2);
+scene.add(fillLight);
+
+let vrm = null;
+let state = 'idle';
+let lastTime = 0;
+let elapsed = 0;
+let nextBlinkAt = 2.4 + Math.random() * 2.0;
+let blinkStart = -1;
+let lastFrameAt = 0;
+let targetHappy = 0;
+let currentHappy = 0;
+let currentEmotion = 'neutral';
+const expressionValues = {};
+let base = {};
+
+function setCompanionEmotion(next) {
+  currentEmotion = ['happy','sad','surprised','serious','calm'].includes(next) ? next : 'neutral';
+}
+window.setCompanionEmotion = setCompanionEmotion;
+
+function setExpression(name, value) {
+  try { vrm?.expressionManager?.setValue(name, value); } catch (_) {}
+}
+function setCompanionState(next) {
+  state = ['listening','thinking','speaking'].includes(next) ? next : 'idle';
+  targetHappy = state === 'listening' ? 0.16 : state === 'speaking' ? 0.04 : 0;
+  if (state === 'thinking') targetHappy = 0;
+}
+window.setCompanionState = setCompanionState;
+let companionVisible = true;
+let animationFrameId = 0;
+window.setCompanionVisible = visible => {
+  companionVisible = !!visible;
+  if (companionVisible && !document.hidden && !animationFrameId) {
+    lastTime = 0;
+    lastFrameAt = 0;
+    animationFrameId = requestAnimationFrame(animate);
+  }
+};
+
+const loader = new GLTFLoader();
+loader.register(parser => new VRMLoaderPlugin(parser));
+loader.load('./nandini-companion.vrm', gltf => {
+  vrm = gltf.userData.vrm;
+  if (!vrm) {
+    window.__nandiniShowFallback('The NANDINI avatar model could not be loaded.');
+    return;
+  }
+  VRMUtils.rotateVRM0(vrm);
+  scene.add(vrm.scene);
+  vrm.scene.position.set(0, -0.025, 0);
+  const bounds = new THREE.Box3().setFromObject(vrm.scene);
+  const height = Math.max(0.1, bounds.max.y - bounds.min.y);
+  vrm.scene.scale.setScalar(1.48 / height);
+
+  const bone = name => vrm.humanoid?.getNormalizedBoneNode(name);
+  const leftUpperArm = bone('leftUpperArm');
+  const rightUpperArm = bone('rightUpperArm');
+  const leftLowerArm = bone('leftLowerArm');
+  const rightLowerArm = bone('rightLowerArm');
+  const chest = bone('chest') || bone('upperChest') || bone('spine');
+  const head = bone('head');
+  const leftShoulder = bone('leftShoulder');
+  const rightShoulder = bone('rightShoulder');
+
+  // Relax the sample model's T-pose; remember the resting pose before adding subtle motion.
+  if (leftUpperArm) { leftUpperArm.rotation.z = 1.08; leftUpperArm.rotation.x = 0.04; }
+  if (rightUpperArm) { rightUpperArm.rotation.z = -1.08; rightUpperArm.rotation.x = 0.04; }
+  if (leftLowerArm) leftLowerArm.rotation.z = 0.12;
+  if (rightLowerArm) rightLowerArm.rotation.z = -0.12;
+  base = {
+    headX: head?.rotation.x || 0, headY: head?.rotation.y || 0, headZ: head?.rotation.z || 0,
+    chestX: chest?.rotation.x || 0, chestY: chest?.rotation.y || 0,
+    leftArmX: leftUpperArm?.rotation.x || 0, leftArmZ: leftUpperArm?.rotation.z || 0,
+    rightArmX: rightUpperArm?.rotation.x || 0, rightArmZ: rightUpperArm?.rotation.z || 0,
+    leftShoulderZ: leftShoulder?.rotation.z || 0, rightShoulderZ: rightShoulder?.rotation.z || 0
+  };
+  camera.position.set(0, 0.76, 2.75);
+  camera.lookAt(0, 0.76, 0);
+  fallback.style.display = 'none';
+}, undefined, err => {
+  console.error('NANDINI VRM load failed', err);
+  window.__nandiniShowFallback('NANDINI 3D companion could not load. Check your connection and reopen the app.');
+});
+
+function resize() {
+  const w = Math.max(1, stage.clientWidth);
+  const h = Math.max(1, stage.clientHeight);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+}
+if ('ResizeObserver' in window) new ResizeObserver(resize).observe(stage);
+else window.addEventListener('resize', resize);
+
+function animate(now) {
+  animationFrameId = 0;
+  if (!companionVisible || document.hidden) { lastTime = 0; return; }
+  const fpsInterval = state === 'idle' ? 50 : 33;
+  if (now - lastFrameAt < fpsInterval) {
+    animationFrameId = requestAnimationFrame(animate);
+    return;
+  }
+  const delta = Math.min((now - (lastTime || now)) / 1000, 0.05);
+  lastTime = now;
+  lastFrameAt = now;
+  elapsed += delta;
+
+  if (vrm) {
+    const bone = name => vrm.humanoid?.getNormalizedBoneNode(name);
+    const head = bone('head');
+    const chest = bone('chest') || bone('upperChest') || bone('spine');
+    const leftUpperArm = bone('leftUpperArm');
+    const rightUpperArm = bone('rightUpperArm');
+    const leftShoulder = bone('leftShoulder');
+    const rightShoulder = bone('rightShoulder');
+
+    // Gentle breathing and small balance shifts make idle movement feel less robotic.
+    const breath = Math.sin(elapsed * 1.35) * 0.012;
+    const talkMotion = state === 'speaking' ? Math.sin(elapsed * 4.2) : 0;
+    if (chest) {
+      chest.rotation.x = (base.chestX || 0) + breath * 0.7 + (state === 'thinking' ? -0.025 : 0);
+      chest.rotation.y = (base.chestY || 0) + Math.sin(elapsed * 0.48) * 0.018;
+    }
+    if (head) {
+      const headSway = Math.sin(elapsed * (state === 'speaking' ? 2.4 : 0.72));
+      head.rotation.y = (base.headY || 0) + headSway * (state === 'thinking' ? 0.13 : state === 'listening' ? 0.035 : 0.055);
+      head.rotation.x = (base.headX || 0) + (state === 'thinking' ? -0.09 + Math.sin(elapsed * 0.7) * 0.018
+        : state === 'listening' ? 0.025 : Math.sin(elapsed * 1.15) * 0.012) + (state === 'speaking' ? talkMotion * 0.012 : 0);
+      head.rotation.z = (base.headZ || 0) + Math.sin(elapsed * 0.54) * 0.012;
+    }
+    if (leftUpperArm) {
+      leftUpperArm.rotation.z = (base.leftArmZ || 0) + Math.sin(elapsed * 0.78) * 0.012;
+      leftUpperArm.rotation.x = (base.leftArmX || 0) + breath * 0.7;
+    }
+    if (rightUpperArm) {
+      rightUpperArm.rotation.z = (base.rightArmZ || 0) - Math.sin(elapsed * 0.78) * 0.012;
+      rightUpperArm.rotation.x = (base.rightArmX || 0) + breath * 0.7;
+    }
+    if (leftShoulder) leftShoulder.rotation.z = (base.leftShoulderZ || 0) + breath * 0.5;
+    if (rightShoulder) rightShoulder.rotation.z = (base.rightShoulderZ || 0) - breath * 0.5;
+    vrm.scene.position.y = -0.025 + breath * 0.65 + Math.sin(elapsed * (state === 'speaking' ? 3.2 : 1.0)) * (state === 'speaking' ? 0.006 : 0.003);
+
+    currentHappy += (targetHappy - currentHappy) * Math.min(1, delta * 4);
+    const moodTargets = {
+      happy: { happy: 0.68, sad: 0, surprised: 0, angry: 0, relaxed: 0.08 },
+      sad: { happy: 0, sad: 0.58, surprised: 0, angry: 0, relaxed: 0.05 },
+      surprised: { happy: 0.12, sad: 0, surprised: 0.65, angry: 0, relaxed: 0 },
+      serious: { happy: 0, sad: 0, surprised: 0, angry: 0.12, relaxed: 0 },
+      calm: { happy: 0.08, sad: 0, surprised: 0, angry: 0, relaxed: 0.48 },
+      neutral: { happy: 0, sad: 0, surprised: 0, angry: 0, relaxed: 0 }
+    };
+    const mood = moodTargets[currentEmotion] || moodTargets.neutral;
+    const moodBlend = Math.min(1, delta * 3.5);
+    ['happy','sad','surprised','angry','relaxed'].forEach(name => {
+      const baseValue = name === 'happy' ? currentHappy : 0;
+      const target = Math.max(baseValue, mood[name] || 0);
+      const previous = expressionValues[name] || 0;
+      const next = previous + (target - previous) * moodBlend;
+      expressionValues[name] = next;
+      setExpression(name, next);
+    });
+    if (elapsed >= nextBlinkAt && blinkStart < 0) blinkStart = elapsed;
+    if (blinkStart >= 0) {
+      const t = (elapsed - blinkStart) / 0.13;
+      const blink = t < 0.5 ? t * 2 : Math.max(0, 1 - (t - 0.5) * 2);
+      setExpression('blink', Math.min(1, blink));
+      if (t >= 1) {
+        setExpression('blink', 0);
+        blinkStart = -1;
+        nextBlinkAt = elapsed + 2.4 + Math.random() * 3.8;
+      }
+    }
+    const mouth = state === 'speaking' ? 0.12 + (0.5 + 0.5 * Math.sin(elapsed * 10.5)) * 0.48 : 0;
+    setExpression('aa', mouth);
+    if (state !== 'speaking') setExpression('aa', 0);
+    vrm.update(delta);
+  }
+  renderer.render(scene, camera);
+  animationFrameId = requestAnimationFrame(animate);
+}
+document.addEventListener('visibilitychange', () => {
+  lastTime = 0;
+  lastFrameAt = 0;
+  if (!document.hidden && companionVisible && !animationFrameId) {
+    animationFrameId = requestAnimationFrame(animate);
+  }
+});
+animationFrameId = requestAnimationFrame(animate);
+</script>
+</body>
+</html>

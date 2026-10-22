@@ -1,6 +1,13 @@
 package com.dipayan.nandini
 
 import android.app.Service
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Color
@@ -35,8 +42,10 @@ class CompanionOverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_CLOSE) {
+        promoteToForeground()
+        if (intent?.action == ACTION_CLOSE || intent?.action == ACTION_TOGGLE && root != null) {
             removeOverlay()
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -52,9 +61,10 @@ class CompanionOverlayService : Service() {
         container.setBackgroundColor(Color.TRANSPARENT)
 
         val avatar = Anime3DView(this)
-        container.addView(avatar, FrameLayout.LayoutParams(dp(174), dp(300), Gravity.CENTER))
+        container.addView(avatar, FrameLayout.LayoutParams(dp(164), dp(280), Gravity.CENTER))
         val close = TextView(this).apply {
             text = "×"
+            contentDescription = "Close NANDINI floating companion"
             textSize = 20f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
@@ -70,19 +80,23 @@ class CompanionOverlayService : Service() {
             stopSelf()
         }
 
+        val savedPosition = getSharedPreferences("nandini_companion_overlay", Context.MODE_PRIVATE)
         val lp = WindowManager.LayoutParams(
-            dp(if (expanded) 190 else 174),
-            dp(if (expanded) 320 else 300),
+            dp(if (expanded) 210 else 174),
+            dp(if (expanded) 350 else 300),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dp(18)
-            y = dp(180)
+            x = savedPosition.getInt("x", dp(18)).coerceAtLeast(0)
+            y = savedPosition.getInt("y", dp(180)).coerceAtLeast(0)
         }
-        container.setOnTouchListener { _, event ->
+        // WebView consumes touch events, so attach the drag handler to BOTH the
+        // avatar itself and its transparent container. This makes dragging work
+        // when the finger starts directly on the visible character.
+        val dragListener = View.OnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX
@@ -96,25 +110,40 @@ class CompanionOverlayService : Service() {
                     val dx = (event.rawX - downX).toInt()
                     val dy = (event.rawY - downY).toInt()
                     if (abs(dx) > dp(3) || abs(dy) > dp(3)) {
-                        lp.x = (startX + dx).coerceAtLeast(0)
-                        lp.y = (startY + dy).coerceAtLeast(0)
+                        lp.x = (startX + dx).coerceIn(0, (resources.displayMetrics.widthPixels - lp.width).coerceAtLeast(0))
+                        lp.y = (startY + dy).coerceIn(0, (resources.displayMetrics.heightPixels - lp.height).coerceAtLeast(0))
                         runCatching { wm.updateViewLayout(container, lp) }
                     }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
                     val moved = abs(event.rawX - downX) > dp(8) || abs(event.rawY - downY) > dp(8)
-                    if (!moved && System.currentTimeMillis() - downAt < 500L) {
+                    if (moved) {
+                        getSharedPreferences("nandini_companion_overlay", Context.MODE_PRIVATE)
+                            .edit().putInt("x", lp.x).putInt("y", lp.y).apply()
+                    } else if (System.currentTimeMillis() - downAt < 500L) {
                         expanded = !expanded
-                        avatar.setSpeaking(expanded)
-                        container.animate().scaleX(1.06f).scaleY(1.06f).setDuration(100)
-                            .withEndAction { container.animate().scaleX(1f).scaleY(1f).setDuration(140).start() }.start()
+                        lp.width = dp(if (expanded) 210 else 174)
+                        lp.height = dp(if (expanded) 350 else 300)
+                        avatar.layoutParams = FrameLayout.LayoutParams(
+                            dp(if (expanded) 196 else 164),
+                            dp(if (expanded) 330 else 280),
+                            Gravity.CENTER
+                        )
+                        avatar.setCompanionState(if (expanded) "listening" else "idle")
+                        runCatching { wm.updateViewLayout(container, lp) }
+                        container.animate().scaleX(1.035f).scaleY(1.035f).setDuration(110)
+                            .withEndAction {
+                                container.animate().scaleX(1f).scaleY(1f).setDuration(160).start()
+                            }.start()
                     }
                     true
                 }
                 else -> true
             }
         }
+        container.setOnTouchListener(dragListener)
+        avatar.setOnTouchListener(dragListener)
         params = lp
         root = container
         runCatching { wm.addView(container, lp) }.onFailure {
@@ -126,6 +155,38 @@ class CompanionOverlayService : Service() {
         container.scaleY = 0.7f
         container.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(360)
             .setInterpolator(android.view.animation.OvershootInterpolator()).start()
+    }
+
+    private fun promoteToForeground() {
+        val channelId = "nandini_companion_overlay"
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.createNotificationChannel(
+                NotificationChannel(channelId, "NANDINI Companion", NotificationManager.IMPORTANCE_LOW).apply {
+                    description = "Keeps the floating companion active while you use other apps."
+                }
+            )
+        }
+        val openIntent = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, channelId)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(this)
+        }.setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("NANDINI companion is active")
+            .setContentText("Your floating companion is available. Return to NANDINI to turn it off.")
+            .setContentIntent(openIntent)
+            .setOngoing(true)
+            .build()
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     private fun removeOverlay() {
@@ -143,6 +204,8 @@ class CompanionOverlayService : Service() {
 
     companion object {
         const val ACTION_CLOSE = "com.dipayan.nandini.COMPANION_CLOSE"
+        const val ACTION_TOGGLE = "com.dipayan.nandini.COMPANION_TOGGLE"
+        private const val NOTIFICATION_ID = 7214
     }
 
     private inner class AnimeCompanionView : View(this@CompanionOverlayService) {
