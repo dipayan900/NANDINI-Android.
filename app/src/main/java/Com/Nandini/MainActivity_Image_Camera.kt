@@ -125,7 +125,7 @@ private fun connectSpotify(onConnected: (Boolean) -> Unit) {
             }
 
             override fun onFailure(error: Throwable) {
-                Log.e("NANDINI_SPOTIFY", "Spotify connection failed", error)
+                Log.e("ARUSHI_SPOTIFY", "Spotify connection failed", error)
                 onConnected(false)
             }
         }
@@ -306,7 +306,7 @@ private fun playSpotifyUri(uri: String, description: String) {
         runOnUiThread {
             if (!connected) {
                 addMessage(
-                    "NANDINI",
+                    "ARUSHI",
                     "Couldn't connect to Spotify. Open Spotify, sign in, and try again."
                 )
                 return@runOnUiThread
@@ -314,19 +314,19 @@ private fun playSpotifyUri(uri: String, description: String) {
 
             val remote = spotifyAppRemote
             if (remote == null || !remote.isConnected) {
-                addMessage("NANDINI", "Spotify connection was lost. Please try again.")
+                addMessage("ARUSHI", "Spotify connection was lost. Please try again.")
                 return@runOnUiThread
             }
 
             remote.playerApi.play(uri)
                 .setResultCallback {
-                    addMessage("NANDINI", "Playing $description on Spotify 🎵")
+                    addMessage("ARUSHI", "Playing $description on Spotify 🎵")
                     speakReply("Playing $description")
                 }
                 .setErrorCallback { error ->
-                    Log.e("NANDINI_SPOTIFY", "Playback failed", error)
+                    Log.e("ARUSHI_SPOTIFY", "Playback failed", error)
                     addMessage(
-                        "NANDINI",
+                        "ARUSHI",
                         "Spotify couldn't start playback. Check your account and playback availability."
                     )
                 }
@@ -346,18 +346,18 @@ private fun handleSpotifyCallback(intent: Intent?) {
     val error = callback.getQueryParameter("error")
 
     if (returnedState == null || returnedState != expectedState) {
-        addMessage("NANDINI", "Spotify authorization state didn't match. Please try again.")
+        addMessage("ARUSHI", "Spotify authorization state didn't match. Please try again.")
         return
     }
 
     if (error != null || code == null) {
-        addMessage("NANDINI", "Spotify authorization wasn't completed.")
+        addMessage("ARUSHI", "Spotify authorization wasn't completed.")
         return
     }
 
     val query = spotifyPrefs.getString("pending_query", null)
     if (query.isNullOrBlank()) {
-        addMessage("NANDINI", "Authorization succeeded. Ask me to play a song.")
+        addMessage("ARUSHI", "Authorization succeeded. Ask me to play a song.")
         return
     }
 
@@ -373,9 +373,9 @@ private fun handleSpotifyCallback(intent: Intent?) {
             }
             playSpotifyUri(result.second, result.first)
         } catch (e: Exception) {
-            Log.e("NANDINI_SPOTIFY", "Spotify search failed", e)
+            Log.e("ARUSHI_SPOTIFY", "Spotify search failed", e)
             addMessage(
-                "NANDINI",
+                "ARUSHI",
                 "Spotify search failed: ${e.message ?: "Please try again."}"
             )
         } finally {
@@ -398,7 +398,7 @@ private fun testSpotifyPlayback() {
                         Toast.LENGTH_LONG
                     ).show()
                 } catch (e: Exception) {
-                    Log.e("NANDINI_SPOTIFY", "Playback failed", e)
+                    Log.e("ARUSHI_SPOTIFY", "Playback failed", e)
                     Toast.makeText(
                         this,
                         "Spotify playback failed",
@@ -462,7 +462,7 @@ try {
             DebugAppCheckProviderFactory.getInstance()    
         )    
 } catch (e: Exception) {    
-    Log.e("NANDINI", "App Check setup failed", e)    
+    Log.e("ARUSHI", "App Check setup failed", e)    
 }    
 
 loadAllChats()
@@ -476,7 +476,7 @@ statusText.text = "WAKE DIAGNOSTIC: $previousWakeStage"
 renderHistory()    
 
 if (history.isEmpty()) {    
-    addMessage("NANDINI", "Hey! I'm NANDINI 💜\nTalk to me in Hindi, English, or Hinglish.")    
+    addMessage("ARUSHI", "Hey! I'm ARUSHI 💜\nTalk to me in Hindi, English, or Hinglish.")    
 }
 
 }
@@ -606,7 +606,7 @@ val avatarMoveHandle = TextView(this).apply {
     gravity = Gravity.CENTER
     setTextColor(Color.WHITE)
     alpha = 0.88f
-    contentDescription = "Drag to move NANDINI's 3D character"
+    contentDescription = "Drag to move ARUSHI's 3D character"
     background = android.graphics.drawable.GradientDrawable().apply {
         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
         cornerRadius = dp(12).toFloat()
@@ -754,7 +754,7 @@ composer.addView(pickImageButton, LinearLayout.LayoutParams(dp(46), dp(52)).appl
 composer.addView(cameraButton, LinearLayout.LayoutParams(dp(46), dp(52)).apply { rightMargin = dp(6) })
 
 input = EditText(this).apply {
-    hint = "Message NANDINI..."
+    hint = "Message ARUSHI..."
     setHintTextColor(Color.rgb(203, 170, 207))
     setTextColor(Color.WHITE)
     textSize = 16f
@@ -815,7 +815,7 @@ input.setOnEditorActionListener { _, actionId, _ ->
 
 private fun toggleCompanionOverlay() {
     if (!Settings.canDrawOverlays(this)) {
-        Toast.makeText(this, "Allow NANDINI to display over other apps to use the floating companion.", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Allow ARUSHI to display over other apps to use the floating companion.", Toast.LENGTH_LONG).show()
         val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
         startActivity(intent)
         return
@@ -827,7 +827,7 @@ private fun toggleCompanionOverlay() {
         } else {
             startService(intent)
         }
-        Toast.makeText(this, "Companion toggled. When you minimize NANDINI, drag her anywhere; tap × to close.", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Companion toggled. When you minimize ARUSHI, drag her anywhere; tap × to close.", Toast.LENGTH_LONG).show()
     } catch (e: Exception) {
         Toast.makeText(this, "Couldn't toggle the companion: ${e.message ?: "please retry"}", Toast.LENGTH_LONG).show()
     }
@@ -840,7 +840,7 @@ private fun showScreenUnderstanding() {
     if (!isEnabled) {
         android.app.AlertDialog.Builder(this)
             .setTitle("Enable Screen Understanding")
-            .setMessage("Optional Android Accessibility access lets NANDINI read text and labels exposed by the current app and identify which app is open. This is not OCR and some secure screens hide their content. Screen context is stored locally and is not automatically sent to AI. Enable it only if you're comfortable with this access.")
+            .setMessage("Optional Android Accessibility access lets ARUSHI read text and labels exposed by the current app and identify which app is open. This is not OCR and some secure screens hide their content. Screen context is stored locally and is not automatically sent to AI. Enable it only if you're comfortable with this access.")
             .setNegativeButton("NOT NOW", null)
             .setPositiveButton("OPEN SETTINGS") { _, _ ->
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -853,7 +853,7 @@ private fun showScreenUnderstanding() {
     val screenText = prefs.getString("visible_text", "").orEmpty()
     val age = System.currentTimeMillis() - prefs.getLong("updated_at", 0L)
     val message = if (screenText.isBlank() || age > 120_000L) {
-        "No recent visible text is available. Open the app you want NANDINI to inspect, then try again."
+        "No recent visible text is available. Open the app you want ARUSHI to inspect, then try again."
     } else {
         "Current app: $appId\n\nVisible text found:\n" + screenText.take(6500)
     }
@@ -861,7 +861,7 @@ private fun showScreenUnderstanding() {
         .setTitle("Screen Understanding")
         .setMessage(message)
         .setPositiveButton("DONE", null)
-        .setNeutralButton("ASK NANDINI ABOUT THIS") { _, _ ->
+        .setNeutralButton("ASK ARUSHI ABOUT THIS") { _, _ ->
             input.setText("Explain this screen and help me navigate it:\n$appId\n$screenText".take(7000))
             input.setSelection(input.text.length)
             input.requestFocus()
@@ -932,7 +932,7 @@ tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
 })
 } else {
 ttsReady = false
-Log.e("NANDINI", "Text-to-Speech initialization failed")
+Log.e("ARUSHI", "Text-to-Speech initialization failed")
 }
 }
 
@@ -960,7 +960,7 @@ try {
     engine.setSpeechRate(0.94f)    
     engine.setPitch(1.08f)    
 } catch (e: Exception) {    
-    Log.w("NANDINI", "Could not select preferred TTS voice", e)    
+    Log.w("ARUSHI", "Could not select preferred TTS voice", e)    
 }
 
 }
@@ -989,7 +989,7 @@ try {
     setAvatarState("speaking")
     tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nandini_reply")    
 } catch (e: Exception) {    
-    Log.e("NANDINI", "Speech output failed", e)    
+    Log.e("ARUSHI", "Speech output failed", e)    
 }
 
 }
@@ -1009,9 +1009,9 @@ private fun startWakeWordListening() {
 
     wakeWordEnabled = true
     wakeWordButton?.text = "🎙 WAKE: ON"
-    statusText.text = "● WAITING FOR “HEY NANDINI”"
+    statusText.text = "● WAITING FOR “HEY ARUSHI”"
     startWakeWordSession()
-    Toast.makeText(this, "Say “Hey NANDINI” while NANDINI stays open.", Toast.LENGTH_LONG).show()
+    Toast.makeText(this, "Say “Hey ARUSHI” while ARUSHI stays open.", Toast.LENGTH_LONG).show()
 }
 
 private fun stopWakeWordListening() {
@@ -1020,7 +1020,7 @@ private fun stopWakeWordListening() {
         wakeWordRecognizer?.cancel()
         wakeWordRecognizer?.destroy()
     } catch (e: Exception) {
-        Log.w("NANDINI_WAKE", "Could not cleanly stop wake-word recognition", e)
+        Log.w("ARUSHI_WAKE", "Could not cleanly stop wake-word recognition", e)
     }
     wakeWordRecognizer = null
 }
@@ -1035,7 +1035,7 @@ private fun startWakeWordSession() {
             wakeWordRecognizer = it
             it.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
-                    statusText.text = "● LISTENING FOR “HEY NANDINI”"
+                    statusText.text = "● LISTENING FOR “HEY ARUSHI”"
                 }
 
                 override fun onBeginningOfSpeech() {}
@@ -1118,7 +1118,7 @@ private fun startWakeWordSession() {
         recognizer.startListening(intent)
     } catch (e: Exception) {
         wakeWordSessionStarting = false
-        Log.e("NANDINI_WAKE", "Android wake-word listening failed", e)
+        Log.e("ARUSHI_WAKE", "Android wake-word listening failed", e)
         if (wakeWordEnabled) {
             statusText.text = "● WAKE WORD RETRYING..."
             scope.launch {
@@ -1149,7 +1149,7 @@ private fun launchSpeechRecognizer() {
     val pink = Color.rgb(255, 126, 190)
     val lavender = Color.rgb(211, 164, 255)
     val listeningText = TextView(this).apply {
-        text = "NANDINI IS READY"
+        text = "ARUSHI IS READY"
         textSize = 14f
         gravity = Gravity.CENTER
         letterSpacing = .08f
@@ -1240,12 +1240,12 @@ private fun launchSpeechRecognizer() {
         setAvatarState("listening")
         voiceButton.isEnabled = false
         statusText.text = "● LISTENING..."
-        listeningText.text = "NANDINI IS LISTENING"
+        listeningText.text = "ARUSHI IS LISTENING"
         val speech = SpeechRecognizer.createSpeechRecognizer(this)
         recognizer = speech
         speech.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
-                listeningText.text = "NANDINI IS LISTENING"
+                listeningText.text = "ARUSHI IS LISTENING"
                 transcript.text = "Speak naturally…"
             }
             override fun onBeginningOfSpeech() {
@@ -1305,7 +1305,7 @@ private fun launchSpeechRecognizer() {
         }
         speech.startListening(intent)
     } catch (e: Exception) {
-        Log.e("NANDINI", "Custom voice input failed", e)
+        Log.e("ARUSHI", "Custom voice input failed", e)
         finishVoice(true)
         Toast.makeText(this, "Couldn't start voice input.", Toast.LENGTH_SHORT).show()
     }
@@ -1340,10 +1340,10 @@ if (resultCode == RESULT_OK && requestCode == REQUEST_PICK_IMAGE) {
     if (uri != null) {
         try {
             contentResolver.openInputStream(uri)?.use { pendingImage = decodeScaledBitmap(it) }
-            Toast.makeText(this, if (pendingImage != null) "Image attached. Ask NANDINI to describe or edit it." else "Couldn't load that image.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, if (pendingImage != null) "Image attached. Ask ARUSHI to describe or edit it." else "Couldn't load that image.", Toast.LENGTH_LONG).show()
             if (pendingImage != null && input.text.isNullOrBlank()) input.setText("Describe this image")
         } catch (e: Exception) {
-            Log.e("NANDINI", "Image selection failed", e)
+            Log.e("ARUSHI", "Image selection failed", e)
             Toast.makeText(this, "Couldn't open that image.", Toast.LENGTH_SHORT).show()
         }
     }
@@ -1353,7 +1353,7 @@ if (resultCode == RESULT_OK && requestCode == REQUEST_PICK_IMAGE) {
 if (resultCode == RESULT_OK && requestCode == REQUEST_CAMERA_IMAGE) {
     pendingImage = data?.extras?.get("data") as? Bitmap
     if (pendingImage != null) {
-        Toast.makeText(this, "Photo captured. Ask NANDINI what it can see.", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Photo captured. Ask ARUSHI what it can see.", Toast.LENGTH_LONG).show()
         if (input.text.isNullOrBlank()) input.setText("Describe what you see in this photo")
     } else Toast.makeText(this, "Camera returned no photo. Try the gallery button.", Toast.LENGTH_SHORT).show()
 }
@@ -1446,7 +1446,7 @@ if (deviceReply != null) {
         as InputMethodManager
     imm.hideSoftInputFromWindow(input.windowToken, 0)
 
-    addMessage("NANDINI", deviceReply)
+    addMessage("ARUSHI", deviceReply)
     setAvatarEmotionFromText(deviceReply)
     history.add(ChatMessage("model", deviceReply))
 
@@ -1465,7 +1465,7 @@ imm.hideSoftInputFromWindow(input.windowToken, 0)
 isBusy = true
 setControlsEnabled(false)
 
-val replyView = addMessage("NANDINI", "Thinking")
+val replyView = addMessage("ARUSHI", "Thinking")
 statusText.text = "● THINKING..."
 setAvatarState("thinking")
 
@@ -1486,7 +1486,7 @@ replyView.text = reply
 } catch (e: CancellationException) {    
     throw e    
 } catch (e: Exception) {    
-    Log.e("NANDINI", "AI request failed", e)    
+    Log.e("ARUSHI", "AI request failed", e)    
     replyView.text = friendlyError(e)    
 
     if (history.lastOrNull()?.role == "user") {    
@@ -1536,7 +1536,7 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
     if (isBusy) return
     isBusy = true
     setControlsEnabled(false)
-    val replyView = addMessage("NANDINI", if (generateImage) "Creating your image… 🎨" else "Looking at the image… 👀")
+    val replyView = addMessage("ARUSHI", if (generateImage) "Creating your image… 🎨" else "Looking at the image… 👀")
     statusText.text = if (generateImage) "● CREATING IMAGE..." else "● ANALYZING IMAGE..."
     scope.launch {
         try {
@@ -1553,7 +1553,7 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
             }
             trimHistory(); saveHistory(); saveCurrentChat()
         } catch (e: Exception) {
-            Log.e("NANDINI", "Image request failed", e)
+            Log.e("ARUSHI", "Image request failed", e)
             replyView.text = if (generateImage) "I couldn't generate the image. Firebase image generation requires the Blaze pay-as-you-go plan and a supported image model. Check billing and model access, then retry. 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
         } finally {
             isBusy = false; setControlsEnabled(true); statusText.text = "● READY"
@@ -1582,7 +1582,7 @@ private suspend fun generateOrEditImage(promptText: String, bitmap: Bitmap?): Bi
 }
 
 private fun showGeneratedImage(bitmap: Bitmap) {
-    val imageView = ImageView(this).apply { setImageBitmap(bitmap); adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_CENTER; setBackgroundColor(panel); contentDescription = "Image generated by NANDINI"; setPadding(dp(4), dp(4), dp(4), dp(4)) }
+    val imageView = ImageView(this).apply { setImageBitmap(bitmap); adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_CENTER; setBackgroundColor(panel); contentDescription = "Image generated by ARUSHI"; setPadding(dp(4), dp(4), dp(4), dp(4)) }
     messages.addView(imageView, LinearLayout.LayoutParams(-1, dp(300)).apply { topMargin = dp(6); bottomMargin = dp(10) })
     scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
 }
@@ -1608,7 +1608,7 @@ try {
 val studioMemoryContext = try {
     val saved = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
     val notes = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf { value -> value.isNotBlank() } }.takeLast(30)
-    if (notes.isEmpty()) "" else "\n\nUSER-APPROVED NANDINI STUDIO MEMORIES (use only when relevant; these were explicitly saved by the user):\n" + notes.joinToString("\n") { "- " + it }
+    if (notes.isEmpty()) "" else "\n\nUSER-APPROVED ARUSHI STUDIO MEMORIES (use only when relevant; these were explicitly saved by the user):\n" + notes.joinToString("\n") { "- " + it }
 } catch (_: Exception) { "" }
 
 val studioModeContext = try {
@@ -1630,12 +1630,12 @@ val model = Firebase.ai(
    text(    
     """    
     
-Your name is NANDINI, a friendly female AI companion created by Dipayan Roy.
+Your name is ARUSHI, a friendly female AI companion created by Dipayan Roy.
 
 CREATOR PROFILE:
 Name: Dipayan Roy
 Email: rdipayan209@gmail.com
-Biography: Dipayan Roy is a developer and community builder from India, West Bengal, who creates web projects, Minecraft-related projects, hosting solutions, and digital experiences. He is also developing NANDINI, an AI assistant for Android.
+Biography: Dipayan Roy is a developer and community builder from India, West Bengal, who creates web projects, Minecraft-related projects, hosting solutions, and digital experiences. He is also developing ARUSHI, an AI assistant for Android.
 
 DEFAULT PERSONALITY:
 - Act like a warm, caring, playful female best friend.
@@ -1770,7 +1770,7 @@ private fun startNewChat() {
     currentChatId = System.currentTimeMillis().toString()
     messages.removeAllViews()
     tts?.stop()
-    addMessage("NANDINI", "Fresh start! ✨ What's on your mind?")
+    addMessage("ARUSHI", "Fresh start! ✨ What's on your mind?")
     saveHistory()
     saveCurrentChat()
     Toast.makeText(this, "New chat started. Previous chats are in History.", Toast.LENGTH_SHORT).show()
@@ -1813,7 +1813,7 @@ private fun loadAllChats() {
         }
         currentChatId = prefs.getString("currentChatId", currentChatId) ?: currentChatId
     } catch (e: Exception) {
-        Log.e("NANDINI", "Saved chats couldn't be read", e)
+        Log.e("ARUSHI", "Saved chats couldn't be read", e)
     }
 }
 
@@ -1856,7 +1856,7 @@ private fun loadMemories(): MutableList<String> {
             if (value.isNotEmpty()) out.add(value)
         }
     } catch (e: Exception) {
-        Log.e("NANDINI", "Saved memories couldn't be read", e)
+        Log.e("ARUSHI", "Saved memories couldn't be read", e)
     }
     return out
 }
@@ -1980,7 +1980,7 @@ try {
     trimHistory()
     if (history.isNotEmpty()) saveCurrentChat()
 } catch (e: Exception) {    
-    Log.e("NANDINI", "Saved history couldn't be read", e)    
+    Log.e("ARUSHI", "Saved history couldn't be read", e)    
     history.clear()    
 }
 
@@ -2013,7 +2013,7 @@ private fun renderHistory() {
 
     history.forEach { message ->  
         addMessage(  
-            if (message.role == "user") "YOU" else "NANDINI",  
+            if (message.role == "user") "YOU" else "ARUSHI",  
             message.text  
         )  
     }  
@@ -2153,7 +2153,7 @@ private fun runDeviceCommand(command: String): String? {
                     intent.putExtra(AlarmClock.EXTRA_MINUTES, minute)
                     intent.putExtra(
                         AlarmClock.EXTRA_MESSAGE,
-                        "NANDINI alarm"
+                        "ARUSHI alarm"
                     )
                 }
 
@@ -2181,7 +2181,7 @@ private fun runDeviceCommand(command: String): String? {
 
                 val intent = Intent(AlarmClock.ACTION_SET_TIMER)
                     .putExtra(AlarmClock.EXTRA_LENGTH, seconds.toInt())
-                    .putExtra(AlarmClock.EXTRA_MESSAGE, "NANDINI timer")
+                    .putExtra(AlarmClock.EXTRA_MESSAGE, "ARUSHI timer")
 
                 startActivity(intent)
                 "Opening your timer."
@@ -2372,7 +2372,7 @@ private fun startCallTo(target: String): String {
         startActivity(intent)
         "Opening the dialer for $cleaned. Check the number and tap Call."
     } catch (e: Exception) {
-        Log.e("NANDINI", "Could not open dialer", e)
+        Log.e("ARUSHI", "Could not open dialer", e)
         "I couldn't open the phone dialer."
     }
 }
@@ -2404,7 +2404,7 @@ private fun setFlashlight(enabled: Boolean): String {
         manager.setTorchMode(cameraId, enabled)
         if (enabled) "Flashlight turned on." else "Flashlight turned off."
     } catch (e: Exception) {
-        Log.e("NANDINI", "Flashlight command failed", e)
+        Log.e("ARUSHI", "Flashlight command failed", e)
         "I couldn't change the flashlight. Check permissions and try again."
     }
 }
@@ -2454,13 +2454,13 @@ scope.launch {
             getLiveWeather(location)  
         }  
 
-        addMessage("NANDINI", result)  
+        addMessage("ARUSHI", result)  
     } catch (e: CancellationException) {  
         throw e  
     } catch (e: Exception) {  
-        Log.e("NANDINI", "Weather request failed", e)  
+        Log.e("ARUSHI", "Weather request failed", e)  
         addMessage(  
-            "NANDINI",  
+            "ARUSHI",  
             "I couldn't get live weather right now. Please check your location permission, enable Location on your phone, and check your internet connection. 💜"  
         )  
     } finally {  
@@ -2605,7 +2605,7 @@ private fun handleSpotifyCommand(command: String) {
 
     if (query.isBlank()) {
         addMessage(
-            "NANDINI",
+            "ARUSHI",
             "Tell me a song name, for example: play Tollywood 3 on Spotify."
         )
         return
@@ -2627,9 +2627,9 @@ private fun handleSpotifyCommand(command: String) {
             }
             playSpotifyUri(track.second, track.first)
         } catch (e: Exception) {
-            Log.e("NANDINI_SPOTIFY", "Spotify command failed", e)
+            Log.e("ARUSHI_SPOTIFY", "Spotify command failed", e)
             addMessage(
-                "NANDINI",
+                "ARUSHI",
                 "Couldn't find or play that song. ${e.message ?: ""}"
             )
         } finally {
