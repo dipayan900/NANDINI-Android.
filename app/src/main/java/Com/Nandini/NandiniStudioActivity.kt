@@ -61,7 +61,7 @@ class NandiniStudioActivity : Activity() {
         body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, dp(12)) }
         scroll.addView(body)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(makeButton("← BACK TO NANDINI CHAT") { finish() }, LinearLayout.LayoutParams(-1, dp(48)))
+        root.addView(makeButton("← BACK TO ARUSHI CHAT") { finish() }, LinearLayout.LayoutParams(-1, dp(48)))
         setContentView(root)
         renderHome()
     }
@@ -73,7 +73,7 @@ class NandiniStudioActivity : Activity() {
         addFeature("⚡ TASK ENGINE", "Turn a goal into an editable checklist and keep a local task log. This version plans; it does not silently execute actions.") { showTaskEngine() }
         addFeature("📱 SYSTEM INTELLIGENCE", "Inspect battery, memory and network availability, plus quick Android settings shortcuts.") { showSystemCentre() }
         addFeature("🛠 CREATOR MODE", "Open your project repository and copy prompts for build-error diagnosis or release preparation.") { showCreatorMode() }
-        addFeature("🎭 ADAPTIVE MODES", "Choose a working mode to guide your next request in NANDINI chat.") { showModes() }
+        addFeature("🎭 ADAPTIVE MODES", "Choose a working mode to guide your next request in ARUSHI chat.") { showModes() }
         addFeature("🛡 PRIVACY & SECURITY", "Review local data, copy a memory backup, clear saved records, or open Android app permissions.") { showPrivacyCentre() }
         addFeature("📡 OFFLINE TOOLBOX", "Use local memories, task plans, diagnostics and Android settings shortcuts without relying on cloud AI.") { showOfflineToolbox() }
         addFeature("✦ COMMAND NEXUS", "Futuristic local-first control hub: offline calculator, private notes, Android reminders, overlay and screen-access settings, and live diagnostics.") { startActivity(Intent(this, NandiniCommandCenterActivity::class.java)) }
@@ -119,7 +119,7 @@ class NandiniStudioActivity : Activity() {
                     0 -> {
                         val entries = readArray("memory")
                         val backup = buildString {
-                            append("NANDINI Memory Backup\n")
+                            append("ARUSHI Memory Backup\n")
                             for (i in 0 until entries.length()) {
                                 val item = entries.optJSONObject(i) ?: continue
                                 append("• ").append(item.optString("text")).append('\n')
@@ -127,7 +127,7 @@ class NandiniStudioActivity : Activity() {
                             if (entries.length() == 0) append("(No saved memories)\n")
                         }
                         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("NANDINI memory backup", backup))
+                        clipboard.setPrimaryClip(ClipData.newPlainText("ARUSHI memory backup", backup))
                         Toast.makeText(this, "Memory backup copied. Keep your clipboard private.", Toast.LENGTH_LONG).show()
                     }
                     1 -> confirmClearLocalData("memory", "all saved memories")
@@ -144,7 +144,7 @@ class NandiniStudioActivity : Activity() {
     private fun confirmClearLocalData(key: String, label: String) {
         AlertDialog.Builder(this)
             .setTitle("Clear $label?")
-            .setMessage("This cannot be undone. This only clears the selected NANDINI Studio records on this device.")
+            .setMessage("This cannot be undone. This only clears the selected ARUSHI Studio records on this device.")
             .setPositiveButton("CLEAR") { _, _ ->
                 prefs.edit().remove(key).apply()
                 Toast.makeText(this, "Cleared $label from this device.", Toast.LENGTH_SHORT).show()
@@ -206,7 +206,7 @@ class NandiniStudioActivity : Activity() {
     private fun addMemoryDialog() {
         val input = EditText(this).apply { hint = "Example: My app uses Kotlin and GitHub Actions"; setTextColor(white); setHintTextColor(muted) }
         AlertDialog.Builder(this).setTitle("Save a memory")
-            .setMessage("Only save information you want NANDINI to retain on this device.")
+            .setMessage("Only save information you want ARUSHI to retain on this device.")
             .setView(input).setPositiveButton("SAVE") { _, _ ->
                 val value = input.text.toString().trim()
                 if (value.isNotEmpty()) {
@@ -386,7 +386,7 @@ class NandiniStudioActivity : Activity() {
 
     private fun showCreatorMode() {
         val options = arrayOf(
-            "Open NANDINI repository",
+            "Open ARUSHI repository",
             "Check latest GitHub Actions build status",
             "Open latest GitHub Actions builds",
             "Open feature pull request",
@@ -395,12 +395,12 @@ class NandiniStudioActivity : Activity() {
         )
         AlertDialog.Builder(this).setTitle("🛠 Creator Mode").setItems(options) { _, which ->
             when (which) {
-                0 -> openUrl("https://github.com/dipayan900/NANDINI-Android.")
+                0 -> openUrl("https://github.com/dipayan900/ARUSHI-Android.")
                 1 -> showLatestBuildStatus()
-                2 -> openUrl("https://github.com/dipayan900/NANDINI-Android./actions")
-                3 -> openUrl("https://github.com/dipayan900/NANDINI-Android./pull/1")
-                4 -> copyText("NANDINI Android/Kotlin build diagnosis:\n1. Read the first real compiler error, not only later cascading errors.\n2. Inspect the referenced file and surrounding code.\n3. Identify the confirmed root cause and smallest reversible fix.\n4. Preserve chat/history, Firebase AI, voice, camera, image generation, wake word and companion overlay.\n5. Run the GitHub Actions APK build and inspect its complete log if it fails.\n6. Never claim a fix is verified until the build succeeds.")
-                4 -> copyText("NANDINI APK release checklist:\n1. Build on feature/myraa-style-avatar-safe.\n2. Confirm the latest GitHub Actions run succeeded and the artifact belongs to the latest commit.\n3. Install on the target Android phone.\n4. Test all six Studio features plus chat, saved history, voice, wake word, camera, image generation and companion overlay.\n5. Check logs for crashes and test offline/permission-denied cases.\n6. Keep the last known-good APK for rollback.")
+                2 -> openUrl("https://github.com/dipayan900/ARUSHI-Android./actions")
+                3 -> openUrl("https://github.com/dipayan900/ARUSHI-Android./pull/1")
+                4 -> copyText("ARUSHI Android/Kotlin build diagnosis:\n1. Read the first real compiler error, not only later cascading errors.\n2. Inspect the referenced file and surrounding code.\n3. Identify the confirmed root cause and smallest reversible fix.\n4. Preserve chat/history, Firebase AI, voice, camera, image generation, wake word and companion overlay.\n5. Run the GitHub Actions APK build and inspect its complete log if it fails.\n6. Never claim a fix is verified until the build succeeds.")
+                4 -> copyText("ARUSHI APK release checklist:\n1. Build on feature/myraa-style-avatar-safe.\n2. Confirm the latest GitHub Actions run succeeded and the artifact belongs to the latest commit.\n3. Install on the target Android phone.\n4. Test all six Studio features plus chat, saved history, voice, wake word, camera, image generation and companion overlay.\n5. Check logs for crashes and test offline/permission-denied cases.\n6. Keep the last known-good APK for rollback.")
             }
         }.setNegativeButton("CLOSE", null).show().also { styleDialog(it); it }
     }
@@ -409,15 +409,15 @@ class NandiniStudioActivity : Activity() {
         Toast.makeText(this, "Checking the latest public GitHub Actions run…", Toast.LENGTH_SHORT).show()
         Thread {
             var message = "Couldn't read the latest build status. Open GitHub Actions to check manually."
-            var runUrl = "https://github.com/dipayan900/NANDINI-Android./actions"
+            var runUrl = "https://github.com/dipayan900/ARUSHI-Android./actions"
             try {
-                val connection = (java.net.URL("https://api.github.com/repos/dipayan900/NANDINI-Android./actions/runs?per_page=1")
+                val connection = (java.net.URL("https://api.github.com/repos/dipayan900/ARUSHI-Android./actions/runs?per_page=1")
                     .openConnection() as java.net.HttpURLConnection).apply {
                     requestMethod = "GET"
                     connectTimeout = 8000
                     readTimeout = 8000
                     setRequestProperty("Accept", "application/vnd.github+json")
-                    setRequestProperty("User-Agent", "NANDINI-Android")
+                    setRequestProperty("User-Agent", "ARUSHI-Android")
                 }
                 try {
                     if (connection.responseCode !in 200..299) error("GitHub returned HTTP " + connection.responseCode)
@@ -425,7 +425,7 @@ class NandiniStudioActivity : Activity() {
                     val runs = root.optJSONArray("workflow_runs") ?: JSONArray()
                     val run = runs.optJSONObject(0)
                     if (run != null) {
-                        val title = run.optString("display_title", "NANDINI APK build")
+                        val title = run.optString("display_title", "ARUSHI APK build")
                         val branch = run.optString("head_branch", "unknown")
                         val status = run.optString("status", "unknown")
                         val conclusion = run.optString("conclusion", "pending")
@@ -470,16 +470,16 @@ class NandiniStudioActivity : Activity() {
         val current = prefs.getString("mode", "Companion") ?: "Companion"
         AlertDialog.Builder(this).setTitle("🎭 Adaptive Mode • Current: " + current).setItems(modes) { _, which ->
             prefs.edit().putString("mode", modes[which]).apply()
-            val text = "NANDINI mode: " + modes[which] + ". " + descriptions[which]
+            val text = "ARUSHI mode: " + modes[which] + ". " + descriptions[which]
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText("NANDINI mode prompt", text))
+            clipboard.setPrimaryClip(ClipData.newPlainText("ARUSHI mode prompt", text))
             Toast.makeText(this, modes[which] + " mode saved. It will guide new AI replies.", Toast.LENGTH_LONG).show()
         }.setNegativeButton("CLOSE", null).show().also { styleDialog(it); it }
     }
 
     private fun copyText(value: String) {
         val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("NANDINI Creator Mode", value))
+        clipboard.setPrimaryClip(ClipData.newPlainText("ARUSHI Creator Mode", value))
         Toast.makeText(this, "Copied to clipboard.", Toast.LENGTH_SHORT).show()
     }
 
