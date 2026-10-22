@@ -76,6 +76,7 @@ class NandiniStudioActivity : Activity() {
         addFeature("🎭 ADAPTIVE MODES", "Choose a working mode to guide your next request in NANDINI chat.") { showModes() }
         addFeature("🛡 PRIVACY & SECURITY", "Review local data, copy a memory backup, clear saved records, or open Android app permissions.") { showPrivacyCentre() }
         addFeature("📡 OFFLINE TOOLBOX", "Use local memories, task plans, diagnostics and Android settings shortcuts without relying on cloud AI.") { showOfflineToolbox() }
+        addFeature("✦ COMMAND NEXUS", "Futuristic local-first control hub: offline calculator, private notes, Android reminders, overlay and screen-access settings, and live diagnostics.") { startActivity(Intent(this, NandiniCommandCenterActivity::class.java)) }
         addSection("PRIVACY NOTE", "Studio memories and task plans are stored locally in this app. Cloud AI features still need internet and may send the prompt you submit to the configured AI provider.")
     }
 
