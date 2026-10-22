@@ -114,6 +114,10 @@ class SplashActivity : Activity() {
         }, LinearLayout.LayoutParams(-1, 42))
         content.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
         val centered = FrameLayout(this).apply {
+            // Reserve space for the bottom credit so small screens never clip or overlap the logo.
+            setPadding(0, 0, 0, dp(42))
+            clipChildren = false
+            clipToPadding = false
             addView(content, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
         }
         root.addView(centered, FrameLayout.LayoutParams(-1, -1))
