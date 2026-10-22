@@ -71,10 +71,10 @@ class NandiniCommandCenterActivity : Activity() {
         cardButton("▤  QUICK NOTES", "Create, read, copy or delete local notes.") { notes() }
         cardButton("⏱  PROACTIVE REMINDER", "Schedule an Android alarm/reminder; Android may ask you to confirm.") { reminder() }
         cardButton("◈  FLOATING ASSISTANT", "Open overlay permission controls. The floating companion must be enabled by you.") { overlaySettings() }
-        cardButton("▣  SCREEN UNDERSTANDING", "Open Accessibility settings to review and manually enable NANDINI's screen helper.") { screenSettings() }
+        cardButton("▣  SCREEN UNDERSTANDING", "Open Accessibility settings to review and manually enable ARUSHI's screen helper.") { screenSettings() }
         cardButton("⌁  ANDROID ACTION CENTER", "Open supported system settings and app controls.") { actions() }
         cardButton("◉  LIVE DIAGNOSTICS", "Check battery, RAM availability, app permissions and network status.") { diagnostics() }
-        section("PRIVACY BY DESIGN", "NANDINI does not silently click through other apps. Screen-reading access is sensitive: enable it only if you understand and want that capability. Cloud AI and live web lookup still need internet.")
+        section("PRIVACY BY DESIGN", "ARUSHI does not silently click through other apps. Screen-reading access is sensitive: enable it only if you understand and want that capability. Cloud AI and live web lookup still need internet.")
     }
 
     private fun section(title: String, subtitle: String) {
@@ -167,7 +167,7 @@ class NandiniCommandCenterActivity : Activity() {
                     val h = hour.text.toString().toInt(); val m = minute.text.toString().toInt()
                     require(h in 0..23 && m in 0..59)
                     val intent = Intent(AlarmClock.ACTION_SET_ALARM).putExtra(AlarmClock.EXTRA_HOUR, h)
-                        .putExtra(AlarmClock.EXTRA_MINUTES, m).putExtra(AlarmClock.EXTRA_MESSAGE, title.text.toString().ifBlank { "NANDINI reminder" })
+                        .putExtra(AlarmClock.EXTRA_MINUTES, m).putExtra(AlarmClock.EXTRA_MESSAGE, title.text.toString().ifBlank { "ARUSHI reminder" })
                         .putExtra(AlarmClock.EXTRA_SKIP_UI, false)
                     startActivity(intent)
                 } catch (_: Exception) {
@@ -179,7 +179,7 @@ class NandiniCommandCenterActivity : Activity() {
     private fun overlaySettings() {
         if (Settings.canDrawOverlays(this)) {
             AlertDialog.Builder(this).setTitle("Floating permission is enabled")
-                .setMessage("Use the existing Companion control in NANDINI to start or stop the floating assistant. Turn off permission here any time.")
+                .setMessage("Use the existing Companion control in ARUSHI to start or stop the floating assistant. Turn off permission here any time.")
                 .setPositiveButton("OVERLAY SETTINGS") { _, _ -> openOverlaySettings() }
                 .setNegativeButton("CLOSE", null).show()
         } else AlertDialog.Builder(this).setTitle("Enable floating assistant?")
@@ -195,7 +195,7 @@ class NandiniCommandCenterActivity : Activity() {
 
     private fun screenSettings() {
         AlertDialog.Builder(this).setTitle("Screen Understanding")
-            .setMessage("Android Accessibility access can expose on-screen text. Enable NANDINI only if you want this capability; keep it off otherwise. You can disable it again in Accessibility settings.")
+            .setMessage("Android Accessibility access can expose on-screen text. Enable ARUSHI only if you want this capability; keep it off otherwise. You can disable it again in Accessibility settings.")
             .setPositiveButton("ACCESSIBILITY SETTINGS") { _, _ ->
                 try { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
                 catch (_: Exception) { openAppSettings() }
@@ -230,7 +230,7 @@ class NandiniCommandCenterActivity : Activity() {
         val accessibility = runCatching {
             Settings.Secure.getInt(contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1
         }.getOrDefault(false)
-        val report = "BATTERY: $batteryText\nNETWORK: ${if (connected) "Connected" else "Offline"}\nAVAILABLE RAM: ${mem.availMem / (1024 * 1024)} MB\nOVERLAY PERMISSION: ${if (overlay) "Granted" else "Not granted"}\nACCESSIBILITY: ${if (accessibility) "At least one service enabled; check settings for NANDINI specifically" else "Disabled"}\n\nDiagnostics are local estimates; they do not prove cloud AI availability."
+        val report = "BATTERY: $batteryText\nNETWORK: ${if (connected) "Connected" else "Offline"}\nAVAILABLE RAM: ${mem.availMem / (1024 * 1024)} MB\nOVERLAY PERMISSION: ${if (overlay) "Granted" else "Not granted"}\nACCESSIBILITY: ${if (accessibility) "At least one service enabled; check settings for ARUSHI specifically" else "Disabled"}\n\nDiagnostics are local estimates; they do not prove cloud AI availability."
         AlertDialog.Builder(this).setTitle("◉ System Diagnostics").setMessage(report)
             .setPositiveButton("APP SETTINGS") { _, _ -> openAppSettings() }
             .setNegativeButton("CLOSE", null).show()
@@ -244,7 +244,7 @@ class NandiniCommandCenterActivity : Activity() {
     private fun readNotes() = try { JSONArray(prefs.getString("notes", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
     private fun copy(value: String) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("NANDINI", value))
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("ARUSHI", value))
         Toast.makeText(this, "Copied.", Toast.LENGTH_SHORT).show()
     }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
