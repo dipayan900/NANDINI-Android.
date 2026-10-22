@@ -509,7 +509,7 @@ setPadding(dp(16), dp(12), dp(16), dp(10))
 }
 
 root.addView(TextView(this).apply {    
-    text = "N A N D I N I"    
+    text = "A R U S H I"    
     textSize = 22f    
     setTextColor(accent)    
     typeface = Typeface.DEFAULT_BOLD    
