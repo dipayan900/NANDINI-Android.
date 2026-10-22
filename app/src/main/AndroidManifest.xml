@@ -24,8 +24,8 @@
     <application
         android:allowBackup="false"
         android:label="ARUSHI"
-        android:icon="@drawable/nandini_launcher"
-        android:roundIcon="@drawable/nandini_launcher"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/NandiniTheme"
         android:supportsRtl="true">
 
