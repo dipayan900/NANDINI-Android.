@@ -488,10 +488,11 @@ private fun setAvatarState(state: String) {
 private fun setAvatarEmotionFromText(text: String) {
     val value = text.lowercase(Locale.ROOT)
     val emotion = when {
-        listOf("i'm sorry", "im sorry", "that sounds painful", "that sounds hard", "i'm here for you", "im here for you", "sorry you're", "sorry you are", "grief", "heartbroken", "upset", "sad").any { it in value } -> "sad"
-        listOf("congratulations", "congrats", "that's amazing", "thats amazing", "so proud", "great job", "you did it", "yay", "wonderful", "happy for you").any { it in value } -> "happy"
-        listOf("surprised", "wow!", "no way!", "really?!", "that's unexpected", "thats unexpected").any { it in value } -> "surprised"
-        listOf("careful", "warning", "danger", "important safety", "don't do that", "do not do that").any { it in value } -> "serious"
+        listOf("i'm sorry", "im sorry", "that sounds painful", "that sounds hard", "i'm here for you", "im here for you", "sorry you're", "sorry you are", "grief", "heartbroken", "upset", "sad", "that must be difficult", "i understand how hard").any { it in value } -> "sad"
+        listOf("congratulations", "congrats", "that's amazing", "thats amazing", "so proud", "great job", "you did it", "yay", "wonderful", "happy for you", "you've got this", "you did great").any { it in value } -> "happy"
+        listOf("surprised", "wow!", "no way!", "really?!", "that's unexpected", "thats unexpected", "that's fascinating", "thats fascinating", "interesting question", "i'm curious", "im curious", "let's explore").any { it in value } -> "surprised"
+        listOf("careful", "warning", "danger", "important safety", "don't do that", "do not do that", "i need to be clear", "please be safe").any { it in value } -> "serious"
+        listOf("take a breath", "let's slow down", "lets slow down", "it's okay", "its okay", "you can take your time", "no rush", "you're safe to ask", "you are safe to ask").any { it in value } -> "calm"
         else -> "neutral"
     }
     runOnUiThread { chatAvatarView?.setCompanionEmotion(emotion) }
