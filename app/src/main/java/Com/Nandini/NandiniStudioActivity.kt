@@ -74,7 +74,9 @@ class NandiniStudioActivity : Activity() {
         addFeature("📱 SYSTEM INTELLIGENCE", "Inspect battery, memory and network availability, plus quick Android settings shortcuts.") { showSystemCentre() }
         addFeature("🛠 CREATOR MODE", "Open your project repository and copy prompts for build-error diagnosis or release preparation.") { showCreatorMode() }
         addFeature("🎭 ADAPTIVE MODES", "Choose a working mode to guide your next request in NANDINI chat.") { showModes() }
-        addSection("PRIVACY NOTE", "Memory and task records stay in this app's private local preferences. Clearing app storage can remove them.")
+        addFeature("🛡 PRIVACY & SECURITY", "Review local data, copy a memory backup, clear saved records, or open Android app permissions.") { showPrivacyCentre() }
+        addFeature("📡 OFFLINE TOOLBOX", "Use local memories, task plans, diagnostics and Android settings shortcuts without relying on cloud AI.") { showOfflineToolbox() }
+        addSection("PRIVACY NOTE", "Studio memories and task plans are stored locally in this app. Cloud AI features still need internet and may send the prompt you submit to the configured AI provider.")
     }
 
     private fun addSection(title: String, subtitle: String) {
@@ -100,6 +102,80 @@ class NandiniStudioActivity : Activity() {
         card.addView(TextView(this).apply { text = title; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setTextColor(white) })
         card.addView(TextView(this).apply { text = description; textSize = 12f; setTextColor(muted); setPadding(0, dp(5), 0, 0) })
         body.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+    }
+
+    private fun showPrivacyCentre() {
+        val options = arrayOf(
+            "Copy memory backup to clipboard",
+            "Clear all saved memories",
+            "Clear all saved task plans",
+            "Open Android app permissions"
+        )
+        AlertDialog.Builder(this).setTitle("🛡 Privacy & Security")
+            .setMessage("Studio memories and plans stay in this app's private preferences. Clipboard backups can be visible to other apps, so copy only when needed.")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        val entries = readArray("memory")
+                        val backup = buildString {
+                            append("NANDINI Memory Backup\n")
+                            for (i in 0 until entries.length()) {
+                                val item = entries.optJSONObject(i) ?: continue
+                                append("• ").append(item.optString("text")).append('\n')
+                            }
+                            if (entries.length() == 0) append("(No saved memories)\n")
+                        }
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("NANDINI memory backup", backup))
+                        Toast.makeText(this, "Memory backup copied. Keep your clipboard private.", Toast.LENGTH_LONG).show()
+                    }
+                    1 -> confirmClearLocalData("memory", "all saved memories")
+                    2 -> confirmClearLocalData("tasks", "all saved task plans")
+                    3 -> try {
+                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + packageName)))
+                    } catch (_: Exception) {
+                        Toast.makeText(this, "Couldn't open Android app settings.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }.setNegativeButton("CLOSE", null).show().also { styleDialog(it); it }
+    }
+
+    private fun confirmClearLocalData(key: String, label: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Clear $label?")
+            .setMessage("This cannot be undone. This only clears the selected NANDINI Studio records on this device.")
+            .setPositiveButton("CLEAR") { _, _ ->
+                prefs.edit().remove(key).apply()
+                Toast.makeText(this, "Cleared $label from this device.", Toast.LENGTH_SHORT).show()
+                renderHome()
+            }
+            .setNegativeButton("CANCEL", null)
+            .show().also { styleDialog(it); it }
+    }
+
+    private fun showOfflineToolbox() {
+        val message = listOf(
+            "AVAILABLE WITHOUT CLOUD AI",
+            "",
+            "• Read and manage memories already saved in Studio",
+            "• Review and update saved task checklists",
+            "• View basic battery, RAM and network diagnostics",
+            "• Open Android settings and app permission screens",
+            "• Keep your local plans available while offline",
+            "",
+            "REQUIRES INTERNET",
+            "• AI chat and cloud reasoning",
+            "• Live web/weather lookups",
+            "• Cloud image generation and online model downloads",
+            "",
+            "The 3D companion renderer and bundled files are included in the APK, but first launch or some WebView/device conditions may still affect rendering. Offline mode does not make cloud AI unlimited."
+        ).joinToString("\n")
+        AlertDialog.Builder(this).setTitle("📡 Offline Toolbox")
+            .setMessage(message)
+            .setPositiveButton("MEMORIES") { _, _ -> showMemoryPalace() }
+            .setNeutralButton("TASKS") { _, _ -> showTaskEngine() }
+            .setNegativeButton("CLOSE", null)
+            .show().also { styleDialog(it); it }
     }
 
     private fun showMemoryPalace() {
@@ -135,6 +211,7 @@ class NandiniStudioActivity : Activity() {
                 if (value.isNotEmpty()) {
                     val arr = readArray("memory")
                     arr.put(JSONObject().put("text", value).put("createdAt", System.currentTimeMillis()))
+                    while (arr.length() > 30) arr.remove(0)
                     writeArray("memory", arr)
                     Toast.makeText(this, "Memory saved on this device.", Toast.LENGTH_SHORT).show()
                     showMemoryPalace()
