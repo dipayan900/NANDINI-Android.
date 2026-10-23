@@ -13,6 +13,7 @@ import android.content.res.Configuration
 import android.telecom.Call
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -38,6 +39,7 @@ class ArushiCallAssistantActivity : Activity() {
     private lateinit var voiceStatus: TextView
     private lateinit var transcriptView: TextView
     private lateinit var voiceButton: Button
+    private lateinit var dialInput: EditText
     private var dialNumber: String? = null
     private val requestAudioPermission = 7344
 
@@ -122,6 +124,37 @@ class ArushiCallAssistantActivity : Activity() {
         root.addView(status, marginParams(bottom = 10))
         root.addView(button("Request ARUSHI as default phone app") { requestDialerRole() })
         root.addView(button("Refresh Android call status") { refreshStatus(); refreshCallUi(); refreshVoiceUi() })
+
+        root.addView(TextView(this).apply {
+            text = "DIAL PAD"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(accent)
+            setPadding(0, dp(20), 0, dp(8))
+        })
+        dialInput = EditText(this).apply {
+            setSingleLine(true)
+            hint = "Enter phone number"
+            setTextColor(textPrimary)
+            setHintTextColor(textSecondary)
+            setBackgroundColor(panel)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            inputType = android.text.InputType.TYPE_CLASS_PHONE
+            dialNumber?.let { setText(it) }
+        }
+        root.addView(dialInput, marginParams(bottom = 6))
+        listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("*", "0", "#")).forEach { digits ->
+            val digitRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            digits.forEach { digit ->
+                val digitButton = button(digit) { dialInput.append(digit) }
+                digitRow.addView(digitButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                    setMargins(dp(3), dp(2), dp(3), dp(2))
+                })
+            }
+            root.addView(digitRow, marginParams())
+        }
+        root.addView(button("Clear number") { dialInput.setText("") })
+        root.addView(button("Dial number") { openDialerWithNumber() })
 
         root.addView(TextView(this).apply {
             text = "CURRENT CALL CONTROLS"
@@ -216,6 +249,19 @@ class ArushiCallAssistantActivity : Activity() {
         voiceButton.text = if (enabled) "Disable free AI auto-answer" else "Enable free AI auto-answer"
         voiceStatus.text = "Automation: ${if (enabled) "ENABLED" else "DISABLED"}\\n\\n${ArushiVoiceCallAssistant.status(this)}"
         transcriptView.text = ArushiVoiceCallAssistant.lastTranscript(this)
+    }
+
+    private fun openDialerWithNumber() {
+        val number = dialInput.text?.toString()?.trim().orEmpty()
+        if (number.isBlank()) {
+            Toast.makeText(this, "Enter a phone number first.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not open the system dialer.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun requestDialerRole() {
