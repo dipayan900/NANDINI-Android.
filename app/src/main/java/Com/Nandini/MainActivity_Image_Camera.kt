@@ -539,7 +539,23 @@ statusText = TextView(this).apply {
         setStroke(dp(1), Color.argb(125, 184, 133, 255))
     }
 }
-root.addView(statusText, LinearLayout.LayoutParams(-1, dp(28)))    
+root.addView(statusText, LinearLayout.LayoutParams(-1, dp(28)))
+
+val callAssistantButton = Button(this).apply {
+    text = "☎  AI CALL ASSISTANT"
+    isAllCaps = false
+    textSize = 13f
+    setTextColor(Color.WHITE)
+    backgroundTintList = ColorStateList.valueOf(Color.rgb(94, 52, 139))
+    contentDescription = "Open ARUSHI AI Call Assistant setup"
+    setOnClickListener {
+        startActivity(Intent(this@MainActivity, ArushiCallAssistantActivity::class.java))
+    }
+}
+root.addView(callAssistantButton, LinearLayout.LayoutParams(-1, dp(44)).apply {
+    topMargin = dp(6)
+    bottomMargin = dp(6)
+})    
 
 scroll = ScrollView(this).apply {    
     clipToPadding = false    
