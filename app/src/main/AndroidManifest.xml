@@ -67,7 +67,18 @@
         <activity android:name=".NandiniStudioActivity" android:exported="false" android:label="ARUSHI Studio" android:theme="@style/NandiniTheme" />
         <activity android:name=".NandiniCommandCenterActivity" android:exported="false" android:label="ARUSHI Command Center" android:theme="@style/NandiniTheme" />
         <activity android:name=".ReminderActivity" android:exported="false" android:label="ARUSHI Reminders" android:theme="@style/NandiniTheme" />
-        <activity android:name=".ArushiCallAssistantActivity" android:exported="true" android:label="ARUSHI AI Call Assistant" android:launchMode="singleTop" android:theme="@style/NandiniTheme">
+        <activity
+            android:name=".ArushiCallAssistantActivity"
+            android:exported="true"
+            android:label="ARUSHI AI Call Assistant"
+            android:launchMode="singleTop"
+            android:theme="@style/NandiniTheme">
+            <!-- Required: default dialers must handle ACTION_DIAL with no URI. -->
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Required: also accept dial requests containing tel: numbers. -->
             <intent-filter>
                 <action android:name="android.intent.action.DIAL" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -75,12 +86,16 @@
             </intent-filter>
         </activity>
 
-        <service android:name=".ArushiInCallService" android:permission="android.permission.BIND_INCALL_SERVICE" android:exported="true">
+        <service
+            android:name=".ArushiInCallService"
+            android:permission="android.permission.BIND_INCALL_SERVICE"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.telecom.InCallService" />
             </intent-filter>
             <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
             <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false" />
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_CAR_MODE_UI" android:value="false" />
         </service>
 
         <service android:name=".CompanionOverlayService" android:exported="false" android:foregroundServiceType="specialUse">
