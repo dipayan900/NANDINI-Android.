@@ -3,10 +3,13 @@ package com.dipayan.nandini
 import android.app.Activity
 import android.app.role.RoleManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.telecom.Call
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
@@ -15,23 +18,52 @@ import android.widget.TextView
 import android.widget.Toast
 
 /**
- * ARUSHI Call Assistant setup and compatibility screen.
- *
- * Android does not expose cellular-call audio to ordinary apps merely by granting
- * microphone permission. This screen reports that limitation instead of pretending
- * the AI can hear both sides or auto-answer calls.
+ * ARUSHI's user-visible Telecom controls. Live AI audio is intentionally not claimed here:
+ * Android/OEMs may restrict cellular call uplink/downlink audio to privileged components.
  */
 class ArushiCallAssistantActivity : Activity() {
     private val bg = Color.rgb(10, 12, 24)
     private val panel = Color.rgb(22, 25, 44)
     private val accent = Color.rgb(184, 142, 255)
     private lateinit var status: TextView
+    private lateinit var callInfo: TextView
+    private lateinit var answerButton: Button
+    private lateinit var rejectButton: Button
+    private lateinit var endButton: Button
+    private var dialNumber: String? = null
+
+    companion object {
+        const val EXTRA_LAUNCHED_FOR_CALL = "arushi_launched_for_call"
+        private const val REQUEST_DIALER_ROLE = 7301
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = bg
         window.navigationBarColor = bg
+        if (intent?.action == Intent.ACTION_DIAL) {
+            dialNumber = intent.data?.schemeSpecificPart
+        }
         buildUi()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        ArushiCallSession.setListener { runOnUiThread { refreshCallUi() } }
+        refreshStatus()
+        refreshCallUi()
+    }
+
+    override fun onPause() {
+        ArushiCallSession.setListener(null)
+        super.onPause()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == Intent.ACTION_DIAL) dialNumber = intent.data?.schemeSpecificPart
+        refreshCallUi()
     }
 
     private fun buildUi() {
@@ -42,7 +74,6 @@ class ArushiCallAssistantActivity : Activity() {
             setBackgroundColor(bg)
         }
         scroll.addView(root)
-
         root.addView(TextView(this).apply {
             text = "ARUSHI"
             textSize = 14f
@@ -57,69 +88,139 @@ class ArushiCallAssistantActivity : Activity() {
             setPadding(0, dp(8), 0, dp(8))
         })
         root.addView(TextView(this).apply {
-            text = "Automatic call answering • Caller handover • Call summary"
+            text = "Android Telecom integration • User-controlled calling"
             textSize = 14f
             setTextColor(Color.LTGRAY)
         })
         root.addView(card(
             "PRIVACY FIRST",
-            "When live AI call handling is supported, ARUSHI must identify itself as an AI assistant and tell the caller before any transcription or recording. Do not secretly record calls."
+            "ARUSHI must identify itself as an AI before conversation transcription or recording. This build does not secretly record calls. Live two-way SIM-call audio is not guaranteed by Android and depends on device/OEM support."
         ).also { it.layoutParams = marginParams(top = 14, bottom = 10) })
 
-        status = TextView(this).apply {
-            textSize = 15f
-            setTextColor(Color.WHITE)
+        status = makeText(15f, Color.WHITE).apply {
             setPadding(dp(16), dp(16), dp(16), dp(16))
             setBackgroundColor(panel)
         }
         root.addView(status, marginParams(bottom = 10))
-        refreshStatus()
+        root.addView(button("Request ARUSHI as default phone app") { requestDialerRole() })
+        root.addView(button("Refresh Android call status") { refreshStatus(); refreshCallUi() })
 
-        root.addView(button("Check Android call-assistant support") { refreshStatus() })
-        root.addView(button("Check default phone-app role") {
-            val roleManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) getSystemService(Context.ROLE_SERVICE) as RoleManager else null
-            val message = if (roleManager?.isRoleAvailable(RoleManager.ROLE_DIALER) == true) {
-                "Android supports a default-dialer role, but ARUSHI is not yet a complete dialer. Cellular audio access is still unverified."
-            } else {
-                "This Android build does not report the default dialer role as available."
-            }
-            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-        })
         root.addView(TextView(this).apply {
-            text = "IMPORTANT: A successful APK build cannot prove that vivo's dialer exposes both sides of SIM-call audio. This setup screen does not claim to auto-answer or conduct live AI conversations. That requires a supported call-audio path and a real-device test."
+            text = "CURRENT CALL CONTROLS"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(accent)
+            setPadding(0, dp(20), 0, dp(8))
+        })
+        callInfo = makeText(15f, Color.WHITE).apply {
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            setBackgroundColor(panel)
+        }
+        root.addView(callInfo, marginParams(bottom = 8))
+        answerButton = button("Answer call") { ArushiCallSession.answer() }
+        rejectButton = button("Reject incoming call") { ArushiCallSession.reject() }
+        endButton = button("End call") { ArushiCallSession.end() }
+        root.addView(answerButton)
+        root.addView(rejectButton)
+        root.addView(endButton)
+
+        root.addView(TextView(this).apply {
+            text = "WHAT THIS BUILD CAN DO: request the Android default-dialer role and expose Telecom call answer/reject/end controls when Android routes a call to this service. WHAT IT CANNOT PROMISE: bypass OS/OEM restrictions, hear both sides of cellular audio, automatically conduct an AI conversation, or generate an audio-based summary without a supported audio/transcription path."
             textSize = 13f
             setTextColor(Color.rgb(255, 205, 130))
-            setPadding(0, dp(18), 0, dp(8))
+            setPadding(0, dp(20), 0, dp(8))
         })
         setContentView(scroll)
+        refreshStatus()
+        refreshCallUi()
+    }
+
+    private fun requestDialerRole() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roles = getSystemService(Context.ROLE_SERVICE) as RoleManager
+            if (!roles.isRoleAvailable(RoleManager.ROLE_DIALER)) {
+                Toast.makeText(this, "Android does not offer the default dialer role on this build.", Toast.LENGTH_LONG).show()
+                return
+            }
+            if (roles.isRoleHeld(RoleManager.ROLE_DIALER)) {
+                Toast.makeText(this, "ARUSHI is already the default phone app.", Toast.LENGTH_LONG).show()
+                refreshStatus()
+                return
+            }
+            startActivityForResult(roles.createRequestRoleIntent(RoleManager.ROLE_DIALER), REQUEST_DIALER_ROLE)
+        } else {
+            Toast.makeText(this, "This Android version needs its supported default-phone-app settings flow.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    @Deprecated("Role result callback retained for compatibility")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_DIALER_ROLE) {
+            refreshStatus()
+            Toast.makeText(this, if (resultCode == RESULT_OK) "Default phone-app role granted." else "Default phone-app role was not granted.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun refreshStatus() {
-        val roleManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) getSystemService(Context.ROLE_SERVICE) as RoleManager else null
-        val supported = roleManager?.isRoleAvailable(RoleManager.ROLE_DIALER) == true
-        status.text = if (supported) {
-            "Android dialer role: AVAILABLE\n\nARUSHI is not confirmed as the default phone app. A complete, user-approved calling interface is required. Cellular call audio access still needs separate device testing."
-        } else {
-            "Android dialer role: NOT REPORTED AVAILABLE\n\nAutomatic SIM-call handling cannot be enabled through the standard dialer role on this device/build."
+        val roleManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+            getSystemService(Context.ROLE_SERVICE) as RoleManager else null
+        val available = roleManager?.isRoleAvailable(RoleManager.ROLE_DIALER) == true
+        val held = roleManager?.isRoleHeld(RoleManager.ROLE_DIALER) == true
+        status.text = when {
+            held -> "Default phone-app role: GRANTED\n\nAndroid has selected ARUSHI as the dialer. This does not unlock restricted cellular audio; test ordinary calls carefully and switch back to your previous phone app if anything behaves unexpectedly."
+            available -> "Default phone-app role: AVAILABLE, NOT GRANTED\n\nTap the request button and approve Android's system prompt if you want ARUSHI to handle calls. You can decline and keep your current phone app."
+            else -> "Default phone-app role: NOT AVAILABLE / VERSION UNSUPPORTED\n\nThis device/build has not exposed the supported role request."
         }
+    }
+
+    private fun refreshCallUi() {
+        val call = ArushiCallSession.currentCall()
+        if (call == null) {
+            callInfo.text = "No call is currently routed to ARUSHI. After role approval, Android must route a test call to the InCallService before these controls can act."
+            answerButton.isEnabled = false
+            rejectButton.isEnabled = false
+            endButton.isEnabled = false
+            return
+        }
+        val stateText = when (call.state) {
+            Call.STATE_NEW -> "NEW"
+            Call.STATE_CONNECTING -> "CONNECTING"
+            Call.STATE_DIALING -> "DIALING"
+            Call.STATE_RINGING -> "INCOMING — RINGING"
+            Call.STATE_ACTIVE -> "CONNECTED"
+            Call.STATE_HOLDING -> "ON HOLD"
+            Call.STATE_DISCONNECTED -> "DISCONNECTED"
+            Call.STATE_SELECT_PHONE_ACCOUNT -> "SELECT PHONE ACCOUNT"
+            else -> "CALL STATE ${call.state}"
+        }
+        val handle = call.details?.handle
+        val number = handle?.schemeSpecificPart?.takeIf { it.isNotBlank() } ?: "Caller ID unavailable"
+        callInfo.text = "$stateText\n$number\n\nAI voice/audio status: not connected in this build."
+        val ringing = call.state == Call.STATE_RINGING
+        val live = call.state != Call.STATE_DISCONNECTED
+        answerButton.isEnabled = ringing
+        rejectButton.isEnabled = ringing
+        endButton.isEnabled = live && !ringing
     }
 
     private fun card(title: String, body: String): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(16), dp(16), dp(16), dp(16))
         setBackgroundColor(panel)
-        addView(TextView(this@ArushiCallAssistantActivity).apply {
+        addView(makeText(13f, accent).apply {
             text = title
-            textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(accent)
         })
-        addView(TextView(this@ArushiCallAssistantActivity).apply {
+        addView(makeText(14f, Color.LTGRAY).apply {
             text = body
-            textSize = 14f
-            setTextColor(Color.LTGRAY)
             setPadding(0, dp(8), 0, 0)
         })
+    }
+
+    private fun makeText(size: Float, color: Int) = TextView(this).apply {
+        textSize = size
+        setTextColor(color)
     }
 
     private fun button(label: String, action: () -> Unit) = Button(this).apply {
