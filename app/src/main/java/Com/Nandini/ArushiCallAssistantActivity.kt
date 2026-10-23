@@ -121,7 +121,7 @@ class ArushiCallAssistantActivity : Activity() {
         }
         root.addView(status, marginParams(bottom = 10))
         root.addView(button("Request ARUSHI as default phone app") { requestDialerRole() })
-        root.addView(button("Refresh Android call status") { refreshStatus(); refreshCallUi() })
+        root.addView(button("Refresh Android call status") { refreshStatus(); refreshCallUi(); refreshVoiceUi() })
 
         root.addView(TextView(this).apply {
             text = "CURRENT CALL CONTROLS"
@@ -174,7 +174,7 @@ class ArushiCallAssistantActivity : Activity() {
         root.addView(transcriptView)
 
         root.addView(TextView(this).apply {
-            text = "WHAT THIS BUILD CAN DO: request the Android default-dialer role and expose Telecom call answer/reject/end controls when Android routes a call to this service. WHAT IT CANNOT PROMISE: bypass OS/OEM restrictions, hear both sides of cellular audio, automatically conduct an AI conversation, or generate an audio-based summary without a supported audio/transcription path."
+            text = "This is a best-effort prototype. Auto-answer, spoken prompts, caller speech recognition and transcript saving are implemented using Android APIs, but the actual SIM-call audio path is device-dependent and must be tested. If ARUSHI cannot hear the caller or the caller cannot hear ARUSHI, disable auto-answer and return to your previous phone app."
             textSize = 13f
             setTextColor(warning)
             setPadding(0, dp(20), 0, dp(8))
