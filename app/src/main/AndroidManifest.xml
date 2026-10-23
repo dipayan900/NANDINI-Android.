@@ -60,7 +60,7 @@
 
         <activity android:name=".NandiniStudioActivity" android:exported="false" android:label="ARUSHI Studio" android:theme="@style/NandiniTheme" />
         <activity android:name=".NandiniCommandCenterActivity" android:exported="false" android:label="ARUSHI Command Center" android:theme="@style/NandiniTheme" />
-        <activity android:name=".ReminderActivity" android:exported="false" android:label="ARUSHI Reminders" android:theme="@style/NandiniTheme" />
+        <activity android:name=".ReminderActivity" android:exported="false" android:label="ARUSHI Reminders" android:theme="@style/NandiniTheme" />\n        <activity android:name=".ArushiCallAssistantActivity" android:exported="false" android:label="ARUSHI AI Call Assistant" android:theme="@style/NandiniTheme" />
 
         <service android:name=".CompanionOverlayService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled floating 3D companion overlay" />
