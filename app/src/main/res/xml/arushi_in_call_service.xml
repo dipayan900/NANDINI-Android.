@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<in-call-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:ui="true"
+    android:ringing="false"
+    android:canAddCall="false"
+    android:supportsVideoCalling="false"
+    android:canCallSubject="false" />
