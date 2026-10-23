@@ -9,6 +9,7 @@ import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.content.res.Configuration
 import android.telecom.Call
 import android.view.View
 import android.widget.Button
@@ -22,9 +23,13 @@ import android.widget.Toast
  * Android/OEMs may restrict cellular call uplink/downlink audio to privileged components.
  */
 class ArushiCallAssistantActivity : Activity() {
-    private val bg = Color.rgb(10, 12, 24)
-    private val panel = Color.rgb(22, 25, 44)
-    private val accent = Color.rgb(184, 142, 255)
+    // Screen-local palette follows Android's current system light/dark setting.
+    private var bg = Color.rgb(10, 12, 24)
+    private var panel = Color.rgb(22, 25, 44)
+    private var accent = Color.rgb(184, 142, 255)
+    private var textPrimary = Color.WHITE
+    private var textSecondary = Color.LTGRAY
+    private var warning = Color.rgb(255, 205, 130)
     private lateinit var status: TextView
     private lateinit var callInfo: TextView
     private lateinit var answerButton: Button
@@ -39,8 +44,16 @@ class ArushiCallAssistantActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applySystemThemePalette()
         window.statusBarColor = bg
         window.navigationBarColor = bg
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.decorView.systemUiVisibility = if (isLightTheme()) {
+                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            } else {
+                0
+            }
+        }
         if (intent?.action == Intent.ACTION_DIAL) {
             dialNumber = intent.data?.schemeSpecificPart
         }
@@ -84,20 +97,20 @@ class ArushiCallAssistantActivity : Activity() {
             text = "AI CALL ASSISTANT"
             textSize = 27f
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.WHITE)
+            setTextColor(textPrimary)
             setPadding(0, dp(8), 0, dp(8))
         })
         root.addView(TextView(this).apply {
             text = "Android Telecom integration • User-controlled calling"
             textSize = 14f
-            setTextColor(Color.LTGRAY)
+            setTextColor(textSecondary)
         })
         root.addView(card(
             "PRIVACY FIRST",
             "ARUSHI must identify itself as an AI before conversation transcription or recording. This build does not secretly record calls. Live two-way SIM-call audio is not guaranteed by Android and depends on device/OEM support."
         ).also { it.layoutParams = marginParams(top = 14, bottom = 10) })
 
-        status = makeText(15f, Color.WHITE).apply {
+        status = makeText(15f, textPrimary).apply {
             setPadding(dp(16), dp(16), dp(16), dp(16))
             setBackgroundColor(panel)
         }
@@ -112,7 +125,7 @@ class ArushiCallAssistantActivity : Activity() {
             setTextColor(accent)
             setPadding(0, dp(20), 0, dp(8))
         })
-        callInfo = makeText(15f, Color.WHITE).apply {
+        callInfo = makeText(15f, textPrimary).apply {
             setPadding(dp(16), dp(16), dp(16), dp(16))
             setBackgroundColor(panel)
         }
@@ -127,7 +140,7 @@ class ArushiCallAssistantActivity : Activity() {
         root.addView(TextView(this).apply {
             text = "WHAT THIS BUILD CAN DO: request the Android default-dialer role and expose Telecom call answer/reject/end controls when Android routes a call to this service. WHAT IT CANNOT PROMISE: bypass OS/OEM restrictions, hear both sides of cellular audio, automatically conduct an AI conversation, or generate an audio-based summary without a supported audio/transcription path."
             textSize = 13f
-            setTextColor(Color.rgb(255, 205, 130))
+            setTextColor(warning)
             setPadding(0, dp(20), 0, dp(8))
         })
         setContentView(scroll)
@@ -204,6 +217,27 @@ class ArushiCallAssistantActivity : Activity() {
         endButton.isEnabled = live && !ringing
     }
 
+    private fun isLightTheme(): Boolean =
+        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_NO
+
+    private fun applySystemThemePalette() {
+        if (isLightTheme()) {
+            bg = Color.rgb(247, 245, 252)
+            panel = Color.rgb(255, 255, 255)
+            accent = Color.rgb(104, 69, 168)
+            textPrimary = Color.rgb(28, 24, 38)
+            textSecondary = Color.rgb(83, 77, 96)
+            warning = Color.rgb(135, 79, 10)
+        } else {
+            bg = Color.rgb(10, 12, 24)
+            panel = Color.rgb(22, 25, 44)
+            accent = Color.rgb(184, 142, 255)
+            textPrimary = Color.WHITE
+            textSecondary = Color.LTGRAY
+            warning = Color.rgb(255, 205, 130)
+        }
+    }
+
     private fun card(title: String, body: String): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(16), dp(16), dp(16), dp(16))
@@ -212,7 +246,7 @@ class ArushiCallAssistantActivity : Activity() {
             text = title
             typeface = Typeface.DEFAULT_BOLD
         })
-        addView(makeText(14f, Color.LTGRAY).apply {
+        addView(makeText(14f, textSecondary).apply {
             text = body
             setPadding(0, dp(8), 0, 0)
         })
@@ -225,7 +259,7 @@ class ArushiCallAssistantActivity : Activity() {
 
     private fun button(label: String, action: () -> Unit) = Button(this).apply {
         text = label
-        setTextColor(Color.WHITE)
+        setTextColor(textPrimary)
         setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(68, 53, 110)))
         setOnClickListener { action() }
         layoutParams = marginParams(top = 8, bottom = 4)
