@@ -35,7 +35,11 @@ class ArushiCallAssistantActivity : Activity() {
     private lateinit var answerButton: Button
     private lateinit var rejectButton: Button
     private lateinit var endButton: Button
+    private lateinit var voiceStatus: TextView
+    private lateinit var transcriptView: TextView
+    private lateinit var voiceButton: Button
     private var dialNumber: String? = null
+    private val requestAudioPermission = 7344
 
     companion object {
         const val EXTRA_LAUNCHED_FOR_CALL = "arushi_launched_for_call"
@@ -65,6 +69,7 @@ class ArushiCallAssistantActivity : Activity() {
         ArushiCallSession.setListener { runOnUiThread { refreshCallUi() } }
         refreshStatus()
         refreshCallUi()
+        refreshVoiceUi()
     }
 
     override fun onPause() {
@@ -138,6 +143,37 @@ class ArushiCallAssistantActivity : Activity() {
         root.addView(endButton)
 
         root.addView(TextView(this).apply {
+            text = "FREE AI CALL ASSISTANT"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(accent)
+            setPadding(0, dp(22), 0, dp(8))
+        })
+        root.addView(card(
+            "HOW IT WORKS",
+            "When enabled, ARUSHI can auto-answer, introduce itself as an AI, disclose that it may transcribe speech, ask for the caller's name, then request a message. It uses Android speech recognition and text-to-speech without a paid AI API. Android or vivo may block cellular call audio; this must be tested with a trusted caller. Speech recognition may use the device's configured recognition provider."
+        ).also { it.layoutParams = marginParams(bottom = 10) })
+        voiceButton = button("Enable free AI auto-answer") { toggleVoiceAssistant() }
+        root.addView(voiceButton)
+        voiceStatus = makeText(14f, textPrimary).apply {
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setBackgroundColor(panel)
+        }
+        root.addView(voiceStatus, marginParams(top = 6, bottom = 8))
+        root.addView(TextView(this).apply {
+            text = "LAST CALL TRANSCRIPT"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(accent)
+            setPadding(0, dp(12), 0, dp(8))
+        })
+        transcriptView = makeText(14f, textSecondary).apply {
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            setBackgroundColor(panel)
+        }
+        root.addView(transcriptView)
+
+        root.addView(TextView(this).apply {
             text = "WHAT THIS BUILD CAN DO: request the Android default-dialer role and expose Telecom call answer/reject/end controls when Android routes a call to this service. WHAT IT CANNOT PROMISE: bypass OS/OEM restrictions, hear both sides of cellular audio, automatically conduct an AI conversation, or generate an audio-based summary without a supported audio/transcription path."
             textSize = 13f
             setTextColor(warning)
@@ -146,6 +182,40 @@ class ArushiCallAssistantActivity : Activity() {
         setContentView(scroll)
         refreshStatus()
         refreshCallUi()
+        refreshVoiceUi()
+    }
+
+    private fun toggleVoiceAssistant() {
+        if (ArushiVoiceCallAssistant.isEnabled(this)) {
+            ArushiVoiceCallAssistant.setEnabled(this, false)
+            refreshVoiceUi()
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), requestAudioPermission)
+            return
+        }
+        ArushiVoiceCallAssistant.setEnabled(this, true)
+        refreshVoiceUi()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == requestAudioPermission) {
+            if (grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                ArushiVoiceCallAssistant.setEnabled(this, true)
+            } else {
+                Toast.makeText(this, "Microphone permission is needed for the optional voice assistant.", Toast.LENGTH_LONG).show()
+            }
+            refreshVoiceUi()
+        }
+    }
+
+    private fun refreshVoiceUi() {
+        val enabled = ArushiVoiceCallAssistant.isEnabled(this)
+        voiceButton.text = if (enabled) "Disable free AI auto-answer" else "Enable free AI auto-answer"
+        voiceStatus.text = "Automation: ${if (enabled) "ENABLED" else "DISABLED"}\\n\\n${ArushiVoiceCallAssistant.status(this)}"
+        transcriptView.text = ArushiVoiceCallAssistant.lastTranscript(this)
     }
 
     private fun requestDialerRole() {
