@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - feature/myraa-style-avatar-safe
+      - feature/myraa-style-avatar-safe\n      - feature/arushi-ai-call-assistant
 
 permissions:
   contents: read
