@@ -62,7 +62,7 @@ object ArushiVoiceCallAssistant {
         main.post {
             if (running) return@post
             if (!isEnabled(ctx)) return@post
-            if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            if (ctx.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 setStatus(ctx, "Voice assistant paused: microphone permission is required. Open ARUSHI Call Assistant and grant it.")
                 return@post
             }
@@ -83,10 +83,12 @@ object ArushiVoiceCallAssistant {
                 Log.w(TAG, "Could not select speaker route", e)
             }
             setStatus(ctx, "Call connected. Starting disclosed AI greeting.")
-            val engine = TextToSpeech(ctx) { result ->
+            var createdTts: TextToSpeech? = null
+            createdTts = TextToSpeech(ctx) { result ->
                 main.post {
-                    if (!running) { engineSafeShutdown(); return@post }
-                    if (result != TextToSpeech.SUCCESS) {
+                    val engine = createdTts
+                    if (!running) { engine?.shutdown(); return@post }
+                    if (result != TextToSpeech.SUCCESS || engine == null) {
                         finish("Text-to-speech is unavailable.")
                         return@post
                     }
