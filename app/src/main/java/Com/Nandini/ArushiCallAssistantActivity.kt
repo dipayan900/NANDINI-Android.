@@ -1,4 +1,4 @@
-package Com.Nandini
+package com.dipayan.nandini
 
 import android.app.Activity
 import android.app.role.RoleManager
