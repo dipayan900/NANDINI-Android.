@@ -2,18 +2,18 @@
 <resources>
     <style name="NandiniTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#00F5FF</item>
-        <item name="android:colorControlActivated">#00F5FF</item>
-        <item name="android:colorControlHighlight">#55FF4FD8</item>
-        <item name="android:colorControlNormal">#B7A4D8</item>
-        <item name="android:textColorPrimary">#FFF7FF</item>
-        <item name="android:textColorSecondary">#C7B8E8</item>
+        <item name="android:colorAccent">#B86BFF</item>
+        <item name="android:colorControlActivated">#57DFFF</item>
+        <item name="android:colorControlHighlight">#55FF75D5</item>
+        <item name="android:colorControlNormal">#B8A8D8</item>
+        <item name="android:textColorPrimary">#FFF8FF</item>
+        <item name="android:textColorSecondary">#BFC5E8</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#070510</item>
-        <item name="android:navigationBarColor">#070510</item>
+        <item name="android:statusBarColor">#050714</item>
+        <item name="android:navigationBarColor">#050714</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:windowBackground">#070510</item>
-        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@drawable/nandini_dialog_bg</item>
         <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowNoTitle">true</item>
     </style>
 </resources>
