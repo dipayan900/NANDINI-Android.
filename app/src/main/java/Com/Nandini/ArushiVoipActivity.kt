@@ -38,7 +38,7 @@ class ArushiVoipActivity : Activity() {
     private var listening = false
     private val prefs by lazy { getSharedPreferences("arushi_voip", Context.MODE_PRIVATE) }
     private val accent = Color.rgb(184, 142, 255)
-    private val bg = Color.rgb(10, 12, 24)
+    private val bg = Color.rgb(7, 5, 16)
     private val panel = Color.rgb(22, 25, 44)
 
     override fun onCreate(savedInstanceState: Bundle?) {
