@@ -37,6 +37,22 @@
         android:supportsRtl="true">
 
         <activity
+            android:name=".ArushiLauncherActivity"
+            android:exported="true"
+            android:label="ARUSHI Cyberpunk Home"
+            android:theme="@style/NandiniTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".SplashActivity"
             android:exported="true"
             android:theme="@style/NandiniTheme">
