@@ -125,7 +125,7 @@ object ArushiVoiceCallAssistant {
         if (result == TextToSpeech.ERROR) main.post { if (running) after() }
     }
 
-    private fun listen(stage: String) {
+    private fun listen(stage: String, retry: Int = 0) {
         val ctx = appContext ?: return
         if (!running) return
         setStatus(ctx, if (stage == "name") "Listening for caller's name (device audio routing must be tested)." else "Listening for caller's message.")
@@ -161,6 +161,13 @@ object ArushiVoiceCallAssistant {
                 main.removeCallbacks(timeout)
                 try { sr.destroy() } catch (_: Exception) {}
                 recognizer = null
+                // ERROR_NO_MATCH (7) is common with silence/noisy audio. Retry once with
+                // the device's default recognizer settings before marking the field missing.
+                if (error == SpeechRecognizer.ERROR_NO_MATCH && retry < 1) {
+                    setStatus(ctx, "No speech matched; retrying once. If caller audio is blocked, this still may not capture speech.")
+                    main.postDelayed({ if (running) listen(stage, retry + 1) }, 700L)
+                    return
+                }
                 if (stage == "name") {
                     transcript.append("Caller name: not captured (speech error $error)\n")
                     speak("Thank you. Please leave your message for Dipayan after the tone.") { listen("message") }
