@@ -27,11 +27,11 @@ import android.widget.Toast
  */
 class ArushiCallAssistantActivity : Activity() {
     // Screen-local palette follows Android's current system light/dark setting.
-    private var bg = Color.rgb(10, 12, 24)
-    private var panel = Color.rgb(22, 25, 44)
-    private var accent = Color.rgb(184, 142, 255)
-    private var textPrimary = Color.WHITE
-    private var textSecondary = Color.LTGRAY
+    private var bg = Color.rgb(7, 5, 16)
+    private var panel = Color.rgb(14, 13, 31)
+    private var accent = Color.rgb(70, 222, 255)
+    private var textPrimary = Color.rgb(250, 247, 255)
+    private var textSecondary = Color.rgb(190, 198, 226)
     private var warning = Color.rgb(255, 205, 130)
     private lateinit var status: TextView
     private lateinit var callInfo: TextView
@@ -219,6 +219,10 @@ class ArushiCallAssistantActivity : Activity() {
             setPadding(0, dp(20), 0, dp(8))
         })
         setContentView(scroll)
+        scroll.alpha = 0f
+        scroll.translationY = dp(12).toFloat()
+        scroll.animate().alpha(1f).translationY(0f).setDuration(400L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
         refreshStatus()
         refreshCallUi()
         refreshVoiceUi()
