@@ -243,7 +243,7 @@ object ArushiVoiceCallAssistant {
             val partial = transcript.toString().trim()
             if (ctx != null && partial.isNotBlank()) {
                 ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                    .putString(KEY_TRANSCRIPT, partial + "\\nCall ended before the assistant finished.")
+                    .putString(KEY_TRANSCRIPT, partial + "\nCall ended before the assistant finished.")
                     .putString(KEY_STATUS, "Partial call transcript saved when call ended.")
                     .apply()
             }
