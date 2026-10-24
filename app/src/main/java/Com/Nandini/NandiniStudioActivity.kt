@@ -29,11 +29,11 @@ import org.json.JSONObject
 
 /** Additive local workspace; existing chat/history code is not changed. */
 class NandiniStudioActivity : Activity() {
-    private val bg = Color.rgb(10, 8, 22)
-    private val panel = Color.rgb(29, 20, 48)
-    private val accent = Color.rgb(190, 139, 255)
+    private val bg = Color.rgb(5, 7, 20)
+    private val panel = Color.rgb(14, 18, 38)
+    private val accent = Color.rgb(87, 223, 255)
     private val white = Color.rgb(250, 247, 255)
-    private val muted = Color.rgb(185, 174, 215)
+    private val muted = Color.rgb(190, 198, 226)
     private val prefs by lazy { getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE) }
     private lateinit var body: LinearLayout
 
@@ -46,7 +46,7 @@ class NandiniStudioActivity : Activity() {
             setPadding(dp(16), dp(14), dp(16), dp(14))
             background = android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.rgb(31, 12, 45), bg, Color.rgb(7, 6, 17))
+                intArrayOf(Color.rgb(20, 10, 38), bg, Color.rgb(5, 15, 24))
             )
         }
         root.addView(TextView(this).apply {
