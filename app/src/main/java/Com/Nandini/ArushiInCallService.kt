@@ -17,12 +17,17 @@ import java.util.concurrent.ConcurrentHashMap
 class ArushiInCallService : InCallService() {
     private val activeCallbacks = ConcurrentHashMap<Call, Call.Callback>()
     private val answerTimeouts = ConcurrentHashMap<Call, Runnable>()
+    private val incomingCalls = ConcurrentHashMap.newKeySet<Call>()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val answerDelayMs = 5_000L
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
         ArushiCallSession.attach(call)
+        val incoming = call.state == Call.STATE_RINGING ||
+            (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q &&
+                call.details?.callDirection == Call.Details.DIRECTION_INCOMING)
+        if (incoming) incomingCalls.add(call)
 
         val callback = object : Call.Callback() {
             override fun onStateChanged(call: Call, state: Int) {
@@ -30,7 +35,7 @@ class ArushiInCallService : InCallService() {
                 when (state) {
                     Call.STATE_ACTIVE -> {
                         cancelPendingAutoAnswer(call)
-                        if (ArushiVoiceCallAssistant.isEnabled(this@ArushiInCallService)) {
+                        if (incomingCalls.contains(call) && ArushiVoiceCallAssistant.isEnabled(this@ArushiInCallService)) {
                             ArushiVoiceCallAssistant.start(
                                 this@ArushiInCallService,
                                 call.details?.handle?.schemeSpecificPart
@@ -88,6 +93,7 @@ class ArushiInCallService : InCallService() {
     override fun onCallRemoved(call: Call) {
         cancelPendingAutoAnswer(call)
         activeCallbacks.remove(call)?.let { call.unregisterCallback(it) }
+        incomingCalls.remove(call)
         ArushiCallSession.stopVoiceAssistantIfNoCalls()
         ArushiCallSession.detach(call)
         super.onCallRemoved(call)
