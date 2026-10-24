@@ -81,8 +81,6 @@ class ArushiInCallService : InCallService() {
             }
             answerTimeouts[call] = timeout
             mainHandler.postDelayed(timeout, answerDelayMs)
-        } else if (call.state == Call.STATE_ACTIVE && ArushiVoiceCallAssistant.isEnabled(this)) {
-            ArushiVoiceCallAssistant.start(this, call.details?.handle?.schemeSpecificPart)
         }
     }
 
