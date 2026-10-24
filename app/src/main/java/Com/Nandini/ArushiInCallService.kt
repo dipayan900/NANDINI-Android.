@@ -1,34 +1,49 @@
 package com.dipayan.nandini
 
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.telecom.Call
 import android.telecom.InCallService
+import android.telecom.VideoProfile
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Android Telecom integration plus opt-in best-effort voice assistant.
- * Android/OEM call audio routing can block the voice path; the app reports status honestly.
+ * Android/OEM call audio routing can block the voice path; this service never claims
+ * that generated speech is audible to the remote caller without device testing.
  */
 class ArushiInCallService : InCallService() {
     private val activeCallbacks = ConcurrentHashMap<Call, Call.Callback>()
+    private val answerTimeouts = ConcurrentHashMap<Call, Runnable>()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val answerDelayMs = 5_000L
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
         ArushiCallSession.attach(call)
+
         val callback = object : Call.Callback() {
             override fun onStateChanged(call: Call, state: Int) {
                 ArushiCallSession.notifyChanged()
                 when (state) {
                     Call.STATE_ACTIVE -> {
+                        cancelPendingAutoAnswer(call)
                         if (ArushiVoiceCallAssistant.isEnabled(this@ArushiInCallService)) {
-                            val number = call.details?.handle?.schemeSpecificPart
-                            ArushiVoiceCallAssistant.start(this@ArushiInCallService, number)
+                            ArushiVoiceCallAssistant.start(
+                                this@ArushiInCallService,
+                                call.details?.handle?.schemeSpecificPart
+                            )
                         }
                     }
-                    Call.STATE_DISCONNECTED -> ArushiVoiceCallAssistant.stop()
+                    Call.STATE_DISCONNECTED -> {
+                        cancelPendingAutoAnswer(call)
+                        ArushiVoiceCallAssistant.stop()
+                    }
                 }
             }
+
             override fun onDetailsChanged(call: Call, details: Call.Details) {
                 ArushiCallSession.notifyChanged()
             }
@@ -45,19 +60,33 @@ class ArushiInCallService : InCallService() {
             Log.w("ARUSHI_CALL", "Could not open call UI automatically", e)
         }
 
-        // Auto-answer is explicitly opt-in from ARUSHI's settings screen.
+        // Give Dipayan five seconds to answer or reject manually. Auto-answer only
+        // happens if it remains ringing and the feature is still explicitly enabled.
         if (call.state == Call.STATE_RINGING && ArushiVoiceCallAssistant.isEnabled(this)) {
-            try {
-                call.answer(android.telecom.VideoProfile.STATE_AUDIO_ONLY)
-            } catch (e: Exception) {
-                Log.e("ARUSHI_CALL", "Auto-answer request failed", e)
+            val timeout = Runnable {
+                answerTimeouts.remove(call)
+                if (call.state == Call.STATE_RINGING &&
+                    ArushiVoiceCallAssistant.isEnabled(this@ArushiInCallService)) {
+                    try {
+                        call.answer(VideoProfile.STATE_AUDIO_ONLY)
+                    } catch (e: Exception) {
+                        Log.e("ARUSHI_CALL", "Delayed auto-answer request failed", e)
+                    }
+                }
             }
+            answerTimeouts[call] = timeout
+            mainHandler.postDelayed(timeout, answerDelayMs)
         } else if (call.state == Call.STATE_ACTIVE && ArushiVoiceCallAssistant.isEnabled(this)) {
             ArushiVoiceCallAssistant.start(this, call.details?.handle?.schemeSpecificPart)
         }
     }
 
+    private fun cancelPendingAutoAnswer(call: Call) {
+        answerTimeouts.remove(call)?.let { mainHandler.removeCallbacks(it) }
+    }
+
     override fun onCallRemoved(call: Call) {
+        cancelPendingAutoAnswer(call)
         activeCallbacks.remove(call)?.let { call.unregisterCallback(it) }
         ArushiCallSession.stopVoiceAssistantIfNoCalls()
         ArushiCallSession.detach(call)
@@ -86,17 +115,23 @@ object ArushiCallSession {
 
     fun answer() {
         current?.let { call ->
-            if (call.state == Call.STATE_RINGING) call.answer(android.telecom.VideoProfile.STATE_AUDIO_ONLY)
+            if (call.state == Call.STATE_RINGING) {
+                call.answer(VideoProfile.STATE_AUDIO_ONLY)
+            }
         }
     }
+
     fun reject() {
         current?.let { call ->
             if (call.state == Call.STATE_RINGING) call.reject(false, null)
         }
     }
+
     fun end() { current?.disconnect() }
 
     fun stopVoiceAssistantIfNoCalls() {
-        if (current?.state == Call.STATE_DISCONNECTED || current == null) ArushiVoiceCallAssistant.stop()
+        if (current?.state == Call.STATE_DISCONNECTED || current == null) {
+            ArushiVoiceCallAssistant.stop()
+        }
     }
 }
