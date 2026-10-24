@@ -115,6 +115,9 @@ class ArushiCallAssistantActivity : Activity() {
             textSize = 14f
             setTextColor(textSecondary)
         })
+        root.addView(button("Open ARUSHI Internet Voice Call (VoIP)") {
+            startActivity(Intent(this, ArushiVoipActivity::class.java))
+        })
         root.addView(card(
             "PRIVACY FIRST",
             "ARUSHI must identify itself as an AI before conversation transcription or recording. This build does not secretly record calls. Live two-way SIM-call audio is not guaranteed by Android and depends on device/OEM support."
