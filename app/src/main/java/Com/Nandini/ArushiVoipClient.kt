@@ -19,7 +19,7 @@ import org.webrtc.SdpObserver
 import org.webrtc.PeerConnection.Observer
 import org.webrtc.MediaStream
 import org.webrtc.DataChannel
-import org.webrtc.IceServer
+import org.webrtc.PeerConnection.IceServer
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
