@@ -1,6 +1,7 @@
 package com.dipayan.nandini
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
@@ -283,12 +284,39 @@ class ArushiCallAssistantActivity : Activity() {
         try {
             val telecom = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
             telecom.placeCall(Uri.fromParts("tel", number, null), Bundle())
+            showOutgoingCallDialog(number)
             Toast.makeText(this, "Outgoing call requested through Android Telecom.", Toast.LENGTH_SHORT).show()
         } catch (e: SecurityException) {
             Toast.makeText(this, "Android denied direct calling. Grant Phone permission and set ARUSHI as default phone app.", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Could not place call: ${e.localizedMessage ?: "Android Telecom unavailable"}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun showOutgoingCallDialog(number: String) {
+        val message = TextView(this).apply {
+            text = "Calling $number\\n\\nARUSHI call controls\\n\\nUse End Call to disconnect. The phone network controls actual connection status and audio routing."
+            textSize = 16f
+            setTextColor(textPrimary)
+            setPadding(dp(22), dp(14), dp(22), dp(8))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("ARUSHI  •  CALL")
+            .setView(message)
+            .setNegativeButton("Minimize", null)
+            .setPositiveButton("End Call", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.window?.setBackgroundDrawableResource(android.R.color.background_dark)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(accent)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(accent)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+                ArushiCallSession.end()
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.background_dark)
     }
 
     private fun requestDialerRole() {
