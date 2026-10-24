@@ -60,18 +60,29 @@ class CompanionOverlayService : Service() {
         // Fully transparent overlay: only the character and small close control are drawn.
         container.setBackgroundColor(Color.TRANSPARENT)
 
+        val aura = View(this).apply {
+            isClickable = false
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.argb(105, 70, 222, 255), Color.argb(22, 174, 91, 255), Color.TRANSPARENT)
+            ).apply {
+                shape = GradientDrawable.OVAL
+            }
+            alpha = 0f
+        }
+        container.addView(aura, FrameLayout.LayoutParams(dp(188), dp(248), Gravity.CENTER))
         val avatar = Anime3DView(this)
         container.addView(avatar, FrameLayout.LayoutParams(dp(164), dp(280), Gravity.CENTER))
         val close = TextView(this).apply {
             text = "×"
-            contentDescription = "Close NANDINI floating companion"
+            contentDescription = "Close ARUSHI floating companion"
             textSize = 20f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.rgb(111, 42, 134))
-                setStroke(dp(1), Color.rgb(255, 132, 190))
+                setColor(Color.rgb(21, 15, 43))
+                setStroke(dp(1), Color.rgb(70, 222, 255))
             }
         }
         container.addView(close, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.TOP or Gravity.END))
@@ -155,6 +166,8 @@ class CompanionOverlayService : Service() {
         container.scaleY = 0.7f
         container.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(360)
             .setInterpolator(android.view.animation.OvershootInterpolator()).start()
+        aura.animate().alpha(0.68f).scaleX(1.04f).scaleY(1.04f).setDuration(520L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
     }
 
     private fun promoteToForeground() {
@@ -177,8 +190,8 @@ class CompanionOverlayService : Service() {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
         }.setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("NANDINI companion is active")
-            .setContentText("Your floating companion is available. Return to NANDINI to turn it off.")
+            .setContentTitle("ARUSHI companion is active")
+            .setContentText("Your floating companion is available. Return to ARUSHI to turn it off.")
             .setContentIntent(openIntent)
             .setOngoing(true)
             .build()
