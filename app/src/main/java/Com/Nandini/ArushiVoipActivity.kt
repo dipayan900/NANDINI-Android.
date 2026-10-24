@@ -86,7 +86,7 @@ class ArushiVoipActivity : Activity() {
         }
         root.addView(statusView)
         root.addView(text("CALL TRANSCRIPT", 13f, accent, true))
-        transcriptView = text("No transcript yet.", 14f, Color.LTGRAY).apply {
+        transcriptView = text(prefs.getString("last_transcript", "No transcript yet.") ?: "No transcript yet.", 14f, Color.LTGRAY).apply {
             setPadding(dp(14), dp(14), dp(14), dp(14)); setBackgroundColor(panel)
         }
         root.addView(transcriptView)
