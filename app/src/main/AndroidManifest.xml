@@ -37,7 +37,7 @@
         android:supportsRtl="true">
 
         <activity
-            android:name=".ArushiLauncherActivity"
+            android:name="Com.Nandini.ArushiLauncherActivity"
             android:exported="true"
             android:label="ARUSHI Cyberpunk Home"
             android:theme="@style/NandiniTheme">
@@ -81,11 +81,11 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".NandiniStudioActivity" android:exported="false" android:label="ARUSHI Studio" android:theme="@style/NandiniTheme" />
-        <activity android:name=".NandiniCommandCenterActivity" android:exported="false" android:label="ARUSHI Command Center" android:theme="@style/NandiniTheme" />
-        <activity android:name=".ReminderActivity" android:exported="false" android:label="ARUSHI Reminders" android:theme="@style/NandiniTheme" />
+        <activity android:name="Com.Nandini.NandiniStudioActivity" android:exported="false" android:label="ARUSHI Studio" android:theme="@style/NandiniTheme" />
+        <activity android:name="Com.Nandini.NandiniCommandCenterActivity" android:exported="false" android:label="ARUSHI Command Center" android:theme="@style/NandiniTheme" />
+        <activity android:name="Com.Nandini.ReminderActivity" android:exported="false" android:label="ARUSHI Reminders" android:theme="@style/NandiniTheme" />
         <activity
-            android:name=".ArushiCallAssistantActivity"
+            android:name="Com.Nandini.ArushiCallAssistantActivity"
             android:exported="true"
             android:label="ARUSHI AI Call Assistant"
             android:launchMode="singleTop"
@@ -103,10 +103,10 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".ArushiVoipActivity" android:exported="false" android:label="ARUSHI Internet Voice Call" android:theme="@style/NandiniTheme" />
+        <activity android:name="Com.Nandini.ArushiVoipActivity" android:exported="false" android:label="ARUSHI Internet Voice Call" android:theme="@style/NandiniTheme" />
 
         <service
-            android:name=".ArushiInCallService"
+            android:name="Com.Nandini.ArushiInCallService"
             android:permission="android.permission.BIND_INCALL_SERVICE"
             android:exported="true">
             <intent-filter>
@@ -117,16 +117,16 @@
             <meta-data android:name="android.telecom.IN_CALL_SERVICE_CAR_MODE_UI" android:value="false" />
         </service>
 
-        <service android:name=".CompanionOverlayService" android:exported="false" android:foregroundServiceType="specialUse">
+        <service android:name="Com.Nandini.CompanionOverlayService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled floating 3D companion overlay" />
         </service>
 
-        <service android:name=".NandiniAccessibilityService" android:label="ARUSHI Screen Understanding" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
+        <service android:name="Com.Nandini.NandiniAccessibilityService" android:label="ARUSHI Screen Understanding" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/nandini_accessibility_service" />
         </service>
 
-        <receiver android:name=".ReminderReceiver" android:enabled="true" android:exported="true">
+        <receiver android:name="Com.Nandini.ReminderReceiver" android:enabled="true" android:exported="true">
             <intent-filter>
                 <action android:name="com.dipayan.nandini.REMINDER" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
