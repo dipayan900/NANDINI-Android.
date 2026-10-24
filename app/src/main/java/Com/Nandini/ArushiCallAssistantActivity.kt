@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.content.res.Configuration
 import android.telecom.Call
+import android.telecom.TelecomManager
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -42,6 +43,7 @@ class ArushiCallAssistantActivity : Activity() {
     private lateinit var dialInput: EditText
     private var dialNumber: String? = null
     private val requestAudioPermission = 7344
+    private val requestCallPermission = 7345
 
     companion object {
         const val EXTRA_LAUNCHED_FOR_CALL = "arushi_launched_for_call"
@@ -241,6 +243,12 @@ class ArushiCallAssistantActivity : Activity() {
                 Toast.makeText(this, "Microphone permission is needed for the optional voice assistant.", Toast.LENGTH_LONG).show()
             }
             refreshVoiceUi()
+        } else if (requestCode == requestCallPermission) {
+            if (grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                placeOutgoingCall()
+            } else {
+                Toast.makeText(this, "Phone-call permission was denied. No call was placed.", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -257,10 +265,29 @@ class ArushiCallAssistantActivity : Activity() {
             Toast.makeText(this, "Enter a phone number first.", Toast.LENGTH_SHORT).show()
             return
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            checkSelfPermission(android.Manifest.permission.CALL_PHONE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.CALL_PHONE), requestCallPermission)
+            return
+        }
+        dialNumber = number
+        placeOutgoingCall()
+    }
+
+    private fun placeOutgoingCall() {
+        val number = dialInput.text?.toString()?.trim().orEmpty()
+        if (number.isBlank()) {
+            Toast.makeText(this, "Enter a phone number first.", Toast.LENGTH_SHORT).show()
+            return
+        }
         try {
-            startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)))
+            val telecom = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+            telecom.placeCall(Uri.fromParts("tel", number, null), Bundle())
+            Toast.makeText(this, "Outgoing call requested through Android Telecom.", Toast.LENGTH_SHORT).show()
+        } catch (e: SecurityException) {
+            Toast.makeText(this, "Android denied direct calling. Grant Phone permission and set ARUSHI as default phone app.", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            Toast.makeText(this, "Could not open the system dialer.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Could not place call: ${e.localizedMessage ?: "Android Telecom unavailable"}", Toast.LENGTH_LONG).show()
         }
     }
 
