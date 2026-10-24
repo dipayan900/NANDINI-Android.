@@ -237,6 +237,17 @@ object ArushiVoiceCallAssistant {
     }
 
     fun stop() {
-        main.post { if (running) finish("Voice assistant stopped.") }
+        main.post {
+            if (!running) return@post
+            val ctx = appContext
+            val partial = transcript.toString().trim()
+            if (ctx != null && partial.isNotBlank()) {
+                ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putString(KEY_TRANSCRIPT, partial + "\\nCall ended before the assistant finished.")
+                    .putString(KEY_STATUS, "Partial call transcript saved when call ended.")
+                    .apply()
+            }
+            finish(if (partial.isBlank()) "Voice assistant stopped; no speech was captured." else "Call ended; partial transcript saved.")
+        }
     }
 }
