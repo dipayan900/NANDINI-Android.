@@ -96,13 +96,25 @@ class NandiniStudioActivity : Activity() {
             background = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                 cornerRadius = dp(18).toFloat(); setColor(panel)
-                setStroke(dp(1), Color.argb(150, 150, 105, 210))
+                setStroke(dp(1), Color.argb(190, 55, 196, 238))
             }
-            isClickable = true; isFocusable = true; setOnClickListener { action() }
+            isClickable = true; isFocusable = true
+            elevation = dp(3).toFloat()
+            setOnClickListener {
+                animate().cancel()
+                animate().scaleX(0.985f).scaleY(0.985f).setDuration(80L).withEndAction {
+                    animate().scaleX(1f).scaleY(1f).setDuration(130L).start()
+                }.start()
+                action()
+            }
         }
-        card.addView(TextView(this).apply { text = title; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setTextColor(white) })
+        card.addView(TextView(this).apply { text = title; textSize = 15f; letterSpacing = .015f; typeface = Typeface.DEFAULT_BOLD; setTextColor(white) })
         card.addView(TextView(this).apply { text = description; textSize = 12f; setTextColor(muted); setPadding(0, dp(5), 0, 0) })
         body.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+        card.alpha = 0f
+        card.translationY = dp(9).toFloat()
+        card.animate().alpha(1f).translationY(0f).setDuration(280L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
     }
 
     private fun showPrivacyCentre() {
