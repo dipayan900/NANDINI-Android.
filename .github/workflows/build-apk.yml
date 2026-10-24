@@ -7,6 +7,7 @@ on:
       - main
       - feature/myraa-style-avatar-safe
       - feature/arushi-ai-call-assistant
+      - feature/arushi-cyberpunk-launcher
 
 permissions:
   contents: read
