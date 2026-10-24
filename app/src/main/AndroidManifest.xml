@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
@@ -85,6 +86,8 @@
                 <data android:scheme="tel" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".ArushiVoipActivity" android:exported="false" android:label="ARUSHI Internet Voice Call" android:theme="@style/NandiniTheme" />
 
         <service
             android:name=".ArushiInCallService"
