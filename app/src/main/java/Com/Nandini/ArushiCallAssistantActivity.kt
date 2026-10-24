@@ -255,7 +255,7 @@ class ArushiCallAssistantActivity : Activity() {
     private fun refreshVoiceUi() {
         val enabled = ArushiVoiceCallAssistant.isEnabled(this)
         voiceButton.text = if (enabled) "Disable free AI auto-answer" else "Enable free AI auto-answer"
-        voiceStatus.text = "Automation: ${if (enabled) "ENABLED" else "DISABLED"}\\n\\n${ArushiVoiceCallAssistant.status(this)}"
+        voiceStatus.text = "Automation: ${if (enabled) "ENABLED" else "DISABLED"}\n\n${ArushiVoiceCallAssistant.status(this)}"
         transcriptView.text = ArushiVoiceCallAssistant.lastTranscript(this)
     }
 
