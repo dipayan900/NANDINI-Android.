@@ -25,3 +25,16 @@ The package name is `com.dipayan.nandini`. Register this exact ID in Firebase on
 
 ## If build fails
 Open the failed workflow run and share the first useful error message, with any private tokens removed.
+
+
+## ARUSHI internet VoIP (separate from SIM calls)
+
+A WebRTC audio-call screen and a minimal Node.js WebSocket signaling service are in `app/src/main/java/Com/Nandini/ArushiVoipActivity.kt`, `ArushiVoipClient.kt`, and `voip-server/`.
+
+1. Deploy `voip-server/` to a Node.js 18+ host with HTTPS/WSS; see [voip-server/README.md](voip-server/README.md).
+2. Install the APK on both phones and open **ARUSHI Internet Voice Call (VoIP)** from the call assistant screen.
+3. Enter the same WSS signaling URL and the same room code on both phones, then tap **Connect / Join room**.
+4. For networks where STUN cannot establish a route, configure a TURN URL and credentials in both clients.
+5. Test two-way microphone audio with a trusted person. The app shows WebRTC connection states and speech-recognition errors.
+
+The other ARUSHI client speaks the AI voice prompt locally with Android TTS when it receives a prompt message. This lets the remote app user hear the prompt without pretending Android can inject arbitrary TTS into a cellular call uplink. It requires the other participant to run ARUSHI. Speech transcription uses Android's recognizer and speakerphone acoustics, so it may miss speech while WebRTC is using the microphone. This is a prototype, not a verified production calling service. SIM calls remain separate and the AI assistant is not started on outgoing SIM calls.
