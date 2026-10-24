@@ -1,6 +1,7 @@
 package Com.Nandini
 
 import android.app.Activity
+import android.animation.ObjectAnimator
 import android.app.role.RoleManager
 import android.content.Intent
 import android.graphics.Color
@@ -85,7 +86,24 @@ class ArushiLauncherActivity : Activity() {
         scroll.addView(root)
         setContentView(scroll)
 
-        root.addView(label("✦  ARUSHI  ✦", 31f, purple, true))
+        val heroTitle = label("✦  ARUSHI  ✦", 31f, purple, true).apply {
+            setShadowLayer(dp(14).toFloat(), 0f, 0f, blue)
+            letterSpacing = 0.08f
+        }
+        root.addView(heroTitle)
+        // A short, low-cost entrance glow: no repeating animation or background loop.
+        ObjectAnimator.ofFloat(heroTitle, View.ALPHA, 0.72f, 1f).apply {
+            duration = 760L
+            start()
+        }
+        ObjectAnimator.ofFloat(heroTitle, View.SCALE_X, 0.97f, 1f).apply {
+            duration = 620L
+            start()
+        }
+        ObjectAnimator.ofFloat(heroTitle, View.SCALE_Y, 0.97f, 1f).apply {
+            duration = 620L
+            start()
+        }
         root.addView(label("NEURAL HOME INTERFACE  /  LOVE • LIGHT • FUTURE", 10f, blue, true))
         root.addView(label(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()), 42f, Color.WHITE, true))
         root.addView(label(SimpleDateFormat("EEEE  •  dd MMMM", Locale.getDefault()).format(Date()).uppercase(Locale.getDefault()), 12f, blue))
@@ -115,10 +133,14 @@ class ArushiLauncherActivity : Activity() {
             tile.addView(label(symbol, 27f, if (key == "ai") pink else blue, true))
             tile.addView(label(name, 9f, Color.WHITE, true))
             tile.setOnClickListener { if (key == "drawer") showAppDrawer() else launch(key) }
+            tile.alpha = 0f
+            tile.translationY = dp(8).toFloat()
             grid.addView(tile, GridLayout.LayoutParams().apply {
                 width = 0; height = dp(88); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
                 setMargins(dp(3), dp(3), dp(3), dp(3))
             })
+            // Stagger-free entrance keeps the home screen smooth on mid-range phones.
+            tile.animate().alpha(1f).translationY(0f).setDuration(260L).start()
         }
         root.addView(grid)
 
