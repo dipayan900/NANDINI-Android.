@@ -39,8 +39,14 @@
         <activity
             android:name="Com.Nandini.ArushiLauncherActivity"
             android:exported="true"
-            android:label="ARUSHI Cyberpunk Home"
+            android:label="ARUSHI"
             android:theme="@style/NandiniTheme">
+            <!-- The single ARUSHI app icon must open the custom display/control dashboard. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Optional home-app role; this does not replace the normal launcher icon. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -50,13 +56,8 @@
 
         <activity
             android:name=".SplashActivity"
-            android:exported="true"
-            android:theme="@style/NandiniTheme">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:exported="false"
+            android:theme="@style/NandiniTheme" />
 
         <activity
             android:name=".MainActivity"
