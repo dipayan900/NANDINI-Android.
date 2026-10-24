@@ -1,4 +1,4 @@
-name: Build NANDINI APK
+name: Build ARUSHI APK
 
 on:
   workflow_dispatch:
@@ -61,7 +61,7 @@ jobs:
           cp "${SRC}/tokens.txt" app/src/main/assets/
           ls -lh app/src/main/assets/*epoch-12-avg-2-chunk-16-left-64* app/src/main/assets/tokens.txt
 
-      - name: Download CC0 VRM companion avatar (Sendagaya Shino)
+      - name: Download CC0 ARUSHI companion avatar (Sendagaya Shino)
         run: |
           set -euo pipefail
           mkdir -p app/src/main/assets /tmp/nandini-avatar
@@ -105,7 +105,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NANDINI-debug-apk
+          name: ARUSHI-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
