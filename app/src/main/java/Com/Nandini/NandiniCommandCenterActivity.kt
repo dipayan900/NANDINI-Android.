@@ -91,15 +91,27 @@ class NandiniCommandCenterActivity : Activity() {
         val view = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(15), dp(13), dp(15), dp(13))
             background = android.graphics.drawable.GradientDrawable().apply {
-                cornerRadius = dp(18).toFloat(); setColor(panel); setStroke(dp(1), Color.argb(175, 150, 93, 210))
+                cornerRadius = dp(18).toFloat(); setColor(panel); setStroke(dp(1), Color.argb(195, 55, 196, 238))
             }
-            isClickable = true; isFocusable = true; setOnClickListener { action() }
+            isClickable = true; isFocusable = true
+            elevation = dp(3).toFloat()
+            setOnClickListener {
+                animate().cancel()
+                animate().scaleX(0.985f).scaleY(0.985f).setDuration(80L).withEndAction {
+                    animate().scaleX(1f).scaleY(1f).setDuration(130L).start()
+                }.start()
+                action()
+            }
         }
-        view.addView(TextView(this).apply { text = title; textSize = 14f; typeface = Typeface.DEFAULT_BOLD; setTextColor(ink) })
+        view.addView(TextView(this).apply { text = title; textSize = 14f; letterSpacing = .015f; typeface = Typeface.DEFAULT_BOLD; setTextColor(ink) })
         if (subtitle != null) view.addView(TextView(this).apply {
             text = subtitle; textSize = 12f; setTextColor(muted); setPadding(0, dp(5), 0, 0)
         })
         content.addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) })
+        view.alpha = 0f
+        view.translationY = dp(8).toFloat()
+        view.animate().alpha(1f).translationY(0f).setDuration(260L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
         return view
     }
 
