@@ -578,7 +578,7 @@ val chatStage = FrameLayout(this).apply {
         intArrayOf(Color.rgb(24, 14, 43), Color.rgb(14, 10, 29), Color.rgb(10, 8, 22))
     ).apply {
         cornerRadius = dp(24).toFloat()
-        setStroke(dp(1), Color.argb(175, 145, 106, 208))
+        setStroke(dp(1), Color.argb(205, 70, 222, 255))
     }
     clipToOutline = true
     clipChildren = true
@@ -596,11 +596,15 @@ val stageAura = View(this).apply {
         gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
         gradientRadius = dp(210).toFloat()
     }
-    alpha = 0.78f
+    alpha = 0f
 }
 chatStage.addView(stageAura, FrameLayout.LayoutParams(dp(320), dp(320), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
     bottomMargin = dp(78)
 })
+stageAura.scaleX = 0.88f
+stageAura.scaleY = 0.88f
+stageAura.animate().alpha(0.78f).scaleX(1f).scaleY(1f).setDuration(850L)
+    .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
 val chatAvatar = Anime3DView(this, chatBackgroundMode = true).apply {
     alpha = 0.98f
     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -2063,9 +2067,9 @@ private fun addMessage(
         setTextColor(white)  
         setPadding(dp(13), dp(10), dp(13), dp(10))  
         background = android.graphics.drawable.GradientDrawable().apply {
-            setColor(if (isUser) userBubble else Color.rgb(35, 20, 44))
+            setColor(if (isUser) userBubble else Color.rgb(14, 13, 31))
             cornerRadius = dp(18).toFloat()
-            setStroke(dp(1), if (isUser) Color.rgb(193, 89, 160) else Color.rgb(92, 54, 104))
+            setStroke(dp(1), if (isUser) Color.rgb(255, 105, 205) else Color.rgb(67, 171, 220))
         }
         setLineSpacing(dp(2).toFloat(), 1.0f)  
         maxWidth = resources.displayMetrics.widthPixels * 4 / 5  
