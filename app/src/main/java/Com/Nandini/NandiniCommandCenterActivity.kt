@@ -25,12 +25,12 @@ import java.math.MathContext
 
 /** Local-first command centre. Network/cloud AI is not required for notes and basic calculations. */
 class NandiniCommandCenterActivity : Activity() {
-    private val bg = Color.rgb(9, 7, 20)
-    private val panel = Color.rgb(29, 18, 48)
-    private val accent = Color.rgb(207, 145, 255)
+    private val bg = Color.rgb(5, 7, 20)
+    private val panel = Color.rgb(14, 18, 38)
+    private val accent = Color.rgb(87, 223, 255)
     private val pink = Color.rgb(255, 135, 202)
     private val ink = Color.rgb(248, 243, 255)
-    private val muted = Color.rgb(185, 171, 211)
+    private val muted = Color.rgb(190, 198, 226)
     private val prefs by lazy { getSharedPreferences("nandini_command_center", Context.MODE_PRIVATE) }
     private lateinit var content: LinearLayout
 
@@ -44,7 +44,7 @@ class NandiniCommandCenterActivity : Activity() {
             setPadding(dp(16), dp(14), dp(16), dp(12))
             background = android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(44, 15, 62), bg, Color.rgb(8, 7, 18))
+                intArrayOf(Color.rgb(20, 10, 38), bg, Color.rgb(5, 15, 24))
             )
         }
         root.addView(TextView(this).apply {
