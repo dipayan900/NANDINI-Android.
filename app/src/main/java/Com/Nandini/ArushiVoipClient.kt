@@ -106,14 +106,15 @@ class ArushiVoipClient(
                 ensurePeer()
                 val sdp = msg.optString("sdp")
                 if (sdp.isBlank()) return listener("Received an empty WebRTC offer.")
-                peer?.setRemoteDescription(sdpObserver("Remote offer accepted") { flushCandidates() },
-                    SessionDescription(SessionDescription.Type.OFFER, sdp))
-                makeAnswer()
+                peer?.setRemoteDescription(sdpObserver("Remote offer accepted", onSet = {
+                    flushCandidates()
+                    makeAnswer()
+                }), SessionDescription(SessionDescription.Type.OFFER, sdp))
             }
             "answer" -> {
                 val sdp = msg.optString("sdp")
                 if (sdp.isBlank()) return listener("Received an empty WebRTC answer.")
-                peer?.setRemoteDescription(sdpObserver("Remote answer accepted") { flushCandidates() },
+                peer?.setRemoteDescription(sdpObserver("Remote answer accepted", onSet = { flushCandidates() }),
                     SessionDescription(SessionDescription.Type.ANSWER, sdp))
             }
             "ice" -> {
@@ -185,29 +186,32 @@ class ArushiVoipClient(
 
     private fun makeOffer() {
         val p = peer ?: return
-        p.createOffer(sdpObserver("Offer created") { sdp ->
-            p.setLocalDescription(sdpObserver("Offer sent") {
+        p.createOffer(sdpObserver("Offer created", onCreate = { sdp ->
+            p.setLocalDescription(sdpObserver("Offer sent", onSet = {
                 send(JSONObject().put("type", "offer").put("sdp", sdp.description))
-            }, sdp)
-        }, MediaConstraints())
+            }), sdp)
+        }), MediaConstraints())
     }
 
     private fun makeAnswer() {
         val p = peer ?: return
-        p.createAnswer(sdpObserver("Answer created") { sdp ->
-            p.setLocalDescription(sdpObserver("Answer sent") {
+        p.createAnswer(sdpObserver("Answer created", onCreate = { sdp ->
+            p.setLocalDescription(sdpObserver("Answer sent", onSet = {
                 send(JSONObject().put("type", "answer").put("sdp", sdp.description))
-            }, sdp)
-        }, MediaConstraints())
+            }), sdp)
+        }), MediaConstraints())
     }
 
-    private fun sdpObserver(label: String, onSuccess: (SessionDescription) -> Unit = {}): SdpObserver =
-        object : SdpObserver {
-            override fun onCreateSuccess(desc: SessionDescription) { onSuccess(desc) }
-            override fun onSetSuccess() { listener(label) }
-            override fun onCreateFailure(error: String) { listener("WebRTC error: $error") }
-            override fun onSetFailure(error: String) { listener("WebRTC setup error: $error") }
-        }
+    private fun sdpObserver(
+        label: String,
+        onSet: () -> Unit = {},
+        onCreate: (SessionDescription) -> Unit = {}
+    ): SdpObserver = object : SdpObserver {
+        override fun onCreateSuccess(desc: SessionDescription) { onCreate(desc) }
+        override fun onSetSuccess() { listener(label); onSet() }
+        override fun onCreateFailure(error: String) { listener("WebRTC error: $error") }
+        override fun onSetFailure(error: String) { listener("WebRTC setup error: $error") }
+    }
 
     private fun flushCandidates() {
         pendingCandidates.forEach { peer?.addIceCandidate(it) }
