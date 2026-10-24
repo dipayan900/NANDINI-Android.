@@ -92,6 +92,10 @@ class ArushiVoipActivity : Activity() {
         root.addView(transcriptView)
         root.addView(text("Voice prompts are delivered as text to the other ARUSHI app, which speaks them locally with Android TTS. Live two-way microphone audio uses WebRTC. Speech recognition listens through this phone's microphone, so speakerphone acoustics affect transcript quality. Cellular SIM audio is not bridged.", 13f, Color.rgb(255, 205, 130)))
         setContentView(scroll)
+        scroll.alpha = 0f
+        scroll.translationY = dp(12).toFloat()
+        scroll.animate().alpha(1f).translationY(0f).setDuration(420L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
     }
 
     private fun connect() {
