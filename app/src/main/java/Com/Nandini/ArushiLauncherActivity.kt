@@ -158,7 +158,7 @@ class ArushiLauncherActivity : Activity() {
 
     private fun launch(key: String) {
         val intent = when (key) {
-            "ai" -> Intent().setClassName(packageName, "Com.Nandini.SplashActivity")
+            "ai" -> Intent().setClassName(packageName, "com.dipayan.nandini.SplashActivity")
             "phone" -> Intent(Intent.ACTION_DIAL)
             "sms" -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
             "camera" -> Intent("android.media.action.IMAGE_CAPTURE")
