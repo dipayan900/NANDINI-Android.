@@ -47,12 +47,13 @@ wss.on("connection", (ws) => {
       return;
     }
     if (!ws.room) return send(ws, { type: "error", message: "Join a room before signaling." });
-    if (!["offer", "answer", "ice", "hangup"].includes(msg.type)) return;
+    if (!["offer", "answer", "ice", "hangup", "tts"].includes(msg.type)) return;
     const room = rooms.get(ws.room);
     if (!room) return;
     const safe = { type: msg.type, from: ws.peerId };
     if (msg.type === "offer" || msg.type === "answer") safe.sdp = msg.sdp;
     if (msg.type === "ice") safe.candidate = msg.candidate;
+    if (msg.type === "tts") safe.text = String(msg.text || "").slice(0, 500);
     for (const peer of room) if (peer !== ws) send(peer, safe);
   });
   ws.on("close", () => remove(ws));
