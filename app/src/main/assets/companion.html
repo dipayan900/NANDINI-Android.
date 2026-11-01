@@ -211,6 +211,7 @@ else window.addEventListener('resize', resize);
 function renderScene() {
   if (hologramMode !== 'pyramid') {
     renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, stage.clientWidth, stage.clientHeight);
     camera.aspect = stage.clientWidth / Math.max(1, stage.clientHeight);
     camera.position.set(0, 0.76, 2.75);
     camera.lookAt(0, 0.76, 0);
