@@ -73,6 +73,7 @@ class NandiniCommandCenterActivity : Activity() {
         cardButton("◈  FLOATING ASSISTANT", "Open overlay permission controls. The floating companion must be enabled by you.") { overlaySettings() }
         cardButton("▣  SCREEN UNDERSTANDING", "Open Accessibility settings to review and manually enable ARUSHI's screen helper.") { screenSettings() }
         cardButton("⌁  ANDROID ACTION CENTER", "Open supported system settings and app controls.") { actions() }
+        cardButton("✧  HOLOGRAPHIC STAGE", "Open the full-screen 3D ARUSHI companion or four-view Pepper’s Ghost projection mode.") { startActivity(Intent(this, HologramStudioActivity::class.java)) }
         cardButton("◉  LIVE DIAGNOSTICS", "Check battery, RAM availability, app permissions and network status.") { diagnostics() }
         section("PRIVACY BY DESIGN", "ARUSHI does not silently click through other apps. Screen-reading access is sensitive: enable it only if you understand and want that capability. Cloud AI and live web lookup still need internet.")
     }
