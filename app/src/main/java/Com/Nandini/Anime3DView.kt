@@ -84,6 +84,26 @@ class Anime3DView(
         loadUrl("https://appassets.androidplatform.net/assets/companion.html")
     }
 
+    /** Set renderer visibility while ARCore is acquiring or tracking a placed anchor. */
+    fun setCompanionVisible(visible: Boolean) {
+        post { setRendererVisible(visible) }
+    }
+
+    /** Position the existing VRM renderer at the ARCore-projected anchor. */
+    fun setARPlacement(x: Float, y: Float, scale: Float, visible: Boolean) {
+        val safeX = if (x.isFinite()) x.coerceIn(-3f, 3f) else 0f
+        val safeY = if (y.isFinite()) y.coerceIn(-3f, 3f) else 0f
+        val safeScale = if (scale.isFinite()) scale.coerceIn(0.25f, 3.5f) else 1f
+        post {
+            if (pageReady) {
+                evaluateJavascript(
+                    "window.setARPlacement && window.setARPlacement($safeX,$safeY,$safeScale,$visible)",
+                    null
+                )
+            }
+        }
+    }
+
     /** Switch between the standard 3D stage and four-view projection output. */
     fun setHologramMode(value: String) {
         hologramMode = if (value.equals("pyramid", ignoreCase = true)) "pyramid" else "standard"
