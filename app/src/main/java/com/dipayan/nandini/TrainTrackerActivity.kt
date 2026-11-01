@@ -30,7 +30,7 @@ class TrainTrackerActivity : Activity() {
     private val muted = Color.rgb(190, 190, 215)
 
     private lateinit var page: WebView
-    private lateinit var progress: ProgressBar
+    private lateinit var loadingIndicator: ProgressBar
     private lateinit var pageStatus: TextView
     private lateinit var tabRow: LinearLayout
     private var selectedTool = 0
@@ -154,12 +154,12 @@ class TrainTrackerActivity : Activity() {
         pageStatus.setPadding(dp(3), dp(7), dp(3), dp(4))
         root.addView(pageStatus)
 
-        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+        loadingIndicator = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             isIndeterminate = true
             progressTintList = android.content.res.ColorStateList.valueOf(blue)
             indeterminateTintList = android.content.res.ColorStateList.valueOf(accent)
         }
-        root.addView(progress, LinearLayout.LayoutParams(-1, dp(3)))
+        root.addView(loadingIndicator, LinearLayout.LayoutParams(-1, dp(3)))
 
         page = WebView(this).apply {
             setBackgroundColor(Color.WHITE)
@@ -185,12 +185,12 @@ class TrainTrackerActivity : Activity() {
                 }
 
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                    progress.visibility = View.VISIBLE
+                    loadingIndicator.alpha = 1f
                     pageStatus.text = "Connecting to official railway service…"
                 }
 
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    progress.visibility = View.GONE
+                    loadingIndicator.alpha = 0f
                     pageStatus.text = tools[selectedTool].status + " • Check the enquiry's update time"
                 }
 
@@ -218,7 +218,7 @@ class TrainTrackerActivity : Activity() {
     }
 
     private fun showLoadError() {
-        progress.visibility = View.GONE
+        loadingIndicator.alpha = 0f
         pageStatus.text = "Railway enquiry could not load. Check your internet connection and tap the selected tab to retry."
     }
 
