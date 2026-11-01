@@ -77,7 +77,7 @@ class HologramStudioActivity : Activity() {
         controls.addView(modes)
 
         val lower = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(8), 0, 0) }
-        lower.addView(control("ARCORE INFO") { showArCoreInfo() }, LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginEnd = dp(5) })
+        lower.addView(control("AR ROOM AR") { startActivity(android.content.Intent(this, ArCorePlacementActivity::class.java)) }, LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginEnd = dp(5) })
         lower.addView(control("CLOSE") { finish() }, LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginStart = dp(5) })
         controls.addView(lower)
         root.addView(controls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
