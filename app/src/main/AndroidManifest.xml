@@ -30,6 +30,7 @@
     </queries>
 
     <application
+        android:name=".ArushiApplication"
         android:allowBackup="false"
         android:label="ARUSHI"
         android:icon="@mipmap/ic_launcher"
