@@ -151,18 +151,18 @@ class TrainTrackerActivity : Activity() {
                 }
 
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                    progress.visibility = View.VISIBLE
+                    progress.setVisibility(View.VISIBLE)
                     pageStatus.text = "Loading official railway enquiry…"
                 }
 
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    progress.visibility = View.GONE
+                    progress.setVisibility(View.GONE)
                     pageStatus.text = "Official railway enquiry page • verify the last-updated time shown in results"
                 }
 
                 @Suppress("DEPRECATION")
                 override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
-                    progress.visibility = View.GONE
+                    progress.setVisibility(View.GONE)
                     pageStatus.text = "Railway website could not load. Check your internet connection and tap the selected tab to retry."
                 }
             }
