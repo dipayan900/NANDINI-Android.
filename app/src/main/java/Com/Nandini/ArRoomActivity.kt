@@ -39,6 +39,7 @@ class ArRoomActivity : FragmentActivity() {
         val fragmentContainer = FrameLayout(this).apply { id = View.generateViewId() }
         root.addView(fragmentContainer, FrameLayout.LayoutParams(-1, -1))
 
+        setContentView(root)
         val ar = ArFragment()
         supportFragmentManager.beginTransaction()
             .replace(fragmentContainer.id, ar, "arushi_ar_fragment")
@@ -58,7 +59,6 @@ class ArRoomActivity : FragmentActivity() {
         root.addView(renderer, FrameLayout.LayoutParams(-1, -1))
         root.addView(buildTopPanel(), FrameLayout.LayoutParams(-1, dp(108), Gravity.TOP))
         root.addView(buildBottomPanel(), FrameLayout.LayoutParams(-1, dp(116), Gravity.BOTTOM))
-        setContentView(root)
 
         ar.setOnTapArPlaneListener { hitResult, _, _ ->
             placedAnchor?.detach()
