@@ -44,6 +44,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.6.1")
     implementation("com.spotify.android:auth:2.1.2")
     implementation("androidx.webkit:webkit:1.12.1")
+    implementation("com.google.ar:core:1.56.0")
     // ARCore-backed camera, plane detection, anchors and transformable 3D models.
     implementation("com.gorisse.thomas.sceneform:sceneform:1.23.0")
 
