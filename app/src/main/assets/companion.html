@@ -35,9 +35,9 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.1.2/lib/three-vrm.module.js"
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/three/addons/",
+    "@pixiv/three-vrm": "./vendor/three-vrm.module.js"
   }
 }
 </script>
@@ -166,7 +166,7 @@ window.setCompanionVisible = visible => {
 
 const loader = new GLTFLoader();
 loader.register(parser => new VRMLoaderPlugin(parser));
-loader.load('https://cdn.jsdelivr.net/gh/madjin/vrm-samples@master/vroid/beta/Sendagaya_Shino.vrm', gltf => {
+loader.load('./nandini-companion.vrm', gltf => {
   vrm = gltf.userData.vrm;
   if (!vrm) {
     window.__nandiniShowFallback('The ARUSHI 3D avatar could not be loaded. Check your internet connection.');
