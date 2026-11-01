@@ -23,6 +23,7 @@ class Anime3DView(
 
     @Volatile private var companionState: String = "idle"
     @Volatile private var pageReady = false
+    @Volatile private var hologramMode: String = "standard"
 
     private val assetLoader = WebViewAssetLoader.Builder()
         .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
@@ -56,6 +57,7 @@ class Anime3DView(
                 pageReady = true
                 pushStateToRenderer()
                 pushEmotionToRenderer()
+                pushHologramMode()
                 setRendererVisible(isShown && windowVisibility == View.VISIBLE)
             }
 
@@ -80,6 +82,18 @@ class Anime3DView(
 
         // AndroidX's asset loader gives bundled HTML/model files a safe HTTPS origin.
         loadUrl("https://appassets.androidplatform.net/assets/companion.html")
+    }
+
+    /** Switch between the standard 3D stage and four-view projection output. */
+    fun setHologramMode(value: String) {
+        hologramMode = if (value.equals("pyramid", ignoreCase = true)) "pyramid" else "standard"
+        post { pushHologramMode() }
+    }
+
+    private fun pushHologramMode() {
+        if (!pageReady) return
+        val mode = hologramMode
+        evaluateJavascript("window.setHologramMode && window.setHologramMode('$mode')", null)
     }
 
     fun setSpeaking(value: Boolean) {
