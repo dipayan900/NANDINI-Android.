@@ -121,7 +121,7 @@ class ArushiLauncherActivity : Activity() {
         val grid = GridLayout(this).apply { columnCount = 3; useDefaultMargins = false }
         val apps = listOf(
             Triple("✦", "ARUSHI AI", "ai"), Triple("☎", "PHONE", "phone"), Triple("✆", "AI CALL", "call"), Triple("✉", "MESSAGES", "sms"),
-            Triple("◎", "CAMERA", "camera"), Triple("▧", "PHOTOS", "gallery"), Triple("♫", "MUSIC", "music"),
+            Triple("◎", "CAMERA", "camera"), Triple("▧", "PHOTOS", "gallery"), Triple("✧", "HOLOGRAM", "hologram"), Triple("♫", "MUSIC", "music"),
             Triple("◈", "SETTINGS", "settings"), Triple("⌘", "BROWSER", "browser"), Triple("▦", "APP DRAWER", "drawer")
         )
         apps.forEach { (symbol, name, key) ->
@@ -183,6 +183,7 @@ class ArushiLauncherActivity : Activity() {
             "ai" -> Intent().setClassName(packageName, "com.dipayan.nandini.SplashActivity")
             "phone" -> Intent(Intent.ACTION_DIAL)
             "call" -> Intent(this, ArushiCallAssistantActivity::class.java)
+            "hologram" -> Intent(this, HologramStudioActivity::class.java)
             "sms" -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
             "camera" -> Intent("android.media.action.IMAGE_CAPTURE")
             "gallery" -> Intent(Intent.ACTION_VIEW).setType("image/*")
