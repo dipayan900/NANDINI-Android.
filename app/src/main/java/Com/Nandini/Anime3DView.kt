@@ -23,6 +23,7 @@ class Anime3DView(
 
     @Volatile private var companionState: String = "idle"
     @Volatile private var pageReady = false
+    @Volatile private var requestedVisible = true
     @Volatile private var hologramMode: String = "standard"
 
     private val assetLoader = WebViewAssetLoader.Builder()
@@ -58,7 +59,7 @@ class Anime3DView(
                 pushStateToRenderer()
                 pushEmotionToRenderer()
                 pushHologramMode()
-                setRendererVisible(isShown && windowVisibility == View.VISIBLE)
+                setRendererVisible(requestedVisible && isShown && windowVisibility == View.VISIBLE)
             }
 
             override fun onReceivedError(
@@ -86,7 +87,8 @@ class Anime3DView(
 
     /** Set renderer visibility while ARCore is acquiring or tracking a placed anchor. */
     fun setCompanionVisible(visible: Boolean) {
-        post { setRendererVisible(visible) }
+        requestedVisible = visible
+        post { setRendererVisible(visible && isShown && windowVisibility == View.VISIBLE) }
     }
 
     /** Position the existing VRM renderer at the ARCore-projected anchor. */
@@ -166,7 +168,7 @@ class Anime3DView(
 
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
-        setRendererVisible(visibility == View.VISIBLE && isShown)
+        setRendererVisible(requestedVisible && visibility == View.VISIBLE && isShown)
     }
 
     override fun onAttachedToWindow() {
@@ -175,6 +177,7 @@ class Anime3DView(
     }
 
     override fun onDetachedFromWindow() {
+        requestedVisible = false
         setRendererVisible(false)
         pageReady = false
         stopLoading()
