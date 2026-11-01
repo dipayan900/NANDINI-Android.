@@ -35,9 +35,9 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "./vendor/three.module.js",
-    "three/addons/": "./vendor/three/addons/",
-    "@pixiv/three-vrm": "./vendor/three-vrm.module.js"
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.1.2/lib/three-vrm.module.js"
   }
 }
 </script>
@@ -45,7 +45,7 @@
   // Keep a useful, transparent fallback if WebGL or a remote module fails to load.
   window.__nandiniShowFallback = function(message) {
     var node = document.getElementById('fallback');
-    if (node) { node.style.display = 'flex'; node.textContent = message || 'NANDINI 3D companion is temporarily unavailable'; }
+    if (node) { node.style.display = 'flex'; node.textContent = message || 'ARUSHI 3D companion is temporarily unavailable'; }
   };
   window.addEventListener('error', function(event) {
     if (event && event.target && event.target.tagName === 'SCRIPT') {
@@ -166,10 +166,10 @@ window.setCompanionVisible = visible => {
 
 const loader = new GLTFLoader();
 loader.register(parser => new VRMLoaderPlugin(parser));
-loader.load('./nandini-companion.vrm', gltf => {
+loader.load('https://cdn.jsdelivr.net/gh/madjin/vrm-samples@master/vroid/beta/Sendagaya_Shino.vrm', gltf => {
   vrm = gltf.userData.vrm;
   if (!vrm) {
-    window.__nandiniShowFallback('The NANDINI avatar model could not be loaded.');
+    window.__nandiniShowFallback('The ARUSHI 3D avatar could not be loaded. Check your internet connection.');
     return;
   }
   VRMUtils.rotateVRM0(vrm);
@@ -207,7 +207,7 @@ loader.load('./nandini-companion.vrm', gltf => {
   fallback.style.display = 'none';
 }, undefined, err => {
   console.error('NANDINI VRM load failed', err);
-  window.__nandiniShowFallback('NANDINI 3D companion could not load. Check your connection and reopen the app.');
+  window.__nandiniShowFallback('ARUSHI 3D companion could not load. Check your connection and reopen the app.');
 });
 
 function resize() {
