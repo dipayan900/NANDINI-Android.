@@ -27,7 +27,7 @@ class SplashActivity : Activity() {
             percent.text = "$progress%"
             if (progress < 100) handler.postDelayed(this, 35L)
             else handler.postDelayed({
-                startActivity(Intent(this@SplashActivity, MainActivity::class.java))
+                startActivity(Intent(this@SplashActivity, NandiniCommandCenterActivity::class.java))
                 overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
                 finish()
             }, 100L)
