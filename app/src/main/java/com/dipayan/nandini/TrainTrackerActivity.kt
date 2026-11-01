@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -18,10 +19,9 @@ import android.widget.TextView
 import android.widget.Toast
 
 /**
- * ARUSHI Train Tracker.
- *
- * Railway data is displayed from official Indian Railways / CRIS enquiry pages.
- * No unofficial API key, PNR harvesting, or locally cached passenger data is used.
+ * ARUSHI Rail: a themed native shell for official Indian Railways / CRIS enquiry pages.
+ * Live position, ETA/ETD, schedules, station boards and PNR are served by the railway sites.
+ * ARUSHI does not scrape undocumented endpoints or store PNR values.
  */
 class TrainTrackerActivity : Activity() {
     private val bg = Color.rgb(5, 7, 22)
@@ -34,13 +34,22 @@ class TrainTrackerActivity : Activity() {
     private lateinit var progress: ProgressBar
     private lateinit var pageStatus: TextView
     private lateinit var tabRow: LinearLayout
+    private var selectedIndex = 0
 
     private data class Tool(val title: String, val url: String, val hint: String)
 
+    private val ntesUrl = "https://enquiry.indianrail.gov.in/mntes/"
     private val tools = listOf(
-        Tool("NTES LIVE", "https://enquiry.indianrail.gov.in/ntes/", "Official NTES includes Spot Your Train, Live Station, Train Schedule, trains between stations, and cancelled / rescheduled / diverted train updates."),
-        Tool("JOURNEY SEARCH", "https://www.indianrail.gov.in/enquiry/TBIS/TrainBetweenImportantStations.jsp", "Search reserved trains by journey date, source station and destination station on the official Indian Railways enquiry site."),
-        Tool("PNR STATUS", "https://www.indianrail.gov.in/enquiry/PNR/PnrEnquiry.html?locale=en", "Check the current reservation status on the official Indian Railways PNR enquiry page.")
+        Tool("SPOT TRAIN", ntesUrl,
+            "In NTES choose Spot Your Train, enter the train number and journey start date to see last reported station, running position and expected arrival/departure."),
+        Tool("LIVE STATION", ntesUrl,
+            "In NTES choose Live Station and enter a station code/name to view expected arrivals and departures for the available time window."),
+        Tool("SCHEDULE", ntesUrl,
+            "In NTES choose Train Schedule to view the train's route, stoppages and scheduled arrival/departure times."),
+        Tool("TIME + ROUTE", "https://www.indianrail.gov.in/enquiry/TBIS/TrainBetweenImportantStations.jsp",
+            "Enter journey date, source and destination on the official page. Compare the listed departure and arrival times. The official public page does not expose a separate time-only filter."),
+        Tool("PNR STATUS", "https://www.indianrail.gov.in/enquiry/PNR/PnrEnquiry.html?locale=en",
+            "Enter your PNR directly on the official railway page. ARUSHI does not save or transmit it to any separate service.")
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -96,8 +105,9 @@ class TrainTrackerActivity : Activity() {
         }
         val titleStack = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titleStack.addView(text("ARUSHI  /  RAIL", 20f, accent, true))
-        titleStack.addView(text("NATIONAL TRAIN ENQUIRY • LIVE DATA", 9f, blue, true))
+        titleStack.addView(text("INDIAN RAILWAYS • OFFICIAL ENQUIRY", 9f, blue, true))
         top.addView(titleStack, LinearLayout.LayoutParams(0, -2, 1f))
+        top.addView(actionButton("↻ REFRESH") { reloadPage() }, LinearLayout.LayoutParams(-2, dp(42)).apply { marginEnd = dp(6) })
         top.addView(actionButton("CLOSE") { finish() })
         root.addView(top)
 
@@ -105,9 +115,7 @@ class TrainTrackerActivity : Activity() {
             setPadding(dp(2), dp(13), dp(2), dp(6))
         })
 
-        val tabScroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-        }
+        val tabScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
         tabRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -136,63 +144,84 @@ class TrainTrackerActivity : Activity() {
             settings.setSupportMultipleWindows(false)
             settings.allowFileAccess = false
             settings.allowContentAccess = false
+            settings.setSupportZoom(true)
+            settings.builtInZoomControls = true
+            settings.displayZoomControls = false
+            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
             webChromeClient = WebChromeClient()
             webViewClient = object : WebViewClient() {
+                private fun isAllowed(uri: android.net.Uri): Boolean {
+                    val host = uri.host.orEmpty().lowercase()
+                    return host == "indianrail.gov.in" ||
+                        host.endsWith(".indianrail.gov.in") ||
+                        host == "cris.org.in" ||
+                        host.endsWith(".cris.org.in") ||
+                        host == "maps.google.com" ||
+                        (host == "www.google.com" && uri.path.orEmpty().startsWith("/maps"))
+                }
+
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val uri = request?.url ?: return false
-                    val host = uri.host.orEmpty().lowercase()
-                    val allowed = host == "indianrail.gov.in" ||
-                        host.endsWith(".indianrail.gov.in") ||
-                        host == "cris.org.in" || host.endsWith(".cris.org.in")
-                    if (allowed) return false
-                    Toast.makeText(this@TrainTrackerActivity, "External page blocked for your safety.", Toast.LENGTH_SHORT).show()
+                    if (isAllowed(uri)) return false
+                    Toast.makeText(this@TrainTrackerActivity, "This external page was blocked.", Toast.LENGTH_SHORT).show()
                     return true
                 }
 
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                    progress.setVisibility(View.VISIBLE)
+                    progress.visibility = View.VISIBLE
                     pageStatus.text = "Loading official railway enquiry…"
                 }
 
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    progress.setVisibility(View.GONE)
-                    pageStatus.text = "Official railway enquiry page • verify the last-updated time shown in results"
+                    progress.visibility = View.GONE
+                    pageStatus.text = tools[selectedIndex].hint
                 }
 
-                @Suppress("DEPRECATION")
-                override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
-                    progress.setVisibility(View.GONE)
-                    pageStatus.text = "Railway website could not load. Check your internet connection and tap the selected tab to retry."
+                override fun onReceivedError(
+                    view: WebView?, request: WebResourceRequest?, error: WebResourceError?
+                ) {
+                    if (request?.isForMainFrame == true) {
+                        progress.visibility = View.GONE
+                        pageStatus.text = "Railway enquiry could not load. Check your connection and tap REFRESH."
+                    }
                 }
             }
         }
         root.addView(page, LinearLayout.LayoutParams(-1, 0, 1f))
 
         root.addView(text(
-            "LIVE INFORMATION IS PROVIDED BY INDIAN RAILWAYS / CRIS. PNR details are entered directly on the official railway page and are not saved by ARUSHI.",
+            "DATA SOURCE: INDIAN RAILWAYS / CRIS • RUNNING POSITION IS THE LAST RAILWAY-REPORTED UPDATE, NOT A PHONE GPS TRACK. PNR IS ENTERED ON THE OFFICIAL PAGE ONLY.",
             9f, muted
         ).apply { setPadding(dp(3), dp(8), dp(3), dp(3)) })
 
         setContentView(root)
-        rebuildTabs(0)
+        rebuildTabs()
     }
 
-    private fun rebuildTabs(selected: Int) {
+    private fun rebuildTabs() {
         tabRow.removeAllViews()
         tools.forEachIndexed { index, tool ->
-            val button = actionButton(tool.title, index == selected) { selectTool(index) }
-            tabRow.addView(button, LinearLayout.LayoutParams(-2, -1).apply {
-                marginEnd = dp(7)
-            })
+            val button = actionButton(tool.title, index == selectedIndex) { selectTool(index) }
+            tabRow.addView(button, LinearLayout.LayoutParams(-2, -1).apply { marginEnd = dp(7) })
         }
     }
 
     private fun selectTool(index: Int) {
-        val tool = tools[index.coerceIn(tools.indices)]
-        rebuildTabs(index)
+        selectedIndex = index.coerceIn(tools.indices)
+        val tool = tools[selectedIndex]
+        rebuildTabs()
         pageStatus.text = tool.hint
+        if (selectedIndex == tools.lastIndex) {
+            page.clearHistory()
+            page.clearFormData()
+        }
         page.loadUrl(tool.url)
+    }
+
+    private fun reloadPage() {
+        if (::page.isInitialized) page.reload()
     }
 
     @Deprecated("Deprecated in Android")
