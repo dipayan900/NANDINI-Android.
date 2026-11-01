@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -19,9 +18,9 @@ import android.widget.TextView
 import android.widget.Toast
 
 /**
- * ARUSHI Rail: a themed native shell for official Indian Railways / CRIS enquiry pages.
- * Live position, ETA/ETD, schedules, station boards and PNR are served by the railway sites.
- * ARUSHI does not scrape undocumented endpoints or store PNR values.
+ * ARUSHI Rail: a themed native shell for official Indian Railways / CRIS enquiries.
+ * Live running position, station boards, schedules and PNR are supplied by official
+ * railway services. ARUSHI does not fabricate live locations or store PNR values.
  */
 class TrainTrackerActivity : Activity() {
     private val bg = Color.rgb(5, 7, 22)
@@ -34,22 +33,42 @@ class TrainTrackerActivity : Activity() {
     private lateinit var progress: ProgressBar
     private lateinit var pageStatus: TextView
     private lateinit var tabRow: LinearLayout
-    private var selectedIndex = 0
+    private var selectedTool = 0
 
-    private data class Tool(val title: String, val url: String, val hint: String)
+    private data class Tool(
+        val title: String,
+        val url: String,
+        val description: String,
+        val status: String
+    )
 
-    private val ntesUrl = "https://enquiry.indianrail.gov.in/mntes/"
+    private val ntes = "https://enquiry.indianrail.gov.in/ntes/"
     private val tools = listOf(
-        Tool("SPOT TRAIN", ntesUrl,
-            "In NTES choose Spot Your Train, enter the train number and journey start date to see last reported station, running position and expected arrival/departure."),
-        Tool("LIVE STATION", ntesUrl,
-            "In NTES choose Live Station and enter a station code/name to view expected arrivals and departures for the available time window."),
-        Tool("SCHEDULE", ntesUrl,
-            "In NTES choose Train Schedule to view the train's route, stoppages and scheduled arrival/departure times."),
-        Tool("TIME + ROUTE", "https://www.indianrail.gov.in/enquiry/TBIS/TrainBetweenImportantStations.jsp",
-            "Enter journey date, source and destination on the official page. Compare the listed departure and arrival times. The official public page does not expose a separate time-only filter."),
-        Tool("PNR STATUS", "https://www.indianrail.gov.in/enquiry/PNR/PnrEnquiry.html?locale=en",
-            "Enter your PNR directly on the official railway page. ARUSHI does not save or transmit it to any separate service.")
+        Tool(
+            "SPOT TRAIN", ntes,
+            "Enter a train number and journey date in NTES to view its current reported position, last reported station, delay and expected arrival / departure at upcoming stops.",
+            "NTES • Spot Your Train"
+        ),
+        Tool(
+            "LIVE STATION", ntes,
+            "Choose a station and the 2, 4, 6 or 8 hour window to see expected arrivals, departures and platform information where published.",
+            "NTES • Live Station board"
+        ),
+        Tool(
+            "BETWEEN", "https://www.indianrail.gov.in/enquiry/TBIS/TrainBetweenImportantStations.jsp",
+            "Search trains by journey date, source and destination. Review the returned services and their scheduled departure times.",
+            "Indian Railways • Trains Between Stations"
+        ),
+        Tool(
+            "SCHEDULE", ntes,
+            "Open the official NTES train schedule option for route stoppages, scheduled arrival / departure, distance and day count.",
+            "NTES • Train Schedule"
+        ),
+        Tool(
+            "PNR STATUS", "https://www.indianrail.gov.in/enquiry/PNR/PnrEnquiry.html?locale=en",
+            "Enter the 10-digit PNR directly on the official Indian Railways page. ARUSHI does not collect or save it.",
+            "Indian Railways • PNR enquiry"
+        )
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,8 +114,11 @@ class TrainTrackerActivity : Activity() {
     private fun buildScreen() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bg)
-            setPadding(dp(14), dp(8), dp(14), dp(10))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(bg, 0xFF10152E.toInt(), bg)
+            )
+            setPadding(dp(14), dp(9), dp(14), dp(10))
         }
 
         val top = LinearLayout(this).apply {
@@ -104,27 +126,32 @@ class TrainTrackerActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         val titleStack = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        titleStack.addView(text("ARUSHI  /  RAIL", 20f, accent, true))
-        titleStack.addView(text("INDIAN RAILWAYS • OFFICIAL ENQUIRY", 9f, blue, true))
+        titleStack.addView(text("✦  ARUSHI RAIL", 21f, accent, true))
+        titleStack.addView(text("INDIAN RAILWAYS • LIVE ENQUIRY", 9f, blue, true))
         top.addView(titleStack, LinearLayout.LayoutParams(0, -2, 1f))
-        top.addView(actionButton("↻ REFRESH") { reloadPage() }, LinearLayout.LayoutParams(-2, dp(42)).apply { marginEnd = dp(6) })
-        top.addView(actionButton("CLOSE") { finish() })
+        top.addView(actionButton("↻ REFRESH") { if (::page.isInitialized) page.reload() })
+        top.addView(actionButton("CLOSE") { finish() }, LinearLayout.LayoutParams(-2, -2).apply {
+            leftMargin = dp(6)
+        })
         root.addView(top)
 
-        root.addView(text("TRAIN TRACKER", 11f, Color.WHITE, true).apply {
+        root.addView(text("TRAIN INTELLIGENCE", 11f, Color.WHITE, true).apply {
             setPadding(dp(2), dp(13), dp(2), dp(6))
         })
 
-        val tabScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
+        val tabScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            clipToPadding = false
+        }
         tabRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
         tabScroll.addView(tabRow)
-        root.addView(tabScroll, LinearLayout.LayoutParams(-1, dp(48)))
+        root.addView(tabScroll, LinearLayout.LayoutParams(-1, dp(47)))
 
-        pageStatus = text("Connecting to official Indian Railways enquiry…", 10f, muted)
-        pageStatus.setPadding(dp(3), dp(7), dp(3), dp(7))
+        pageStatus = text("Connecting to official railway enquiry…", 10f, muted)
+        pageStatus.setPadding(dp(3), dp(7), dp(3), dp(4))
         root.addView(pageStatus)
 
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -138,90 +165,79 @@ class TrainTrackerActivity : Activity() {
             setBackgroundColor(Color.WHITE)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.databaseEnabled = true
             settings.loadsImagesAutomatically = true
             settings.javaScriptCanOpenWindowsAutomatically = false
             settings.setSupportMultipleWindows(false)
             settings.allowFileAccess = false
             settings.allowContentAccess = false
-            settings.setSupportZoom(true)
-            settings.builtInZoomControls = true
-            settings.displayZoomControls = false
-            settings.useWideViewPort = true
-            settings.loadWithOverviewMode = true
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
             webChromeClient = WebChromeClient()
             webViewClient = object : WebViewClient() {
-                private fun isAllowed(uri: android.net.Uri): Boolean {
-                    val host = uri.host.orEmpty().lowercase()
-                    return host == "indianrail.gov.in" ||
-                        host.endsWith(".indianrail.gov.in") ||
-                        host == "cris.org.in" ||
-                        host.endsWith(".cris.org.in") ||
-                        host == "maps.google.com" ||
-                        (host == "www.google.com" && uri.path.orEmpty().startsWith("/maps"))
-                }
-
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val uri = request?.url ?: return false
-                    if (isAllowed(uri)) return false
+                    val host = uri.host.orEmpty().lowercase()
+                    val official = host == "indianrail.gov.in" ||
+                        host.endsWith(".indianrail.gov.in") ||
+                        host == "cris.org.in" || host.endsWith(".cris.org.in")
+                    if (official) return false
                     Toast.makeText(this@TrainTrackerActivity, "This external page was blocked.", Toast.LENGTH_SHORT).show()
                     return true
                 }
 
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     progress.visibility = View.VISIBLE
-                    pageStatus.text = "Loading official railway enquiry…"
+                    pageStatus.text = "Connecting to official railway service…"
                 }
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     progress.visibility = View.GONE
-                    pageStatus.text = tools[selectedIndex].hint
+                    pageStatus.text = tools[selectedTool].status + " • Check the enquiry's update time"
                 }
 
                 override fun onReceivedError(
-                    view: WebView?, request: WebResourceRequest?, error: WebResourceError?
+                    view: WebView?, request: WebResourceRequest?, error: android.webkit.WebResourceError?
                 ) {
-                    if (request?.isForMainFrame == true) {
-                        progress.visibility = View.GONE
-                        pageStatus.text = "Railway enquiry could not load. Check your connection and tap REFRESH."
-                    }
+                    if (request?.isForMainFrame == true) showLoadError()
+                }
+
+                @Suppress("DEPRECATION")
+                override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
+                    showLoadError()
                 }
             }
         }
         root.addView(page, LinearLayout.LayoutParams(-1, 0, 1f))
 
         root.addView(text(
-            "DATA SOURCE: INDIAN RAILWAYS / CRIS • RUNNING POSITION IS THE LAST RAILWAY-REPORTED UPDATE, NOT A PHONE GPS TRACK. PNR IS ENTERED ON THE OFFICIAL PAGE ONLY.",
+            "LIVE DATA SOURCE: INDIAN RAILWAYS / CRIS. Search train number, station, journey date or PNR on the official enquiry page. PNR values are not stored by ARUSHI.",
             9f, muted
         ).apply { setPadding(dp(3), dp(8), dp(3), dp(3)) })
 
         setContentView(root)
-        rebuildTabs()
+        rebuildTabs(0)
     }
 
-    private fun rebuildTabs() {
+    private fun showLoadError() {
+        progress.visibility = View.GONE
+        pageStatus.text = "Railway enquiry could not load. Check your internet connection and tap the selected tab to retry."
+    }
+
+    private fun rebuildTabs(selected: Int) {
         tabRow.removeAllViews()
         tools.forEachIndexed { index, tool ->
-            val button = actionButton(tool.title, index == selectedIndex) { selectTool(index) }
-            tabRow.addView(button, LinearLayout.LayoutParams(-2, -1).apply { marginEnd = dp(7) })
+            val button = actionButton(tool.title, index == selected) { selectTool(index) }
+            tabRow.addView(button, LinearLayout.LayoutParams(-2, -1).apply {
+                marginEnd = dp(7)
+            })
         }
     }
 
     private fun selectTool(index: Int) {
-        selectedIndex = index.coerceIn(tools.indices)
-        val tool = tools[selectedIndex]
-        rebuildTabs()
-        pageStatus.text = tool.hint
-        if (selectedIndex == tools.lastIndex) {
-            page.clearHistory()
-            page.clearFormData()
-        }
-        page.loadUrl(tool.url)
-    }
-
-    private fun reloadPage() {
-        if (::page.isInitialized) page.reload()
+        selectedTool = index.coerceIn(tools.indices)
+        val tool = tools[selectedTool]
+        rebuildTabs(selectedTool)
+        pageStatus.text = tool.description
+        if (::page.isInitialized) page.loadUrl(tool.url)
     }
 
     @Deprecated("Deprecated in Android")
