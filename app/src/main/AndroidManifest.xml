@@ -79,6 +79,7 @@
         <activity android:name=".NandiniStudioActivity" android:exported="false" android:label="ARUSHI Studio" android:theme="@style/NandiniTheme" />
         <activity android:name=".NandiniCommandCenterActivity" android:exported="false" android:label="ARUSHI Command Center" android:theme="@style/NandiniTheme" />
         <activity android:name=".HologramStudioActivity" android:exported="false" android:label="ARUSHI Holographic Studio" android:theme="@style/NandiniTheme" />
+        <activity android:name=".TrainTrackerActivity" android:exported="false" android:label="ARUSHI Train Tracker" android:theme="@style/NandiniTheme" />
         <activity android:name=".ArCorePlacementActivity" android:exported="false" android:label="ARUSHI Room AR" android:screenOrientation="fullSensor" android:theme="@style/NandiniTheme" />
         <activity android:name=".ArRoomActivity" android:exported="false" android:label="ARUSHI Room AR" android:screenOrientation="unspecified" android:theme="@style/NandiniTheme" />
         <activity android:name=".ReminderActivity" android:exported="false" android:label="ARUSHI Reminders" android:theme="@style/NandiniTheme" />
