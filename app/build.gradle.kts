@@ -47,6 +47,8 @@ dependencies {
     implementation("com.google.ar:core:1.56.0")
     // ARCore-backed camera, plane detection, anchors and transformable 3D models.
     implementation("com.gorisse.thomas.sceneform:sceneform:1.23.0")
+    implementation("io.github.webrtc-sdk:android:125.6422.07")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     debugImplementation("com.google.firebase:firebase-appcheck-debug")
 }
