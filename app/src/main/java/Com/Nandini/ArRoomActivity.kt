@@ -41,6 +41,14 @@ class ArRoomActivity : FragmentActivity() {
 
         setContentView(root)
         val ar = ArFragment()
+        // Register before adding the fragment: ArSceneView is only safe to use
+        // from Sceneform's view-created callback, not immediately after commitNow().
+        ar.setOnViewCreatedListener { arSceneView ->
+            arSceneView.scene.addOnUpdateListener {
+                updateAnchoredCompanion(ar)
+            }
+            statusView?.text = "AR camera ready • scan slowly for a surface"
+        }
         supportFragmentManager.beginTransaction()
             .replace(fragmentContainer.id, ar, "arushi_ar_fragment")
             .commitNow()
@@ -64,9 +72,6 @@ class ArRoomActivity : FragmentActivity() {
             placedAnchor?.detach()
             placedAnchor = hitResult.createAnchor()
             statusView?.text = "ARUSHI placed • move around to view from another angle"
-        }
-        ar.arSceneView.scene.addOnUpdateListener {
-            updateAnchoredCompanion(ar)
         }
     }
 
