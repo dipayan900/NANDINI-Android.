@@ -23,6 +23,8 @@ class Anime3DView(
 
     @Volatile private var companionState: String = "idle"
     @Volatile private var pageReady = false
+    @Volatile private var requestedVisible = true
+    @Volatile private var hologramMode: String = "standard"
 
     private val assetLoader = WebViewAssetLoader.Builder()
         .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
@@ -56,7 +58,8 @@ class Anime3DView(
                 pageReady = true
                 pushStateToRenderer()
                 pushEmotionToRenderer()
-                setRendererVisible(isShown && windowVisibility == View.VISIBLE)
+                pushHologramMode()
+                setRendererVisible(requestedVisible && isShown && windowVisibility == View.VISIBLE)
             }
 
             override fun onReceivedError(
@@ -80,6 +83,39 @@ class Anime3DView(
 
         // AndroidX's asset loader gives bundled HTML/model files a safe HTTPS origin.
         loadUrl("https://appassets.androidplatform.net/assets/companion.html")
+    }
+
+    /** Set renderer visibility while ARCore is acquiring or tracking a placed anchor. */
+    fun setCompanionVisible(visible: Boolean) {
+        requestedVisible = visible
+        post { setRendererVisible(visible && isShown && windowVisibility == View.VISIBLE) }
+    }
+
+    /** Position the existing VRM renderer at the ARCore-projected anchor. */
+    fun setARPlacement(x: Float, y: Float, scale: Float, visible: Boolean) {
+        val safeX = if (x.isFinite()) x.coerceIn(-3f, 3f) else 0f
+        val safeY = if (y.isFinite()) y.coerceIn(-3f, 3f) else 0f
+        val safeScale = if (scale.isFinite()) scale.coerceIn(0.25f, 3.5f) else 1f
+        post {
+            if (pageReady) {
+                evaluateJavascript(
+                    "window.setARPlacement && window.setARPlacement($safeX,$safeY,$safeScale,$visible)",
+                    null
+                )
+            }
+        }
+    }
+
+    /** Switch between the standard 3D stage and four-view projection output. */
+    fun setHologramMode(value: String) {
+        hologramMode = if (value.equals("pyramid", ignoreCase = true)) "pyramid" else "standard"
+        post { pushHologramMode() }
+    }
+
+    private fun pushHologramMode() {
+        if (!pageReady) return
+        val mode = hologramMode
+        evaluateJavascript("window.setHologramMode && window.setHologramMode('$mode')", null)
     }
 
     fun setSpeaking(value: Boolean) {
@@ -132,7 +168,7 @@ class Anime3DView(
 
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
-        setRendererVisible(visibility == View.VISIBLE && isShown)
+        setRendererVisible(requestedVisible && visibility == View.VISIBLE && isShown)
     }
 
     override fun onAttachedToWindow() {
@@ -141,6 +177,7 @@ class Anime3DView(
     }
 
     override fun onDetachedFromWindow() {
+        requestedVisible = false
         setRendererVisible(false)
         pageReady = false
         stopLoading()
