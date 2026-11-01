@@ -1,9 +1,12 @@
 package com.dipayan.nandini
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.animation.ObjectAnimator
 import android.app.role.RoleManager
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -44,6 +47,30 @@ class ArushiLauncherActivity : Activity() {
         super.onCreate(savedInstanceState)
         themeIndex = prefs.getInt("theme", 0).coerceIn(0, themeNames.lastIndex)
         buildUi()
+        showPreviousCrashReport()
+    }
+
+    private fun showPreviousCrashReport() {
+        val report = java.io.File(filesDir, "arushi_last_crash.txt")
+        if (!report.exists()) return
+        val details = runCatching { report.readText() }.getOrDefault("Crash report could not be read.")
+        val body = ScrollView(this).apply {
+            addView(label(details.take(12000), 11f, Color.WHITE).apply {
+                gravity = Gravity.START
+                setTextIsSelectable(true)
+            })
+        }
+        AlertDialog.Builder(this)
+            .setTitle("ARUSHI crash diagnostic")
+            .setMessage("ARUSHI recorded a previous app crash. Copy this report and send it here so the exact cause can be identified.")
+            .setView(body)
+            .setPositiveButton("COPY REPORT") { _, _ ->
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("ARUSHI crash report", details))
+                Toast.makeText(this, "Crash report copied. Paste it into this chat.", Toast.LENGTH_LONG).show()
+            }
+            .setNegativeButton("LATER", null)
+            .show()
     }
 
     override fun onResume() {
