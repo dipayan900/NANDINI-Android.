@@ -129,7 +129,7 @@ class ArCorePlacementActivity : Activity(), GLSurfaceView.Renderer {
         root.addView(controls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         setContentView(root)
         renderer = CameraBackgroundRenderer(this)
-        glView.setRenderer(renderer)
+        glView.setRenderer(this)
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.CAMERA), requestCamera)
         }
