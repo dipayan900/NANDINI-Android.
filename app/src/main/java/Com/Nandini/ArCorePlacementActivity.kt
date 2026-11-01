@@ -64,7 +64,6 @@ class ArCorePlacementActivity : Activity(), GLSurfaceView.Renderer {
         glView = GLSurfaceView(this).apply {
             setEGLContextClientVersion(2)
             preserveEGLContextOnPause = false
-            renderer = this@ArCorePlacementActivity
             renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
             setOnTouchListener { _, event ->
                 if (event.action == MotionEvent.ACTION_UP) {
