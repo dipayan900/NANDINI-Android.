@@ -20,7 +20,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.google.ar.core.Anchor
 import com.google.ar.core.ArCoreApk
-import com.google.ar.core.CameraNotAvailableException
+import com.google.ar.core.exceptions.CameraNotAvailableException
 import com.google.ar.core.Config
 import com.google.ar.core.Coordinates2d
 import com.google.ar.core.Frame
