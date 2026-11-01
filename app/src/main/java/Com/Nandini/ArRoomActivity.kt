@@ -87,12 +87,14 @@ class ArRoomActivity : FragmentActivity() {
         val projectionMatrix = FloatArray(16)
         val anchorMatrix = FloatArray(16)
         val viewAnchor = FloatArray(16)
+        val clipMatrix = FloatArray(16)
         val clip = FloatArray(4)
         camera.getViewMatrix(viewMatrix, 0)
         camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100f)
         anchor.pose.toMatrix(anchorMatrix, 0)
         Matrix.multiplyMM(viewAnchor, 0, viewMatrix, 0, anchorMatrix, 0)
-        Matrix.multiplyMV(clip, 0, projectionMatrix, 0, viewAnchor, 0, floatArrayOf(0f, 0f, 0f, 1f), 0)
+        Matrix.multiplyMM(clipMatrix, 0, projectionMatrix, 0, viewAnchor, 0)
+        Matrix.multiplyMV(clip, 0, clipMatrix, 0, floatArrayOf(0f, 0f, 0f, 1f), 0)
 
         val w = clip[3]
         if (w <= 0f) {
