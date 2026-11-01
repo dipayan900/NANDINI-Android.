@@ -67,6 +67,7 @@ class NandiniCommandCenterActivity : Activity() {
     private fun render() {
         content.removeAllViews()
         section("LOCAL INTELLIGENCE", "Works without cloud AI. Your notes and command history remain in this app's private storage.")
+        cardButton("✦  OPEN AI CHAT CENTER", "Continue to ARUSHI chat, voice, camera and AI features.") { startActivity(Intent(this, MainActivity::class.java)) }
         cardButton("⌘  OFFLINE CALCULATOR", "Basic arithmetic with parentheses, + − × ÷ and decimals.") { calculator() }
         cardButton("▤  QUICK NOTES", "Create, read, copy or delete local notes.") { notes() }
         cardButton("⏱  PROACTIVE REMINDER", "Schedule an Android alarm/reminder; Android may ask you to confirm.") { reminder() }
