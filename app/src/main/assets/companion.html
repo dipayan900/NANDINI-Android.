@@ -23,6 +23,8 @@
   .spark{position:absolute;width:3px;height:3px;border-radius:50%;background:#e8d6ff;box-shadow:0 0 8px 2px rgba(176,121,255,.55);opacity:0;animation:floatSpark 7s ease-in-out infinite}
   .s1{left:16%;top:35%;animation-delay:-1s}.s2{left:78%;top:43%;animation-delay:-4s;width:2px;height:2px}
   .s3{left:23%;top:66%;animation-delay:-2.5s;width:2px;height:2px}.s4{left:83%;top:72%;animation-delay:-5s}
+  #stage.pyramid-mode{background:#000!important}
+  #stage.pyramid-mode .ambient,#stage.pyramid-mode .frontFx{display:none}
   #fallback{display:none;position:absolute;inset:0;z-index:5;align-items:center;justify-content:center;padding:18px;
     color:rgba(235,220,255,.86);font:12px system-ui,sans-serif;text-align:center;pointer-events:none;
     background:radial-gradient(ellipse at 50% 65%,rgba(100,54,160,.16),transparent 70%)}
@@ -109,6 +111,7 @@ scene.add(fillLight);
 
 let vrm = null;
 let state = 'idle';
+let hologramMode = 'standard';
 let lastTime = 0;
 let elapsed = 0;
 let nextBlinkAt = 2.4 + Math.random() * 2.0;
@@ -136,6 +139,10 @@ function setCompanionState(next) {
 window.setCompanionState = setCompanionState;
 let companionVisible = true;
 let animationFrameId = 0;
+window.setHologramMode = mode => {
+  hologramMode = mode === 'pyramid' ? 'pyramid' : 'standard';
+  stage.classList.toggle('pyramid-mode', hologramMode === 'pyramid');
+};
 window.setCompanionVisible = visible => {
   companionVisible = !!visible;
   if (companionVisible && !document.hidden && !animationFrameId) {
@@ -200,6 +207,40 @@ function resize() {
 }
 if ('ResizeObserver' in window) new ResizeObserver(resize).observe(stage);
 else window.addEventListener('resize', resize);
+
+function renderScene() {
+  if (hologramMode !== 'pyramid') {
+    renderer.setScissorTest(false);
+    camera.aspect = stage.clientWidth / Math.max(1, stage.clientHeight);
+    camera.position.set(0, 0.76, 2.75);
+    camera.lookAt(0, 0.76, 0);
+    camera.updateProjectionMatrix();
+    renderer.render(scene, camera);
+    return;
+  }
+  const width = Math.max(1, Math.floor(stage.clientWidth / 2));
+  const height = Math.max(1, Math.floor(stage.clientHeight / 2));
+  const totalHeight = stage.clientHeight;
+  const views = [
+    { x: 0, y: height, angle: 0 },
+    { x: width, y: height, angle: Math.PI / 2 },
+    { x: 0, y: 0, angle: -Math.PI / 2 },
+    { x: width, y: 0, angle: Math.PI }
+  ];
+  renderer.setScissorTest(true);
+  views.forEach(view => {
+    const glY = totalHeight - view.y - height;
+    renderer.setViewport(view.x, glY, width, height);
+    renderer.setScissor(view.x, glY, width, height);
+    renderer.clear(true, true, true);
+    camera.aspect = width / Math.max(1, height);
+    camera.position.set(Math.sin(view.angle) * 2.75, 0.76, Math.cos(view.angle) * 2.75);
+    camera.lookAt(0, 0.76, 0);
+    camera.updateProjectionMatrix();
+    renderer.render(scene, camera);
+  });
+  renderer.setScissorTest(false);
+}
 
 function animate(now) {
   animationFrameId = 0;
@@ -284,7 +325,7 @@ function animate(now) {
     if (state !== 'speaking') setExpression('aa', 0);
     vrm.update(delta);
   }
-  renderer.render(scene, camera);
+  renderScene();
   animationFrameId = requestAnimationFrame(animate);
 }
 document.addEventListener('visibilitychange', () => {
