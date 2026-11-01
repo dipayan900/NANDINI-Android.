@@ -38,10 +38,8 @@ class TrainTrackerActivity : Activity() {
     private data class Tool(val title: String, val url: String, val hint: String)
 
     private val tools = listOf(
-        Tool("LIVE TRAIN", "https://enquiry.indianrail.gov.in/ntes/", "Spot a train by number/name and view its reported running position, previous/next station, delay and expected timings."),
-        Tool("BETWEEN STATIONS", "https://enquiry.indianrail.gov.in/ntes/", "Find trains between two stations. Use the official NTES journey search for the travel date and available services."),
-        Tool("LIVE STATION", "https://enquiry.indianrail.gov.in/ntes/", "Check expected arrivals and departures at a station."),
-        Tool("TRAIN SCHEDULE", "https://enquiry.indianrail.gov.in/ntes/", "View a train's route, halts and scheduled arrival/departure times."),
+        Tool("NTES LIVE", "https://enquiry.indianrail.gov.in/ntes/", "Official NTES includes Spot Your Train, Live Station, Train Schedule, trains between stations, and cancelled / rescheduled / diverted train updates."),
+        Tool("JOURNEY SEARCH", "https://www.indianrail.gov.in/enquiry/TBIS/TrainBetweenImportantStations.jsp", "Search reserved trains by journey date, source station and destination station on the official Indian Railways enquiry site."),
         Tool("PNR STATUS", "https://www.indianrail.gov.in/enquiry/PNR/PnrEnquiry.html?locale=en", "Check the current reservation status on the official Indian Railways PNR enquiry page.")
     )
 
