@@ -55,6 +55,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <activity android:name=".CreatorCreditsActivity" android:exported="false" android:label="ARUSHI Creator Credits" android:theme="@style/NandiniTheme" />
         <activity android:name=".SplashActivity" android:exported="false" android:theme="@style/NandiniTheme" />
 
         <activity
