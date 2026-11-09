@@ -5,5 +5,6 @@ License text: https://creativecommons.org/licenses/by-nc/4.0/
 
 ARUSHI uses the filtered runtime variant. This integration is adapted and is not
 an official LocalDream product or endorsed by the upstream author. Non-commercial
-use only under the upstream license. Third-party notices are retained in the
-licenses directory beside this file.
+use only under the upstream license. Third-party component license review is still
+pending; do not publicly redistribute this build until required notices have been
+audited and included.
