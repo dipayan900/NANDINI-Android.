@@ -29,6 +29,7 @@ class AccountStorageActivity : Activity() {
     private val muted = Color.rgb(185, 174, 215)
     private val accountPrefs by lazy { getSharedPreferences("arushi_guest_account", Context.MODE_PRIVATE) }
     private val storagePrefs by lazy { getSharedPreferences("arushi_storage", Context.MODE_PRIVATE) }
+    private val chatStore by lazy { ChatStore(this) }
     private lateinit var content: LinearLayout
 
     companion object {
@@ -91,7 +92,7 @@ class AccountStorageActivity : Activity() {
 
         addSection(
             "PORTABLE ACCOUNT BACKUP",
-            "Export chats, generated images, Studio memories and tasks, guest profile, and app preferences into one ZIP file. Import it on another device with ARUSHI installed."
+            "Export chats, generated images, Studio memories and tasks, guest profile, and app preferences into one ZIP file. Import it on another device with ARUSHI installed. The ZIP is not encrypted, so keep it private."
         )
         addButton("EXPORT FULL BACKUP (.ZIP)") { launchExport() }
         addButton("IMPORT BACKUP FROM ANOTHER DEVICE") { launchImport() }
@@ -113,7 +114,7 @@ class AccountStorageActivity : Activity() {
                 .setPositiveButton("DELETE") { _, _ ->
                     val keepId = getSharedPreferences("nandini_chat", Context.MODE_PRIVATE)
                         .getString("currentChatId", null)
-                    val deleted = ChatStore(this).deleteOlderThan(
+                    val deleted = chatStore.deleteOlderThan(
                         System.currentTimeMillis() - 30L * 24L * 60L * 60L * 1000L,
                         keepId
                     )
@@ -293,7 +294,7 @@ class AccountStorageActivity : Activity() {
         val cacheSize = directorySize(cacheDir)
         val model = LocalAiRuntime.modelFile(this)
         val modelSize = if (model.isFile) model.length() else 0L
-        val chats = ChatStore(this).chatCount()
+        val chats = chatStore.chatCount()
         return "Saved conversations: $chats\nChat database: ${formatBytes(databaseSize)}\nGenerated images: ${formatBytes(imageSize)}\nTemporary cache: ${formatBytes(cacheSize)}\nOffline AI model: ${if (modelSize > 0L) formatBytes(modelSize) else "not downloaded"}"
     }
 
@@ -362,6 +363,11 @@ class AccountStorageActivity : Activity() {
     private fun deleteRecursively(file: File) {
         if (file.isDirectory) file.listFiles()?.forEach { deleteRecursively(it) }
         file.delete()
+    }
+
+    override fun onDestroy() {
+        if (this::content.isInitialized) chatStore.close()
+        super.onDestroy()
     }
 
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
