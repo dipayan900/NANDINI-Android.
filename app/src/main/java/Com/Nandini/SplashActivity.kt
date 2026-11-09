@@ -36,6 +36,7 @@ class SplashActivity : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         val palette = ArushiExperience.palette(this)
         ArushiExperience.applySystemBars(this)
