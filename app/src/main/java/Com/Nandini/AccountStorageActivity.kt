@@ -41,15 +41,13 @@ class AccountStorageActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        bg = if (isNight) Color.rgb(10, 8, 22) else Color.rgb(248, 246, 252)
-        panel = if (isNight) Color.rgb(29, 20, 48) else Color.rgb(255, 255, 255)
-        accent = if (isNight) Color.rgb(190, 139, 255) else Color.rgb(112, 63, 157)
-        white = if (isNight) Color.rgb(250, 247, 255) else Color.rgb(35, 28, 43)
-        muted = if (isNight) Color.rgb(185, 174, 215) else Color.rgb(100, 91, 112)
-        window.decorView.systemUiVisibility = if (isNight) 0 else (View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        val palette = ArushiExperience.palette(this)
+        bg = palette.background
+        panel = palette.panel
+        accent = palette.accent
+        white = palette.text
+        muted = palette.muted
+        ArushiExperience.applySystemBars(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(14), dp(16), dp(14))
