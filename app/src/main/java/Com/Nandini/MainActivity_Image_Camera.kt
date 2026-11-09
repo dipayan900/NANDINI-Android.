@@ -526,7 +526,7 @@ val root = LinearLayout(this).apply {
 orientation = LinearLayout.VERTICAL
 background = android.graphics.drawable.GradientDrawable(
     android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-    intArrayOf(Color.rgb(28, 10, 34), bg, Color.rgb(10, 7, 20))
+    intArrayOf(palette.elevated, bg, bg)
 )
 setPadding(dp(16), dp(12), dp(16), dp(10))
 }
@@ -598,7 +598,7 @@ scroll.setBackgroundColor(Color.TRANSPARENT)
 val chatStage = FrameLayout(this).apply {
     background = android.graphics.drawable.GradientDrawable(
         android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(Color.rgb(24, 14, 43), Color.rgb(14, 10, 29), Color.rgb(10, 8, 22))
+        intArrayOf(palette.panel, bg, bg)
     ).apply {
         cornerRadius = dp(24).toFloat()
         setStroke(dp(1), Color.argb(175, 145, 106, 208))
@@ -613,7 +613,7 @@ val stageAura = View(this).apply {
     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     background = android.graphics.drawable.GradientDrawable(
         android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-        intArrayOf(Color.argb(100, 139, 92, 246), Color.argb(5, 139, 92, 246))
+        intArrayOf(Color.argb(95, Color.red(accent), Color.green(accent), Color.blue(accent)), Color.argb(5, Color.red(accent), Color.green(accent), Color.blue(accent)))
     ).apply {
         shape = android.graphics.drawable.GradientDrawable.OVAL
         gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
@@ -649,8 +649,8 @@ val avatarMoveHandle = TextView(this).apply {
     background = android.graphics.drawable.GradientDrawable().apply {
         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
         cornerRadius = dp(12).toFloat()
-        setColor(Color.argb(190, 42, 30, 66))
-        setStroke(dp(1), Color.argb(180, 190, 155, 255))
+        setColor(Color.argb(190, Color.red(panel), Color.green(panel), Color.blue(panel)))
+        setStroke(dp(1), Color.argb(180, Color.red(accent), Color.green(accent), Color.blue(accent)))
     }
     setPadding(dp(8), dp(4), dp(8), dp(4))
 }
@@ -803,9 +803,9 @@ input = EditText(this).apply {
     setSingleLine(true)
     setPadding(dp(14), 0, dp(10), 0)
     background = android.graphics.drawable.GradientDrawable().apply {
-        setColor(Color.rgb(39, 20, 48))
+        setColor(panel)
         cornerRadius = dp(18).toFloat()
-        setStroke(dp(1), Color.rgb(170, 92, 178))
+        setStroke(dp(1), accent)
     }
     // Keep typed text bright and readable while the keyboard is open.
     setSelectAllOnFocus(false)
@@ -817,9 +817,9 @@ input = EditText(this).apply {
 composer.addView(input, LinearLayout.LayoutParams(0, dp(52), 1f))
 input.setOnFocusChangeListener { view, hasFocus ->
     view.background = android.graphics.drawable.GradientDrawable().apply {
-        setColor(Color.rgb(39, 20, 48))
+        setColor(panel)
         cornerRadius = dp(18).toFloat()
-        setStroke(dp(1), if (hasFocus) Color.rgb(255, 132, 190) else Color.rgb(111, 62, 121))
+        setStroke(dp(1), if (hasFocus) Color.rgb(255, 132, 190) else accent)
     }
 }    
 
@@ -928,11 +928,11 @@ setTextColor(if (color == accent) Color.rgb(35, 10, 29) else white)
 backgroundTintList = null
 background = android.graphics.drawable.GradientDrawable(
     android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-    if (color == accent) intArrayOf(Color.rgb(207, 173, 255), Color.rgb(255, 157, 218))
-    else intArrayOf(Color.rgb(45, 31, 69), Color.rgb(26, 20, 43))
+    if (color == accent) intArrayOf(accent, palette.accentSecondary)
+    else intArrayOf(panel, palette.elevated)
 ).apply {
     cornerRadius = dp(16).toFloat()
-    setStroke(dp(1), if (color == accent) Color.rgb(229, 204, 255) else Color.rgb(103, 79, 145))
+    setStroke(dp(1), if (color == accent) accent else accent)
 }
 elevation = dp(2).toFloat()
 setOnClickListener {
@@ -2248,9 +2248,9 @@ private fun addMessage(
         setTextColor(white)  
         setPadding(dp(13), dp(10), dp(13), dp(10))  
         background = android.graphics.drawable.GradientDrawable().apply {
-            setColor(if (isUser) userBubble else Color.rgb(35, 20, 44))
+            setColor(if (isUser) userBubble else panel)
             cornerRadius = dp(18).toFloat()
-            setStroke(dp(1), if (isUser) Color.rgb(193, 89, 160) else Color.rgb(92, 54, 104))
+            setStroke(dp(1), if (isUser) Color.rgb(193, 89, 160) else accent)
         }
         setLineSpacing(dp(2).toFloat(), 1.0f)  
         maxWidth = resources.displayMetrics.widthPixels * 4 / 5  
@@ -2279,9 +2279,9 @@ private fun addMessage(
             setTextColor(muted)
             setPadding(dp(9), dp(5), dp(9), dp(5))
             background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(Color.rgb(27, 13, 34))
+                setColor(bg)
                 cornerRadius = dp(12).toFloat()
-                setStroke(dp(1), Color.rgb(77, 45, 86))
+                setStroke(dp(1), accent)
             }
             setOnClickListener {
                 animate().cancel()
