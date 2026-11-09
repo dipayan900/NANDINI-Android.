@@ -1703,6 +1703,21 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
     statusText.text = if (generateImage) "● CREATING IMAGE..." else "● ANALYZING IMAGE..."
     scope.launch {
         try {
+            if (bitmap != null) {
+                val attachedImageName = withContext(Dispatchers.IO) {
+                    runCatching { saveGeneratedImage(bitmap) }.onFailure {
+                        Log.e("ARUSHI_STORAGE", "Attached image could not be saved", it)
+                    }.getOrNull()
+                }
+                if (attachedImageName != null) {
+                    val userIndex = history.indexOfLast { it.role == "user" }
+                    if (userIndex >= 0) {
+                        val oldMessage = history[userIndex].text
+                        history[userIndex] = ChatMessage("user", "$oldMessage\n[arushi_image:$attachedImageName]")
+                        saveHistory()
+                    }
+                }
+            }
             if (generateImage) {
                 val generated = withContext(Dispatchers.IO) { generateOrEditImage(prompt, bitmap) }
                 val savedImageName = withContext(Dispatchers.IO) {
