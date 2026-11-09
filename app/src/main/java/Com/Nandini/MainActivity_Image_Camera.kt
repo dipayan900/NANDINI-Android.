@@ -434,8 +434,9 @@ val text: String
 )
 
 private val history = mutableListOf<ChatMessage>()
-private data class SavedChat(val id: String, var title: String, val messages: MutableList<ChatMessage>)
+private data class SavedChat(val id: String, var title: String, val messages: MutableList<ChatMessage>, var preview: String = "")
 private val savedChats = mutableListOf<SavedChat>()
+private val chatStore by lazy { ChatStore(this) }
 private var currentChatId: String = System.currentTimeMillis().toString()
 private val memoryPrefs by lazy { getSharedPreferences("nandini_memory", Context.MODE_PRIVATE) }
 
@@ -451,8 +452,6 @@ private const val REQUEST_MIC_PERMISSION = 201
 private const val REQUEST_SPEECH = 202
 private const val REQUEST_PICK_FILE = 204
 private const val REQUEST_CAMERA_IMAGE = 205
-private const val MAX_SAVED_MESSAGES = 30
-private const val MAX_SAVED_CHATS = 40
 private const val MAX_CONTEXT_MESSAGES = 16
 }
 
@@ -1460,7 +1459,6 @@ history.add(ChatMessage("user", when {
     !attachedText.isNullOrBlank() -> modelPrompt
     else -> userText
 }))
-trimHistory()
 saveHistory()
 input.text.clear()
 
@@ -1492,9 +1490,7 @@ if (deviceReply != null) {
     addMessage("ARUSHI", deviceReply)
     setAvatarEmotionFromText(deviceReply)
     history.add(ChatMessage("model", deviceReply))
-
-    trimHistory()
-    saveHistory()
+saveHistory()
     saveCurrentChat()
     speakReply(deviceReply)
     return
@@ -1514,15 +1510,22 @@ setAvatarState("thinking")
 
 scope.launch {
 try {
+var localStreamStarted = false
 val reply = withContext(Dispatchers.IO) {
-generateReplyWithRetry(modelPrompt)
+    generateReplyWithRetry(modelPrompt) { chunk ->
+        runOnUiThread {
+            if (!localStreamStarted) {
+                replyView.text = ""
+                localStreamStarted = true
+            }
+            replyView.append(chunk)
+        }
+    }
 }
-
 replyView.text = reply
     setAvatarEmotionFromText(reply)
-    history.add(ChatMessage("model", reply))    
-    trimHistory()    
-    saveHistory()
+    history.add(ChatMessage("model", reply))
+saveHistory()
     saveCurrentChat()
     speakReply(reply)    
 
@@ -1675,7 +1678,7 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
                 history.add(ChatMessage("model", answer))
                 speakReply(answer)
             }
-            trimHistory(); saveHistory(); saveCurrentChat()
+; saveHistory(); saveCurrentChat()
         } catch (e: Exception) {
             Log.e("ARUSHI", "Image request failed", e)
             replyView.text = if (generateImage) "I couldn't generate the image. Firebase image generation requires the Blaze pay-as-you-go plan and a supported image model. Check billing and model access, then retry. 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
@@ -1723,7 +1726,7 @@ val weatherWords = listOf(
 return weatherWords.any { it in text }
 }
 
-private suspend fun generateReplyWithRetry(userText: String): String {
+private suspend fun generateReplyWithRetry(userText: String, onLocalChunk: (String) -> Unit = {}): String {
 if (LocalAiRuntime.isEnabled(this)) {
     val studioMemoryContext = try {
         val saved = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
@@ -1771,9 +1774,13 @@ if (LocalAiRuntime.isEnabled(this)) {
         - Follow applicable safety boundaries, including no sexual content involving minors.
     """.trimIndent() + studioMemoryContext + studioModeContext
 
-    val localHistory = history.takeLast(MAX_CONTEXT_MESSAGES).dropLast(1)
+    val recentLocalHistory = history.takeLast(MAX_CONTEXT_MESSAGES).dropLast(1)
         .map { message -> message.role to message.text }
-    return LocalAiRuntime.generateReply(this, localSystemInstruction, localHistory, userText)
+    val recentBodies = recentLocalHistory.map { it.second }
+    val olderRelevantHistory = chatStore.findRelevantMessages(userText, 6)
+        .filter { (_, body) -> recentBodies.none { it.equals(body, ignoreCase = true) } }
+    val localHistory = (olderRelevantHistory + recentLocalHistory).takeLast(MAX_CONTEXT_MESSAGES)
+    return LocalAiRuntime.generateReply(this, localSystemInstruction, localHistory, userText, onLocalChunk)
 }
 
 var lastError: Exception? = null
@@ -1957,42 +1964,21 @@ private fun startNewChat() {
 
 private fun saveCurrentChat() {
     if (history.isEmpty()) return
-    val existing = savedChats.indexOfFirst { it.id == currentChatId }
     val firstUser = history.firstOrNull { it.role == "user" }?.text.orEmpty()
     val title = firstUser.replace("\n", " ").take(36).ifBlank { "New conversation" }
-    val chat = SavedChat(currentChatId, title, history.toMutableList())
-    if (existing >= 0) savedChats[existing] = chat else savedChats.add(chat)
-    while (savedChats.size > MAX_SAVED_CHATS) savedChats.removeAt(0)
-    val array = JSONArray()
-    savedChats.forEach { item ->
-        val msgs = JSONArray()
-        item.messages.forEach { m ->
-            msgs.put(JSONObject().put("role", m.role).put("text", m.text))
-        }
-        array.put(JSONObject().put("id", item.id).put("title", item.title).put("messages", msgs))
-    }
-    prefs.edit().putString("chats", array.toString()).putString("currentChatId", currentChatId).apply()
+    chatStore.saveChat(currentChatId, title, history.map { it.role to it.text })
+    val existing = savedChats.indexOfFirst { it.id == currentChatId }
+    val summary = SavedChat(currentChatId, title, history.toMutableList(), history.lastOrNull()?.text.orEmpty())
+    if (existing >= 0) savedChats[existing] = summary else savedChats.add(summary)
+    prefs.edit().putString("currentChatId", currentChatId).apply()
 }
 
 private fun loadAllChats() {
+    currentChatId = prefs.getString("currentChatId", currentChatId) ?: currentChatId
+    chatStore.migrateLegacy(prefs.getString("chats", null), prefs.getString("history", null), currentChatId)
     savedChats.clear()
-    try {
-        val array = JSONArray(prefs.getString("chats", "[]") ?: "[]")
-        for (i in 0 until array.length()) {
-            val item = array.getJSONObject(i)
-            val msgs = mutableListOf<ChatMessage>()
-            val stored = item.optJSONArray("messages") ?: JSONArray()
-            for (j in 0 until stored.length()) {
-                val m = stored.getJSONObject(j)
-                val role = m.optString("role")
-                val txt = m.optString("text")
-                if ((role == "user" || role == "model") && txt.isNotBlank()) msgs.add(ChatMessage(role, txt))
-            }
-            if (msgs.isNotEmpty()) savedChats.add(SavedChat(item.optString("id"), item.optString("title", "Conversation"), msgs))
-        }
-        currentChatId = prefs.getString("currentChatId", currentChatId) ?: currentChatId
-    } catch (e: Exception) {
-        Log.e("ARUSHI", "Saved chats couldn't be read", e)
+    chatStore.listChats().forEach { stored ->
+        savedChats.add(SavedChat(stored.id, stored.title, mutableListOf(), stored.preview))
     }
 }
 
@@ -2007,15 +1993,14 @@ private fun showChatHistory() {
         return
     }
     val labels = savedChats.asReversed().map { chat ->
-        val preview = chat.messages.lastOrNull()?.text.orEmpty().replace("\n", " ").take(50)
-        "${chat.title}\n$preview"
+        "${chat.title}\n${chat.preview.replace("\n", " ").take(50)}"
     }.toTypedArray()
     android.app.AlertDialog.Builder(this)
         .setTitle("Chat history")
         .setItems(labels) { _, which ->
             val chosen = savedChats.asReversed()[which]
             history.clear()
-            history.addAll(chosen.messages)
+            history.addAll(chatStore.loadMessages(chosen.id).map { ChatMessage(it.first, it.second) })
             currentChatId = chosen.id
             saveHistory()
             renderHistory()
@@ -2153,56 +2138,36 @@ private fun showMemoryManager() {
 }
 
 private fun loadHistory() {
-history.clear()
-val savedCurrent = savedChats.firstOrNull { it.id == currentChatId }
-if (savedCurrent != null) {
-    history.addAll(savedCurrent.messages)
-    trimHistory()
-    return
-}
-val raw = prefs.getString("history", "[]") ?: "[]"
-
-try {    
-    val array = JSONArray(raw)    
-    for (i in 0 until array.length()) {    
-        val item = array.getJSONObject(i)    
-        val role = item.optString("role")    
-        val text = item.optString("text")    
-
-        if ((role == "user" || role == "model") && text.isNotBlank()) {    
-            history.add(ChatMessage(role, text))    
-        }    
-    }    
-    trimHistory()
-    if (history.isNotEmpty()) saveCurrentChat()
-} catch (e: Exception) {    
-    Log.e("ARUSHI", "Saved history couldn't be read", e)    
-    history.clear()    
+    history.clear()
+    val savedCurrent = savedChats.firstOrNull { it.id == currentChatId }
+    if (savedCurrent != null) {
+        history.addAll(chatStore.loadMessages(currentChatId).map { ChatMessage(it.first, it.second) })
+        return
+    }
+    val raw = prefs.getString("history", "[]") ?: "[]"
+    try {
+        val array = JSONArray(raw)
+        for (i in 0 until array.length()) {
+            val item = array.getJSONObject(i)
+            val role = item.optString("role")
+            val text = item.optString("text")
+            if ((role == "user" || role == "model") && text.isNotBlank()) history.add(ChatMessage(role, text))
+        }
+        if (history.isNotEmpty()) saveCurrentChat()
+    } catch (e: Exception) {
+        Log.e("ARUSHI", "Saved history couldn't be read", e)
+        history.clear()
+    }
 }
 
-}
 private fun saveHistory() {
-val array = JSONArray()
-
-history.forEach { message ->    
-    array.put(    
-        JSONObject()    
-            .put("role", message.role)    
-            .put("text", message.text)    
-    )    
-}    
-
-prefs.edit()    
-    .putString("history", array.toString())    
-    .apply()
-
+    saveCurrentChat()
 }
 
-private fun trimHistory() {
-while (history.size > MAX_SAVED_MESSAGES) {  
-        history.removeAt(0)  
-    }  
-}  
+private fun
+{
+    // No arbitrary message cap; SQLite stores the complete conversation.
+}
 
 private fun renderHistory() {  
     messages.removeAllViews()  
