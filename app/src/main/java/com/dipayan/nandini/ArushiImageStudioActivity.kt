@@ -23,7 +23,7 @@ import java.io.FileOutputStream
 import java.util.UUID
 import kotlin.concurrent.thread
 
-/** Local, on-device image generation powered by the user's running LocalDream app. */
+/** On-device image generation powered by ARUSHI's bundled LocalDream runtime. */
 class ArushiImageStudioActivity : Activity() {
     private val bg = Color.rgb(7, 8, 23)
     private val panel = Color.rgb(19, 22, 48)
