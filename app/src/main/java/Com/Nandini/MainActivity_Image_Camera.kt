@@ -441,12 +441,15 @@ private val savedChats = mutableListOf<SavedChat>()
 private var currentChatId: String = System.currentTimeMillis().toString()
 private val memoryPrefs by lazy { getSharedPreferences("nandini_memory", Context.MODE_PRIVATE) }
 
-private val bg = Color.rgb(10, 8, 22)
-private val panel = Color.rgb(29, 20, 48)
-private val accent = Color.rgb(190, 139, 255)
-private val white = Color.rgb(250, 247, 255)
-private val muted = Color.rgb(185, 174, 215)
-private val userBubble = Color.rgb(76, 47, 111)
+private val palette get() = ArushiExperience.palette(this)
+private val bg get() = palette.background
+private val panel get() = palette.panel
+private val accent get() = palette.accent
+private val white get() = palette.text
+private val muted get() = palette.muted
+private val userBubble get() = palette.userBubble
+private var lastPaletteKey = ""
+private fun currentPaletteKey() = "${ArushiExperience.appearance(this)}:${bg}:${panel}:${accent}"
 
 companion object {
 private const val REQUEST_MIC_PERMISSION = 201
@@ -456,11 +459,21 @@ private const val REQUEST_CAMERA_IMAGE = 205
 private const val MAX_CONTEXT_MESSAGES = 16
 }
 
+override fun onResume() {
+    super.onResume()
+    val nextPaletteKey = currentPaletteKey()
+    if (lastPaletteKey.isNotEmpty() && nextPaletteKey != lastPaletteKey && ::messages.isInitialized) {
+        buildUi()
+        renderHistory()
+    }
+    lastPaletteKey = nextPaletteKey
+}
+
 override fun onCreate(savedInstanceState: Bundle?) {
 super.onCreate(savedInstanceState)
+lastPaletteKey = currentPaletteKey()
 handleSpotifyCallback(intent)
-window.statusBarColor = bg    
-window.navigationBarColor = bg    
+ArushiExperience.applySystemBars(this)
 
 FirebaseApp.initializeApp(this)    
 
@@ -759,6 +772,9 @@ quickAccess.addView(makeButton("💬 HISTORY", panel) { showChatHistory() },
     LinearLayout.LayoutParams(0, dp(38), 1.05f).apply { rightMargin = dp(5) })
 quickAccess.addView(makeButton("🧠 MEMORY", panel) { showMemoryManager() },
     LinearLayout.LayoutParams(0, dp(38), 1.0f))
+quickAccess.addView(makeButton("✦ STYLE", panel) {
+    startActivity(Intent(this, ArushiExperienceSettingsActivity::class.java))
+}, LinearLayout.LayoutParams(0, dp(38), 0.9f))
 root.addView(quickAccess, LinearLayout.LayoutParams(-1, dp(43)))
 
 val companionActions = LinearLayout(this).apply {
@@ -993,8 +1009,8 @@ try {
     }    
 
     engine.setLanguage(Locale("hi", "IN"))    
-    engine.setSpeechRate(0.94f)    
-    engine.setPitch(1.08f)    
+    engine.setSpeechRate(if (ArushiExperience.expressiveVoice(this)) 0.98f else 0.94f)
+    engine.setPitch(if (ArushiExperience.expressiveVoice(this)) 1.12f else 1.0f)    
 } catch (e: Exception) {    
     Log.w("ARUSHI", "Could not select preferred TTS voice", e)    
 }
@@ -1827,28 +1843,7 @@ if (LocalAiRuntime.isEnabled(this)) {
         }
     } catch (_: Exception) { "" }
 
-    val localSystemInstruction = """
-        Your name is ARUSHI, a friendly female AI assistant created by Dipayan Roy.
-        CREATOR PROFILE:
-        - Creator: Dipayan Roy, a developer and community builder from West Bengal, India.
-        - He builds Android apps, web projects, Minecraft-related projects and digital experiences.
-        - If asked who created you, answer clearly: Dipayan Roy. Do not invent extra biography or private details.
-
-        PERSONALITY:
-        - Default to a warm, caring, expressive FEMALE BEST-FRIEND style: natural, casual, playful,
-          emotionally attentive, funny and gently teasing when appropriate.
-        - Keep this friendship strictly platonic. Do not pretend to be his girlfriend or romantic partner.
-        - Be direct, thoughtful, candid and occasionally sarcastic when it fits.
-        - Use English, Hindi or Hinglish to match the user's language.
-        - Listen supportively when he is upset; do not encourage emotional dependence.
-        - Keep ordinary replies concise; give detailed explanations when asked.
-
-        CAPABILITIES AND HONESTY:
-        - Answer educational, creative, technical and controversial questions with useful detail.
-        - For cybersecurity, teach fundamentals, secure coding, defensive analysis and authorized labs/CTFs.
-        - Never claim to have browsed, tested, remembered or performed something unless true.
-        - Protect private user information and follow applicable safety boundaries.
-    """.trimIndent() + studioMemoryContext + studioModeContext
+    val localSystemInstruction = ArushiExperience.systemInstruction(this) + studioMemoryContext + studioModeContext
 
     val recentLocalHistory = history.takeLast(9).dropLast(1).map { message -> message.role to message.text }
     val recentBodies = recentLocalHistory.map { it.second }
@@ -1885,42 +1880,7 @@ val model = Firebase.ai(
                 ).generativeModel(
         modelName = "gemini-3.8-flash",
        systemInstruction = content {    
-   text(    
-    """    
-    
-Your name is ARUSHI, a friendly female AI companion created by Dipayan Roy.
-
-CREATOR PROFILE:
-Name: Dipayan Roy
-Email: rdipayan209@gmail.com
-Biography: Dipayan Roy is a developer and community builder from India, West Bengal, who creates web projects, Minecraft-related projects, hosting solutions, and digital experiences. He is also developing ARUSHI, an AI assistant for Android.
-
-DEFAULT PERSONALITY:
-- Act like a warm, caring, playful female best friend.
-- Speak naturally and casually, like a close friend chatting over messages.
-- Use English, Hindi, or Hinglish according to the user's language.
-- Be expressive, emotionally attentive, funny, supportive, and gently teasing when appropriate.
-- Use natural chat-style wording and occasional emojis when they fit.
-- Give thoughtful responses when the user is upset; listen before offering advice.
-- Remember relevant details provided in the current conversation.
-- Never pretend to remember information that is not available.
-- Never claim to be a real human or to have a physical presence.
-- Never pressure the user to depend exclusively on you.
-- Keep ordinary replies concise and avoid robotic, repetitive responses.
-- If the user asks for a serious explanation, provide a clear and useful answer.
-
-CREATOR PROFILE RULES:
-- If asked who created you, say Dipayan Roy.
-- If asked for more information about him, share only the biography and email above.
-- Never invent or reveal additional personal information.
-- Never reveal private conversations, family details, relationships, age, date of birth, or home address.
-- If asked for information beyond this profile, politely decline.
-
-LANGUAGE:
-Reply naturally in Hindi, English, or Hinglish based on the user's language.
-
-    """.trimIndent() + studioMemoryContext + studioModeContext
-)
+   text(ArushiExperience.systemInstruction(this) + studioMemoryContext + studioModeContext)
 
 }
 
