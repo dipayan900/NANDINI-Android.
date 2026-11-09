@@ -459,16 +459,6 @@ private const val REQUEST_CAMERA_IMAGE = 205
 private const val MAX_CONTEXT_MESSAGES = 16
 }
 
-override fun onResume() {
-    super.onResume()
-    val nextPaletteKey = currentPaletteKey()
-    if (lastPaletteKey.isNotEmpty() && nextPaletteKey != lastPaletteKey && ::messages.isInitialized) {
-        buildUi()
-        renderHistory()
-    }
-    lastPaletteKey = nextPaletteKey
-}
-
 override fun onCreate(savedInstanceState: Bundle?) {
 super.onCreate(savedInstanceState)
 lastPaletteKey = currentPaletteKey()
@@ -2758,6 +2748,13 @@ override fun onPause() {
 
 override fun onResume() {
     super.onResume()
+    val nextPaletteKey = currentPaletteKey()
+    if (lastPaletteKey.isNotEmpty() && nextPaletteKey != lastPaletteKey && ::messages.isInitialized) {
+        ArushiExperience.applySystemBars(this)
+        buildUi()
+        renderHistory()
+    }
+    lastPaletteKey = nextPaletteKey
     if (wakeWordEnabled) {
         startWakeWordSession()
     }
