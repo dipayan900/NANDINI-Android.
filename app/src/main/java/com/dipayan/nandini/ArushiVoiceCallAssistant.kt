@@ -94,6 +94,8 @@ object ArushiVoiceCallAssistant {
                     }
                     tts = engine
                     engine.language = Locale.getDefault()
+                    engine.setSpeechRate(if (ArushiExperience.expressiveVoice(ctx)) 0.98f else 0.94f)
+                    engine.setPitch(if (ArushiExperience.expressiveVoice(ctx)) 1.12f else 1.0f)
                     engine.setAudioAttributes(
                         AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
