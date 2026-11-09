@@ -46,6 +46,11 @@ dependencies {
     implementation("com.spotify.android:auth:2.1.2")
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation("com.google.ar:core:1.31.0")
+    // ARCore-backed camera, plane detection, anchors and transformable 3D models.
+    implementation("com.gorisse.thomas.sceneform:sceneform:1.23.0")
+    implementation("io.github.webrtc-sdk:android:125.6422.07")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     debugImplementation("com.google.firebase:firebase-appcheck-debug")
 }

@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: arushi-voip-signaling
+    runtime: node
+    plan: free
+    rootDir: voip-server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
