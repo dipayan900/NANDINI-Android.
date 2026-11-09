@@ -77,6 +77,7 @@ class NandiniStudioActivity : Activity() {
         addFeature("👤 GUEST ACCOUNT & STORAGE", "Create a local guest profile, export or restore a complete backup, delete old chats and manage device storage.") { startActivity(Intent(this, AccountStorageActivity::class.java)) }
         addFeature("🛡 PRIVACY & SECURITY", "Review local data, copy a memory backup, clear saved records, or open Android app permissions.") { showPrivacyCentre() }
         addFeature("📡 OFFLINE TOOLBOX", "Use local memories, task plans, diagnostics and Android settings shortcuts without relying on cloud AI.") { showOfflineToolbox() }
+        addFeature("🎨 ARUSHI IMAGE STUDIO", "Generate images locally through the LocalDream app, edit a selected image when the loaded backend supports img2img, and keep a private on-device image history.") { startActivity(Intent(this, ArushiImageStudioActivity::class.java)) }
         addFeature("🧠 LOCAL AI ENGINE", "Download the compact on-device model once, then use ARUSHI text chat offline without Gemini API quotas.") { startActivity(Intent(this, LocalAiSetupActivity::class.java)) }
         addFeature("✦ COMMAND NEXUS", "Futuristic local-first control hub: offline calculator, private notes, Android reminders, overlay and screen-access settings, and live diagnostics.") { startActivity(Intent(this, NandiniCommandCenterActivity::class.java)) }
         addSection("PRIVACY NOTE", "Studio memories and task plans are stored locally in this app. Cloud AI features still need internet and may send the prompt you submit to the configured AI provider.")
