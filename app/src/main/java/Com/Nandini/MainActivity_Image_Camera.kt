@@ -480,7 +480,18 @@ val previousWakeStage = getSharedPreferences(
     "wake_word_diagnostics", Context.MODE_PRIVATE
 ).getString("last_stage", "No wake-word attempt recorded")
 statusText.text = "WAKE DIAGNOSTIC: $previousWakeStage"
-renderHistory()    
+renderHistory()
+
+if (LocalAiRuntime.isModelReady(this)) {
+    scope.launch(Dispatchers.IO) {
+        try {
+            LocalAiRuntime.prewarm(this@MainActivity)
+            Log.i("ARUSHI_LOCAL_AI", "Local model prewarmed and ready")
+        } catch (e: Exception) {
+            Log.w("ARUSHI_LOCAL_AI", "Model prewarm failed; it will initialize on first request", e)
+        }
+    }
+}    
 
 if (history.isEmpty()) {    
     addMessage("ARUSHI", "Hey! I'm ARUSHI 💜\nTalk to me in Hindi, English, or Hinglish.")    
