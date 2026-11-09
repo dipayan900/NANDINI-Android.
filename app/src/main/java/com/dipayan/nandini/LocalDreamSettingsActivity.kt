@@ -15,9 +15,10 @@ import android.widget.Toast
 
 /** Dedicated settings screen for LocalDream generation. */
 class LocalDreamSettingsActivity : Activity() {
-    private val bg = Color.rgb(8, 10, 27)
-    private val panel = Color.rgb(22, 26, 54)
-    private val accent = Color.rgb(182, 130, 255)
+    private val palette get() = ArushiExperience.palette(this)
+    private val bg get() = palette.background
+    private val panel get() = palette.panel
+    private val accent get() = palette.accent
     private lateinit var negativePrompt: EditText
     private lateinit var steps: EditText
     private lateinit var width: EditText
@@ -28,8 +29,7 @@ class LocalDreamSettingsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        ArushiExperience.applySystemBars(this)
 
         val scroll = ScrollView(this)
         val root = LinearLayout(this).apply {
@@ -41,7 +41,7 @@ class LocalDreamSettingsActivity : Activity() {
         root.addView(label("IMAGE GENERATION SETTINGS", 22f, accent, true))
         root.addView(label(
             "These values are saved on this phone and applied to the next LocalDream generation. " +
-                "Higher sizes and step counts need more memory and time.", 13f, Color.LTGRAY
+                "Higher sizes and step counts need more memory and time.", 13f, palette.muted
         ))
 
         val current = LocalDreamSettingsStore.load(this)
@@ -55,7 +55,7 @@ class LocalDreamSettingsActivity : Activity() {
 
         root.addView(label(
             "Supported schedulers: dpm, dpm_karras, dpm_sde, dpm_sde_karras, " +
-                "euler, euler_karras, euler_a, euler_a_karras, lcm", 11f, Color.LTGRAY
+                "euler, euler_karras, euler_a, euler_a_karras, lcm", 11f, palette.muted
         ))
         root.addView(actionButton("SAVE SETTINGS") { save() }, params(-1, dp(52), 0, 16, 0, 8))
         root.addView(actionButton("RESTORE DEFAULTS") {
@@ -99,8 +99,8 @@ class LocalDreamSettingsActivity : Activity() {
         root.addView(label(title, 13f, Color.WHITE, true), params(-1, -2, 0, 10, 0, 2))
         return EditText(this).apply {
             setText(value)
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.LTGRAY)
+            setTextColor(palette.text)
+            setHintTextColor(palette.muted)
             setPadding(dp(12), dp(10), dp(12), dp(10))
             setBackgroundColor(panel)
             inputType = when {
