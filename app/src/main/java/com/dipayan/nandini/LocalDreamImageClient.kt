@@ -34,15 +34,20 @@ object LocalDreamImageClient {
 
         EmbeddedLocalDreamRuntime.ensureRunning(context, modelId)
 
+        val settings = LocalDreamSettingsStore.load(context)
         val payload = JSONObject()
             .put("prompt", prompt.trim())
-            .put("steps", 6)
-            .put("width", 512)
-            .put("height", 512)
+            .put("negative_prompt", settings.negativePrompt)
+            .put("steps", settings.steps)
+            .put("cfg", settings.guidanceScale.toDouble())
+            .put("width", settings.width)
+            .put("height", settings.height)
+            .put("scheduler", settings.scheduler)
             .put("output_format", "png")
+        settings.seed?.let { payload.put("seed", it) }
 
         if (sourceImage != null) {
-            val scaled = Bitmap.createScaledBitmap(sourceImage, 512, 512, true)
+            val scaled = Bitmap.createScaledBitmap(sourceImage, settings.width, settings.height, true)
             val bytes = ByteArrayOutputStream().use { output ->
                 if (!scaled.compress(Bitmap.CompressFormat.PNG, 100, output)) {
                     throw IllegalStateException("Could not encode the selected image.")
