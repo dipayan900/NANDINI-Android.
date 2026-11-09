@@ -29,6 +29,7 @@ import org.json.JSONObject
 
 /** Additive local workspace; existing chat/history code is not changed. */
 class NandiniStudioActivity : Activity() {
+    private var appliedAppearanceKey = ""
     private val palette get() = ArushiExperience.palette(this)
     private val bg get() = palette.background
     private val panel get() = palette.panel
@@ -41,6 +42,7 @@ class NandiniStudioActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
+        appliedAppearanceKey = ArushiExperience.appearance(this) + ":" + ArushiExperience.palette(this).background
         ArushiExperience.applySystemBars(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -65,6 +67,17 @@ class NandiniStudioActivity : Activity() {
         root.addView(makeButton("← BACK TO ARUSHI CHAT") { finish() }, LinearLayout.LayoutParams(-1, dp(48)))
         setContentView(root)
         renderHome()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val key = ArushiExperience.appearance(this) + ":" + ArushiExperience.palette(this).background
+        if (appliedAppearanceKey.isNotEmpty() && key != appliedAppearanceKey) {
+            appliedAppearanceKey = key
+            recreate()
+            return
+        }
+        appliedAppearanceKey = key
     }
 
     private fun renderHome() {
