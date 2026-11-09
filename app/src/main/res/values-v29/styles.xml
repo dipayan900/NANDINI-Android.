@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Android 10+ follows the device's System light/dark appearance automatically. -->
-    <style name="NandiniTheme" parent="@android:style/Theme.Material.DayNight.NoActionBar">
+    <style name="NandiniTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">#B78AEF</item>
         <item name="android:colorControlActivated">#B78AEF</item>
