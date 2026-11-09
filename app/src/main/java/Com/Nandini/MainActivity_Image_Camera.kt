@@ -452,7 +452,7 @@ private const val REQUEST_MIC_PERMISSION = 201
 private const val REQUEST_SPEECH = 202
 private const val REQUEST_PICK_FILE = 204
 private const val REQUEST_CAMERA_IMAGE = 205
-private const val MAX_CONTEXT_MESSAGES = 16
+private const val MAX_CONTEXT_MESSAGES = 14
 }
 
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -1785,7 +1785,7 @@ if (LocalAiRuntime.isEnabled(this)) {
         - Follow applicable safety boundaries, including no sexual content involving minors.
     """.trimIndent() + studioMemoryContext + studioModeContext
 
-    val recentLocalHistory = history.takeLast(MAX_CONTEXT_MESSAGES).dropLast(1)
+    val recentLocalHistory = history.takeLast(9).dropLast(1)
         .map { message -> message.role to message.text }
     val recentBodies = recentLocalHistory.map { it.second }
     val olderRelevantHistory = chatStore.findRelevantMessages(userText, 6)
