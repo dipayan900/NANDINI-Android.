@@ -141,11 +141,28 @@ object LocalAiRuntime {
         }
     }
 
+    suspend fun prewarm(context: Context) = withContext(Dispatchers.IO) {
+        if (!isModelReady(context)) return@withContext
+        engineMutex.withLock {
+            if (engine == null) {
+                val model = modelFile(context)
+                engine = Engine(
+                    EngineConfig(
+                        modelPath = model.absolutePath,
+                        backend = Backend.CPU(),
+                        cacheDir = context.cacheDir.absolutePath
+                    )
+                ).also { it.initialize() }
+            }
+        }
+    }
+
     suspend fun generateReply(
         context: Context,
         systemInstruction: String,
         previousMessages: List<Pair<String, String>>,
-        userText: String
+        userText: String,
+        onChunk: (String) -> Unit = {}
     ): String = withContext(Dispatchers.IO) {
         engineMutex.withLock {
             val model = modelFile(context)
@@ -164,7 +181,7 @@ object LocalAiRuntime {
                 engine = it
             }
 
-            val initialMessages = previousMessages.takeLast(10).mapNotNull { (role, text) ->
+            val initialMessages = previousMessages.takeLast(14).mapNotNull { (role, text) ->
                 if (text.isBlank()) null
                 else if (role == "user") Message.user(text)
                 else Message.model(text)
@@ -182,7 +199,7 @@ object LocalAiRuntime {
             try {
                 val answer = StringBuilder()
                 conversation.sendMessageAsync(userText).collect { chunk ->
-                    answer.append(chunk.toString())
+                    answer.append(chunk.toString())\n                    onChunk(chunk.toString())
                 }
                 answer.toString().trim().ifBlank {
                     "I couldn't produce a local reply. Try a shorter prompt."
