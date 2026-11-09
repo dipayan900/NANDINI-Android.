@@ -27,6 +27,7 @@ class LocalDreamModelManagerActivity : Activity() {
     private lateinit var importButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         ArushiExperience.applySystemBars(this)
 
