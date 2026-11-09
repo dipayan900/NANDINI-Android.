@@ -25,6 +25,7 @@ import java.math.MathContext
 
 /** Local-first command centre. Network/cloud AI is not required for notes and basic calculations. */
 class NandiniCommandCenterActivity : Activity() {
+    private var appliedAppearanceKey = ""
     private val palette get() = ArushiExperience.palette(this)
     private val bg get() = palette.background
     private val panel get() = palette.panel
@@ -38,6 +39,7 @@ class NandiniCommandCenterActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
+        appliedAppearanceKey = ArushiExperience.appearance(this) + ":" + ArushiExperience.palette(this).background
         ArushiExperience.applySystemBars(this)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         val root = LinearLayout(this).apply {
@@ -63,6 +65,17 @@ class NandiniCommandCenterActivity : Activity() {
         root.addView(cardButton("← RETURN TO STUDIO") { finish() }, LinearLayout.LayoutParams(-1, dp(48)))
         setContentView(root)
         render()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val key = ArushiExperience.appearance(this) + ":" + ArushiExperience.palette(this).background
+        if (appliedAppearanceKey.isNotEmpty() && key != appliedAppearanceKey) {
+            appliedAppearanceKey = key
+            recreate()
+            return
+        }
+        appliedAppearanceKey = key
     }
 
     private fun render() {
