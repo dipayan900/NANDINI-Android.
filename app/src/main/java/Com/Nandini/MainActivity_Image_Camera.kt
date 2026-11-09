@@ -2055,7 +2055,13 @@ private fun applyChatRetentionPolicy() {
     try {
         val cutoff = System.currentTimeMillis() - days.toLong() * 24L * 60L * 60L * 1000L
         val deleted = chatStore.deleteOlderThan(cutoff, currentChatId)
-        if (deleted > 0) Log.i("ARUSHI_STORAGE", "Automatic retention removed $deleted expired chats")
+        if (deleted > 0) {
+            savedChats.clear()
+            chatStore.listChats().forEach { stored ->
+                savedChats.add(SavedChat(stored.id, stored.title, stored.preview))
+            }
+            Log.i("ARUSHI_STORAGE", "Automatic retention removed $deleted expired chats")
+        }
     } catch (e: Exception) {
         Log.e("ARUSHI_STORAGE", "Automatic chat cleanup failed", e)
     }
