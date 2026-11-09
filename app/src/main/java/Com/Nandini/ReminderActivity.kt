@@ -16,17 +16,17 @@ import java.util.*
 
 class ReminderActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("nandini_reminders", Context.MODE_PRIVATE) }
-    private val bg = Color.rgb(13, 7, 22)
-    private val panel = Color.rgb(35, 17, 43)
-    private val accent = Color.rgb(255, 132, 190)
-    private val white = Color.rgb(255, 247, 252)
-    private val muted = Color.rgb(198, 169, 201)
+    private val palette get() = ArushiExperience.palette(this)
+    private val bg get() = palette.background
+    private val panel get() = palette.panel
+    private val accent get() = palette.accent
+    private val white get() = palette.text
+    private val muted get() = palette.muted
     private lateinit var list: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        ArushiExperience.applySystemBars(this)
         createNotificationChannel()
         ReminderScheduler.rescheduleAll(this)
         val root = LinearLayout(this).apply {
