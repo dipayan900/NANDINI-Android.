@@ -31,6 +31,7 @@ import android.widget.TextView
 import android.content.Intent
 import android.provider.AlarmClock
 import android.provider.Settings
+import android.provider.OpenableColumns
 import android.net.Uri
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraCharacteristics
@@ -47,6 +48,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
 import org.json.JSONArray
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.text.PDFTextStripper
+import java.util.zip.ZipInputStream
 
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
@@ -98,6 +103,9 @@ private var isSpeakingEnabled = true
 private var isListening = false
 private var isBusy = false
 private var pendingImage: Bitmap? = null
+private var pendingDocumentText: String? = null
+private var pendingDocumentName: String? = null
+private var isReadingAttachment = false
 
 private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 private val spotifyClientId = "e887a172aa184e72ae70595f6e3c4187"
@@ -441,7 +449,7 @@ private val userBubble = Color.rgb(76, 47, 111)
 companion object {
 private const val REQUEST_MIC_PERMISSION = 201
 private const val REQUEST_SPEECH = 202
-private const val REQUEST_PICK_IMAGE = 204
+private const val REQUEST_PICK_FILE = 204
 private const val REQUEST_CAMERA_IMAGE = 205
 private const val MAX_SAVED_MESSAGES = 30
 private const val MAX_SAVED_CHATS = 40
@@ -748,7 +756,7 @@ val composer = LinearLayout(this).apply {
     setPadding(0, dp(5), 0, 0)    
 }    
 
-val pickImageButton = makeButton("📎", panel) { openImagePicker() }
+val pickImageButton = makeButton("📎 FILE", panel) { openFilePicker() }
 val cameraButton = makeButton("📷", panel) { openCamera() }
 composer.addView(pickImageButton, LinearLayout.LayoutParams(dp(46), dp(52)).apply { rightMargin = dp(4) })
 composer.addView(cameraButton, LinearLayout.LayoutParams(dp(46), dp(52)).apply { rightMargin = dp(6) })
@@ -1063,9 +1071,8 @@ private fun startWakeWordSession() {
                             .replace(Regex("[^a-z0-9 ]"), " ")
                             .replace(Regex("\\s+"), " ")
                             .trim()
-                        normalized.contains("hey nandini") ||
-                            normalized.contains("hey nandin") ||
-                            normalized.contains("hey nandi")
+                        normalized.contains("hey arushi") ||
+                            normalized.contains("hey arush")
                     }
 
                     if (heardWakeWord && wakeWordEnabled) {
@@ -1090,9 +1097,8 @@ private fun startWakeWordSession() {
                             .replace(Regex("[^a-z0-9 ]"), " ")
                             .replace(Regex("\\s+"), " ")
                             .trim()
-                        normalized.contains("hey nandini") ||
-                            normalized.contains("hey nandin") ||
-                            normalized.contains("hey nandi")
+                        normalized.contains("hey arushi") ||
+                            normalized.contains("hey arush")
                     }
                     if (heardWakeWord && wakeWordEnabled) {
                         wakeWordEnabled = false
@@ -1335,16 +1341,42 @@ if (requestCode == REQUEST_SPEECH) {
     }    
 }
 
-if (resultCode == RESULT_OK && requestCode == REQUEST_PICK_IMAGE) {
+if (resultCode == RESULT_OK && requestCode == REQUEST_PICK_FILE) {
     val uri = data?.data
     if (uri != null) {
-        try {
-            contentResolver.openInputStream(uri)?.use { pendingImage = decodeScaledBitmap(it) }
-            Toast.makeText(this, if (pendingImage != null) "Image attached. Ask ARUSHI to describe or edit it." else "Couldn't load that image.", Toast.LENGTH_LONG).show()
-            if (pendingImage != null && input.text.isNullOrBlank()) input.setText("Describe this image")
-        } catch (e: Exception) {
-            Log.e("ARUSHI", "Image selection failed", e)
-            Toast.makeText(this, "Couldn't open that image.", Toast.LENGTH_SHORT).show()
+        isReadingAttachment = true
+        statusText.text = "● READING ATTACHMENT..."
+        scope.launch {
+            try {
+                val mimeType = contentResolver.getType(uri).orEmpty()
+                val displayName = getAttachmentDisplayName(uri)
+                val extension = displayName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+                if (mimeType.startsWith("image/") || extension in setOf("png", "jpg", "jpeg", "webp", "gif", "bmp")) {
+                    val bitmap = withContext(Dispatchers.IO) {
+                        contentResolver.openInputStream(uri)?.use { decodeScaledBitmap(it) }
+                    }
+                    pendingImage = bitmap
+                    pendingDocumentText = null
+                    pendingDocumentName = null
+                    if (bitmap != null) {
+                        Toast.makeText(this@MainActivity, "Image attached. Ask ARUSHI to describe or edit it.", Toast.LENGTH_LONG).show()
+                        if (input.text.isNullOrBlank()) input.setText("Describe this image")
+                    } else Toast.makeText(this@MainActivity, "Couldn't load that image.", Toast.LENGTH_SHORT).show()
+                } else {
+                    val extracted = withContext(Dispatchers.IO) { extractDocumentText(uri, mimeType, displayName) }
+                    pendingImage = null
+                    pendingDocumentText = extracted
+                    pendingDocumentName = displayName
+                    Toast.makeText(this@MainActivity, "Attached: $displayName. Ask ARUSHI to explain, summarize or review it.", Toast.LENGTH_LONG).show()
+                    if (input.text.isNullOrBlank()) input.setText("Please review this file and explain its important points.")
+                }
+            } catch (e: Exception) {
+                Log.e("ARUSHI", "File attachment failed", e)
+                Toast.makeText(this@MainActivity, e.message ?: "Couldn't read this file.", Toast.LENGTH_LONG).show()
+            } finally {
+                isReadingAttachment = false
+                statusText.text = "● READY"
+            }
         }
     }
     return
@@ -1401,7 +1433,7 @@ if (requestCode == REQUEST_MIC_PERMISSION) {
 
 private fun sendMessage() {
 val userText = input.text.toString().trim()
-if (userText.isEmpty() || isBusy) return
+if (userText.isEmpty() || isBusy || isReadingAttachment) return
 
 // Route weather questions to the live weather feature.
 if (isWeatherQuestion(userText)) {
@@ -1416,14 +1448,25 @@ return
 
 }
 
-addMessage("YOU", userText)
-history.add(ChatMessage("user", if (pendingImage != null) "$userText [image attached]" else userText))
+val attachedBitmap = pendingImage
+val attachedText = pendingDocumentText
+val attachedName = pendingDocumentName
+val modelPrompt = if (!attachedText.isNullOrBlank()) {
+    "$userText\n\n[Attached file: ${attachedName ?: "document"}]\nExtracted content:\n$attachedText"
+} else userText
+addMessage("YOU", if (!attachedText.isNullOrBlank()) "$userText\n📎 ${attachedName ?: "file"}" else if (attachedBitmap != null) "$userText\n📎 Image attached" else userText)
+history.add(ChatMessage("user", when {
+    attachedBitmap != null -> "$userText [image attached]"
+    !attachedText.isNullOrBlank() -> modelPrompt
+    else -> userText
+}))
 trimHistory()
 saveHistory()
 input.text.clear()
 
-val attachedBitmap = pendingImage
 pendingImage = null
+pendingDocumentText = null
+pendingDocumentName = null
 val wantsImageOutput = isImageGenerationPrompt(userText)
 if (attachedBitmap != null || wantsImageOutput) {
     processImageRequest(userText, attachedBitmap, wantsImageOutput)
@@ -1472,7 +1515,7 @@ setAvatarState("thinking")
 scope.launch {
 try {
 val reply = withContext(Dispatchers.IO) {
-generateReplyWithRetry(userText)
+generateReplyWithRetry(modelPrompt)
 }
 
 replyView.text = reply
@@ -1507,10 +1550,91 @@ replyView.text = reply
 
 }
 
-private fun openImagePicker() {
-    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply { addCategory(Intent.CATEGORY_OPENABLE); type = "image/*" }
-    try { startActivityForResult(intent, REQUEST_PICK_IMAGE) }
-    catch (e: Exception) { Toast.makeText(this, "No image picker is available.", Toast.LENGTH_SHORT).show() }
+private fun openFilePicker() {
+    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type = "*/*"
+        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
+            "image/*", "application/pdf", "text/*", "application/json",
+            "application/xml",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ))
+    }
+    try { startActivityForResult(intent, REQUEST_PICK_FILE) }
+    catch (e: Exception) { Toast.makeText(this, "No file picker is available.", Toast.LENGTH_SHORT).show() }
+}
+
+private fun getAttachmentDisplayName(uri: Uri): String {
+    var name: String? = null
+    contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0) name = cursor.getString(index)
+        }
+    }
+    return name?.takeIf { it.isNotBlank() } ?: uri.lastPathSegment?.substringAfterLast('/') ?: "attached file"
+}
+
+private fun extractDocumentText(uri: Uri, mimeType: String, displayName: String): String {
+    val extension = displayName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+    val text = when {
+        mimeType == "application/pdf" || extension == "pdf" -> {
+            PDFBoxResourceLoader.init(applicationContext)
+            contentResolver.openInputStream(uri)?.use { stream ->
+                PDDocument.load(stream).use { document ->
+                    if (document.numberOfPages <= 0) throw IllegalArgumentException("This PDF has no readable pages.")
+                    val stripper = PDFTextStripper().apply {
+                        startPage = 1
+                        endPage = minOf(document.numberOfPages, 30)
+                    }
+                    stripper.getText(document)
+                }
+            } ?: throw IllegalArgumentException("Couldn't open this PDF.")
+        }
+        extension == "docx" || mimeType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> {
+            contentResolver.openInputStream(uri)?.use { stream ->
+                ZipInputStream(stream).use { zip ->
+                    var xml: String? = null
+                    var entry = zip.nextEntry
+                    while (entry != null) {
+                        if (entry.name == "word/document.xml") {
+                            xml = zip.bufferedReader(Charsets.UTF_8).readText()
+                            break
+                        }
+                        zip.closeEntry()
+                        entry = zip.nextEntry
+                    }
+                    val documentXml = xml ?: throw IllegalArgumentException("Couldn't find readable text in this DOCX file.")
+                    Regex("<w:t[^>]*>(.*?)</w:t>", setOf(RegexOption.DOT_MATCHES_ALL))
+                        .findAll(documentXml)
+                        .joinToString(" ") { match ->
+                            match.groupValues[1]
+                                .replace("&lt;", "<").replace("&gt;", ">")
+                                .replace("&quot;", String(charArrayOf(34))).replace("&apos;", "'")
+                                .replace("&amp;", "&")
+                        }
+                }
+            } ?: throw IllegalArgumentException("Couldn't open this DOCX file.")
+        }
+        extension in setOf("txt", "md", "csv", "json", "xml", "html", "htm", "log", "yaml", "yml", "rtf", "ini") ||
+            mimeType.startsWith("text/") || mimeType == "application/json" || mimeType == "application/xml" -> {
+            contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { reader ->
+                val output = StringBuilder()
+                val buffer = CharArray(4096)
+                while (output.length < 50000) {
+                    val count = reader.read(buffer, 0, minOf(buffer.size, 50000 - output.length))
+                    if (count <= 0) break
+                    output.append(buffer, 0, count)
+                }
+                output.toString()
+            } ?: throw IllegalArgumentException("Couldn't open this text file.")
+        }
+        else -> throw IllegalArgumentException("ARUSHI can read PDF, DOCX, TXT, MD, CSV, JSON, XML and common text files. This file type isn't supported yet.")
+    }
+    val cleaned = if (extension == "html" || extension == "htm") text.replace(Regex("<[^>]+>"), " ") else text
+    return cleaned.trim().take(50000).ifBlank {
+        "No selectable text was found. This may be a scanned PDF or an image-only document."
+    }
 }
 
 private fun openCamera() {
@@ -1905,21 +2029,38 @@ private fun showChatHistory() {
 private fun loadMemories(): MutableList<String> {
     val out = mutableListOf<String>()
     try {
-        val arr = JSONArray(memoryPrefs.getString("memories", "[]") ?: "[]")
-        for (i in 0 until arr.length()) {
-            val value = arr.optString(i).trim()
+        val legacy = JSONArray(memoryPrefs.getString("memories", "[]") ?: "[]")
+        for (i in 0 until legacy.length()) {
+            val value = legacy.optString(i).trim()
             if (value.isNotEmpty()) out.add(value)
         }
     } catch (e: Exception) {
-        Log.e("ARUSHI", "Saved memories couldn't be read", e)
+        Log.e("ARUSHI", "Legacy memories couldn't be read", e)
+    }
+    try {
+        val studio = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
+        for (i in 0 until studio.length()) {
+            val value = studio.optJSONObject(i)?.optString("text")?.trim().orEmpty()
+            if (value.isNotEmpty() && out.none { it.equals(value, ignoreCase = true) }) out.add(value)
+        }
+    } catch (e: Exception) {
+        Log.e("ARUSHI", "Studio memories couldn't be read", e)
     }
     return out
 }
 
 private fun saveMemories(items: List<String>) {
-    val arr = JSONArray()
-    items.distinct().take(100).forEach { arr.put(it) }
-    memoryPrefs.edit().putString("memories", arr.toString()).apply()
+    val unique = items.map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase(Locale.ROOT) }
+    val legacy = JSONArray()
+    unique.take(100).forEach { legacy.put(it) }
+    memoryPrefs.edit().putString("memories", legacy.toString()).apply()
+
+    val studio = JSONArray()
+    unique.takeLast(30).forEach { value ->
+        studio.put(JSONObject().put("text", value).put("createdAt", System.currentTimeMillis()))
+    }
+    getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE)
+        .edit().putString("memory", studio.toString()).apply()
 }
 
 private fun loadMemoriesText(): String {
