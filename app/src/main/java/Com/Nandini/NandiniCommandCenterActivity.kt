@@ -25,19 +25,19 @@ import java.math.MathContext
 
 /** Local-first command centre. Network/cloud AI is not required for notes and basic calculations. */
 class NandiniCommandCenterActivity : Activity() {
-    private val bg = Color.rgb(9, 7, 20)
-    private val panel = Color.rgb(29, 18, 48)
-    private val accent = Color.rgb(207, 145, 255)
-    private val pink = Color.rgb(255, 135, 202)
-    private val ink = Color.rgb(248, 243, 255)
-    private val muted = Color.rgb(185, 171, 211)
+    private val palette get() = ArushiExperience.palette(this)
+    private val bg get() = palette.background
+    private val panel get() = palette.panel
+    private val accent get() = palette.accent
+    private val pink get() = palette.accentSecondary
+    private val ink get() = palette.text
+    private val muted get() = palette.muted
     private val prefs by lazy { getSharedPreferences("nandini_command_center", Context.MODE_PRIVATE) }
     private lateinit var content: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        ArushiExperience.applySystemBars(this)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -67,6 +67,7 @@ class NandiniCommandCenterActivity : Activity() {
     private fun render() {
         content.removeAllViews()
         section("LOCAL INTELLIGENCE", "Works without cloud AI. Your notes and command history remain in this app's private storage.")
+        cardButton("✦  ARUSHI EXPERIENCE", "Change app appearance, conversation personality and expressive voice.") { startActivity(Intent(this, ArushiExperienceSettingsActivity::class.java)) }
         cardButton("✦  OPEN AI CHAT CENTER", "Continue to ARUSHI chat, voice, camera and AI features.") { startActivity(Intent(this, MainActivity::class.java)) }
         cardButton("⌘  OFFLINE CALCULATOR", "Basic arithmetic with parentheses, + − × ÷ and decimals.") { calculator() }
         cardButton("▤  QUICK NOTES", "Create, read, copy or delete local notes.") { notes() }
