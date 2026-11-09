@@ -26,6 +26,17 @@ object ArushiExperience {
         val isLight: Boolean
     )
 
+    /** Apply before Activity.super.onCreate so platform widgets and dialogs follow the selected theme. */
+    fun applyActivityTheme(activity: Activity) {
+        activity.setTheme(
+            when (appearance(activity)) {
+                "light" -> R.style.ArushiLightTheme
+                "dark" -> R.style.ArushiDarkTheme
+                else -> R.style.NandiniTheme
+            }
+        )
+    }
+
     fun appearance(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_APPEARANCE, "system") ?: "system"
