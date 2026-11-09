@@ -182,7 +182,7 @@ object LocalAiRuntime {
             try {
                 val answer = StringBuilder()
                 conversation.sendMessageAsync(userText).collect { chunk ->
-                    answer.append(chunk.text.orEmpty())
+                    answer.append(chunk.toString())
                 }
                 answer.toString().trim().ifBlank {
                     "I couldn't produce a local reply. Try a shorter prompt."
@@ -251,10 +251,10 @@ class LocalAiSetupActivity : Activity() {
             textSize = 14f
             setTextColor(muted)
             setPadding(dp(14), dp(16), dp(14), dp(16))
-            background = android.graphics.drawable.GradientDrawable().apply {
+            setBackground(android.graphics.drawable.GradientDrawable().apply {
                 setColor(panel)
                 cornerRadius = dp(18).toFloat()
-            }
+            })
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(18) })
 
         status = TextView(this).apply {
