@@ -11,5 +11,7 @@ ARUSHI's embedded image-generation runtime is based on **Local Dream** by
   by the upstream author.
 
 The LocalDream work must not be used or redistributed for commercial purposes
-under the upstream license. Required third-party notices shipped with the
-filtered runtime are retained alongside the bundled runtime assets.
+under the upstream license. The upstream release APK did not expose a licenses
+directory when inspected during this integration. Third-party component licenses
+still need a separate audit before any public redistribution. This branch remains
+a private, non-commercial integration draft pending that review.
