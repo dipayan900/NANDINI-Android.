@@ -28,6 +28,7 @@ class LocalDreamSettingsActivity : Activity() {
     private lateinit var scheduler: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         ArushiExperience.applySystemBars(this)
 
