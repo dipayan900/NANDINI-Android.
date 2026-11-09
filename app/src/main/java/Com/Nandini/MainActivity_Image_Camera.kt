@@ -419,6 +419,7 @@ private fun testSpotifyPlayback() {
 private val prefs by lazy {
 getSharedPreferences("nandini_chat", Context.MODE_PRIVATE)
 }
+private val chatStore by lazy { ChatStore(this) }
 
 private data class ChatMessage(
 val role: String,
@@ -426,7 +427,7 @@ val text: String
 )
 
 private val history = mutableListOf<ChatMessage>()
-private data class SavedChat(val id: String, var title: String, val messages: MutableList<ChatMessage>)
+private data class SavedChat(val id: String, val title: String, val preview: String)
 private val savedChats = mutableListOf<SavedChat>()
 private var currentChatId: String = System.currentTimeMillis().toString()
 private val memoryPrefs by lazy { getSharedPreferences("nandini_memory", Context.MODE_PRIVATE) }
@@ -443,8 +444,6 @@ private const val REQUEST_MIC_PERMISSION = 201
 private const val REQUEST_SPEECH = 202
 private const val REQUEST_PICK_IMAGE = 204
 private const val REQUEST_CAMERA_IMAGE = 205
-private const val MAX_SAVED_MESSAGES = 30
-private const val MAX_SAVED_CHATS = 40
 private const val MAX_CONTEXT_MESSAGES = 16
 }
 
@@ -477,6 +476,17 @@ renderHistory()
 
 if (history.isEmpty()) {    
     addMessage("ARUSHI", "Hey! I'm ARUSHI 💜\nTalk to me in Hindi, English, or Hinglish.")    
+}
+
+if (LocalAiRuntime.isModelReady(this)) {
+    scope.launch(Dispatchers.IO) {
+        try {
+            LocalAiRuntime.prewarm(this@MainActivity)
+            Log.i("ARUSHI_LOCAL_AI", "Local model prewarmed and ready")
+        } catch (e: Exception) {
+            Log.w("ARUSHI_LOCAL_AI", "Model prewarm failed; it will initialize on first request", e)
+        }
+    }
 }
 
 }
@@ -1471,8 +1481,17 @@ setAvatarState("thinking")
 
 scope.launch {
 try {
+var localStreamStarted = false
 val reply = withContext(Dispatchers.IO) {
-generateReplyWithRetry(userText)
+    generateReplyWithRetry(userText) { chunk ->
+        runOnUiThread {
+            if (!localStreamStarted) {
+                replyView.text = ""
+                localStreamStarted = true
+            }
+            replyView.append(chunk)
+        }
+    }
 }
 
 replyView.text = reply
