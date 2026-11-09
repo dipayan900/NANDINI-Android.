@@ -36,6 +36,7 @@ class NandiniCommandCenterActivity : Activity() {
     private lateinit var content: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         ArushiExperience.applySystemBars(this)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
