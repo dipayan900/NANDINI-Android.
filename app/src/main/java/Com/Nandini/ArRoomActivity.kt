@@ -31,6 +31,7 @@ class ArRoomActivity : FragmentActivity() {
     private var lastProjectionAt = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         window.statusBarColor = bg
         window.navigationBarColor = bg
