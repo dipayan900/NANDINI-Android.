@@ -8,6 +8,7 @@ on:
       - feature/myraa-style-avatar-safe
       - feature/arushi-holographic-studio
       - feature/arushi-complete-integration
+      - feature/arushi-final-mainline
 
 permissions:
   contents: read
