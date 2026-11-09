@@ -16,10 +16,11 @@ import kotlin.concurrent.thread
 
 /** Simple in-app manager for supported LocalDream SD 1.5 MNN model packages. */
 class LocalDreamModelManagerActivity : Activity() {
-    private val pageBackground = Color.rgb(8, 10, 27)
-    private val panel = Color.rgb(22, 26, 54)
-    private val accent = Color.rgb(182, 130, 255)
-    private val muted = Color.rgb(185, 190, 215)
+    private val palette get() = ArushiExperience.palette(this)
+    private val pageBackground get() = palette.background
+    private val panel get() = palette.panel
+    private val accent get() = palette.accent
+    private val muted get() = palette.muted
     private lateinit var nameInput: EditText
     private lateinit var status: TextView
     private lateinit var modelList: LinearLayout
@@ -27,8 +28,7 @@ class LocalDreamModelManagerActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = pageBackground
-        window.navigationBarColor = pageBackground
+        ArushiExperience.applySystemBars(this)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -64,7 +64,7 @@ class LocalDreamModelManagerActivity : Activity() {
         nameInput = EditText(this).apply {
             hint = "Model name (example: SD15-MyModel)"
             setSingleLine(true)
-            setTextColor(Color.WHITE)
+            setTextColor(palette.text)
             setHintTextColor(muted)
             setPadding(dp(12), dp(10), dp(12), dp(10))
             setBackgroundColor(panel)
