@@ -101,6 +101,7 @@ private var pendingWakePermission = false
 private var tts: TextToSpeech? = null
 private var ttsReady = false
 private var isSpeakingEnabled = true
+private var lastExpressiveVoice = true
 private var isListening = false
 private var isBusy = false
 private var pendingImage: Bitmap? = null
@@ -2756,6 +2757,9 @@ override fun onResume() {
         renderHistory()
     }
     lastPaletteKey = nextPaletteKey
+    val expressiveVoiceNow = ArushiExperience.expressiveVoice(this)
+    if (ttsReady && expressiveVoiceNow != lastExpressiveVoice) configureFemaleVoice()
+    lastExpressiveVoice = expressiveVoiceNow
     if (wakeWordEnabled) {
         startWakeWordSession()
     }
