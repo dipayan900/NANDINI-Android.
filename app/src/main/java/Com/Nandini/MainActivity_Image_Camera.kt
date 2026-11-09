@@ -1877,7 +1877,7 @@ private fun showChatHistory() {
     }
     val ordered = savedChats.asReversed()
     val labels = ordered.map { chat ->
-        "\${chat.title}\n\${chat.preview.replace("\n", " ").take(50)}"
+        "${chat.title}\n${chat.preview.replace("\n", " ").take(50)}"
     }.toTypedArray()
     android.app.AlertDialog.Builder(this)
         .setTitle("Chat history")
