@@ -1741,7 +1741,7 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
             trimHistory(); saveHistory(); saveCurrentChat()
         } catch (e: Exception) {
             Log.e("ARUSHI", "Image request failed", e)
-            replyView.text = if (generateImage) "I couldn't generate the image. Firebase image generation requires the Blaze pay-as-you-go plan and a supported image model. Check billing and model access, then retry. 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
+            replyView.text = if (generateImage) "I couldn't generate the image. Open LocalDream, load a compatible model, and make sure its local server is running at 127.0.0.1:8081. Details: ${e.message ?: "Unknown LocalDream error"} 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
         } finally {
             isBusy = false; setControlsEnabled(true); statusText.text = "● READY"
             scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
@@ -1756,16 +1756,10 @@ private suspend fun analyzeImage(promptText: String, bitmap: Bitmap): String {
 }
 
 private suspend fun generateOrEditImage(promptText: String, bitmap: Bitmap?): Bitmap {
-    val model = Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel(
-        modelName = "gemini-3.1-flash-image",
-        generationConfig = com.google.firebase.ai.type.generationConfig { responseModalities = listOf(ResponseModality.IMAGE) }
-    )
-    val prompt = content {
-        if (bitmap != null) image(bitmap)
-        text(if (bitmap != null) "Edit the supplied image according to this instruction and preserve unrelated details: $promptText" else "Generate a high-quality image based on this prompt: $promptText")
-    }
-    return model.generateContent(prompt).candidates.firstOrNull()?.content?.parts?.filterIsInstance<ImagePart>()?.firstOrNull()?.image
-        ?: throw IllegalStateException("The image model returned no image.")
+    // Image generation/editing is local: LocalDream must be running on this phone.
+    // Img2img is attempted only when a source image is supplied; the backend may
+    // reject it if the currently loaded model was built without image-encoder support.
+    return LocalDreamImageClient.generate(promptText, bitmap)
 }
 
 private fun saveGeneratedImage(bitmap: Bitmap): String {

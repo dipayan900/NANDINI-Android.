@@ -149,7 +149,7 @@ class ArushiLauncherActivity : Activity() {
         val apps = listOf(
             Triple("✦", "ARUSHI AI", "ai"), Triple("☎", "PHONE", "phone"), Triple("✆", "AI CALL", "call"), Triple("✉", "MESSAGES", "sms"),
             Triple("◎", "CAMERA", "camera"), Triple("▧", "PHOTOS", "gallery"), Triple("✧", "HOLOGRAM", "hologram"), Triple("♫", "MUSIC", "music"),
-            Triple("◈", "SETTINGS", "settings"), Triple("⌘", "BROWSER", "browser"), Triple("🚆", "TRAINS", "trains"), Triple("▦", "APP DRAWER", "drawer")
+            Triple("◈", "SETTINGS", "settings"), Triple("🎨", "IMAGE STUDIO", "image"), Triple("⌘", "BROWSER", "browser"), Triple("🚆", "TRAINS", "trains"), Triple("▦", "APP DRAWER", "drawer")
         )
         apps.forEach { (symbol, name, key) ->
             val tile = LinearLayout(this).apply {
@@ -217,6 +217,7 @@ class ArushiLauncherActivity : Activity() {
             "gallery" -> Intent(Intent.ACTION_VIEW).setType("image/*")
             "music" -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MUSIC)
             "settings" -> Intent(Settings.ACTION_SETTINGS)
+            "image" -> Intent(this, ArushiImageStudioActivity::class.java)
             "browser" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))
             else -> return
         }

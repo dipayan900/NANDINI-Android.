@@ -9,6 +9,7 @@ on:
       - feature/arushi-holographic-studio
       - feature/arushi-complete-integration
       - feature/arushi-final-mainline
+      - feature/arushi-localdream-image-studio
 
 permissions:
   contents: read
