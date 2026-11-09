@@ -23,11 +23,12 @@ import android.widget.Toast
  * railway services. ARUSHI does not fabricate live locations or store PNR values.
  */
 class TrainTrackerActivity : Activity() {
-    private val bg = Color.rgb(5, 7, 22)
-    private val panel = Color.rgb(14, 18, 43)
-    private val accent = Color.rgb(177, 105, 255)
-    private val blue = Color.rgb(83, 190, 255)
-    private val muted = Color.rgb(190, 190, 215)
+    private val palette get() = ArushiExperience.palette(this)
+    private val bg get() = palette.background
+    private val panel get() = palette.panel
+    private val accent get() = palette.accent
+    private val blue get() = palette.accentSecondary
+    private val muted get() = palette.muted
 
     private lateinit var page: WebView
     private lateinit var loadingIndicator: ProgressBar
@@ -73,8 +74,7 @@ class TrainTrackerActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        ArushiExperience.applySystemBars(this)
         buildScreen()
         selectTool(0)
     }
