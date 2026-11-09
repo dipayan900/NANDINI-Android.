@@ -2581,6 +2581,7 @@ override fun onResume() {
 
 override fun onDestroy() {
     stopWakeWordListening()
+    chatStore.close()
     super.onDestroy()
     scope.cancel()
     tts?.stop()  
