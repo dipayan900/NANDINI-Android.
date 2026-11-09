@@ -16,7 +16,7 @@ import kotlin.concurrent.thread
 
 /** Simple in-app manager for supported LocalDream SD 1.5 MNN model packages. */
 class LocalDreamModelManagerActivity : Activity() {
-    private val background = Color.rgb(8, 10, 27)
+    private val pageBackground = Color.rgb(8, 10, 27)
     private val panel = Color.rgb(22, 26, 54)
     private val accent = Color.rgb(182, 130, 255)
     private val muted = Color.rgb(185, 190, 215)
@@ -27,13 +27,13 @@ class LocalDreamModelManagerActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = background
-        window.navigationBarColor = background
+        window.statusBarColor = pageBackground
+        window.navigationBarColor = pageBackground
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(14), dp(16), dp(14))
-            setBackgroundColor(this@LocalDreamModelManagerActivity.background)
+            setBackgroundColor(pageBackground)
         }
         root.addView(label("ARUSHI MODEL MANAGER", 22f, accent, true))
         root.addView(label(
