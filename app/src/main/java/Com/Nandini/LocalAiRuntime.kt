@@ -215,21 +215,21 @@ class LocalAiSetupActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
     private lateinit var downloadButton: Button
-    private val background = Color.rgb(12, 8, 24)
+    private val screenBackground = Color.rgb(12, 8, 24)
     private val panel = Color.rgb(34, 20, 52)
     private val accent = Color.rgb(191, 143, 255)
     private val muted = Color.rgb(205, 190, 220)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = background
-        window.navigationBarColor = background
+        window.statusBarColor = screenBackground
+        window.navigationBarColor = screenBackground
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(20), dp(24), dp(20), dp(20))
-            setBackgroundColor(background)
+            setBackgroundColor(screenBackground)
         }
         root.addView(TextView(this).apply {
             text = "ARUSHI • LOCAL AI"
