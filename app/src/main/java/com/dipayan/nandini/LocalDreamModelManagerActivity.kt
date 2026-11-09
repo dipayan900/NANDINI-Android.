@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
+import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.Button
@@ -42,6 +43,25 @@ class LocalDreamModelManagerActivity : Activity() {
             13f, muted
         ))
 
+        root.addView(label("MODEL RECOMMENDATIONS", 16f, accent, true), params(-1, -2, 0, 10, 0, 2))
+        root.addView(label(
+            "Good starting families: Absolute Reality (general photo style), DreamShaper (versatile illustration), " +
+                "and Anything V5 (anime illustration). Model quality and speed vary; start at 512×512 and 8 steps.",
+            12f, muted
+        ))
+        root.addView(actionButton("BROWSE CPU / MNN MODEL CATALOG") {
+            openExternal("https://huggingface.co/xororz/sd-mnn")
+        }, params(-1, dp(44), 0, 4, 0, 6))
+        root.addView(actionButton("OPEN MODEL COMPATIBILITY GUIDE") {
+            openExternal("https://ld-guide.chino.icu/models/")
+        }, params(-1, dp(44), 0, 0, 0, 8))
+        root.addView(label(
+            "Compatibility warning: choose an SD 1.5 CPU/MNN package only. Qualcomm QNN-only ZIPs are not compatible " +
+                "with this CPU/MNN importer. Before importing, check that the ZIP contains tokenizer.json, clip_v2.mnn, " +
+                "pos_emb.bin, token_emb.bin, unet.mnn, vae_encoder.mnn and vae_decoder.mnn.",
+            11f, muted
+        ))
+
         nameInput = EditText(this).apply {
             hint = "Model name (example: SD15-MyModel)"
             setSingleLine(true)
@@ -64,6 +84,14 @@ class LocalDreamModelManagerActivity : Activity() {
         root.addView(actionButton("BACK TO IMAGE STUDIO") { finish() }, params(-1, dp(48), 0, 10, 0, 0))
         setContentView(root)
         refreshModels()
+    }
+
+    private fun openExternal(url: String) {
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }.onFailure {
+            status.text = "Could not open the model catalogue: ${it.message}"
+        }
     }
 
     private fun chooseZip() {
