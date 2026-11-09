@@ -2175,11 +2175,6 @@ private fun saveHistory() {
     saveCurrentChat()
 }
 
-private fun
-{
-    // No arbitrary message cap; SQLite stores the complete conversation.
-}
-
 private fun renderHistory() {  
     messages.removeAllViews()  
 
