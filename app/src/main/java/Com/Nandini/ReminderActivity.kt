@@ -66,7 +66,7 @@ class ReminderActivity : Activity() {
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroller.addView(list)
         root.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(makeButton("← BACK TO NANDINI") { finish() })
+        root.addView(makeButton("← BACK TO ARUSHI") { finish() })
         setContentView(root)
         root.alpha = 0f
         root.translationY = dp(12).toFloat()
@@ -124,7 +124,7 @@ class ReminderActivity : Activity() {
                     prefs.edit().putString("items", all.toString()).apply()
                     ReminderScheduler.schedule(this, item)
                     refreshList()
-                    Toast.makeText(this, if (birthday) "Birthday saved. NANDINI will wish at midnight 💜" else "Reminder saved 💜", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, if (birthday) "Birthday saved. ARUSHI will wish at midnight 💜" else "Reminder saved 💜", Toast.LENGTH_LONG).show()
                 }
             }
             if (birthday) timeAction(0, 0) else TimePickerDialog(this, { _, hour, minute -> timeAction(hour, minute) }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
@@ -240,7 +240,7 @@ class ReminderActivity : Activity() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
-            val channel = NotificationChannel("nandini_reminders", "NANDINI reminders", NotificationManager.IMPORTANCE_HIGH).apply {
+            val channel = NotificationChannel("nandini_reminders", "ARUSHI reminders", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Important dates, daily schedules, and birthday wishes"
             }
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)

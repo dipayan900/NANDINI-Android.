@@ -1,0 +1,12 @@
+NANDINI 3D companion avatar asset
+
+Model: Sendagaya Shino (official VRoid Project sample character)
+Runtime filename: nandini-companion.vrm
+Download archive: https://opengameart.org/sites/default/files/sendagaya_shino.zip
+Source/license information:
+- Official VRoid Project model information: https://vroid.pixiv.help/hc/en-us/articles/360013482714-Sendagaya-Shino
+- OpenGameArt archive page: https://opengameart.org/content/vroid-studio-cc0-models
+License: CC0 1.0 Universal, as stated by the official VRoid Project model information.
+The model is a stylized anime 3D character, not a photorealistic human and not the proprietary MYRAA character. It is being used as a legally reusable visual alternative while preserving the existing NANDINI VRM animation pipeline.
+
+The Three.js and @pixiv/three-vrm libraries are loaded from jsDelivr at runtime under their respective open-source licenses.

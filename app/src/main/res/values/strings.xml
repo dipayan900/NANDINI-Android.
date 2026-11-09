@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="nandini_accessibility_description">NANDINI can read visible screen text and identify the current app when you enable screen understanding. Data stays on this device unless you explicitly ask NANDINI to analyze or share it.</string>
+    <string name="nandini_accessibility_description">ARUSHI can read visible screen text and identify the current app when you enable screen understanding. Data stays on this device unless you explicitly ask ARUSHI to analyze or share it.</string>
 </resources>
