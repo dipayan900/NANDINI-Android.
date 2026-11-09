@@ -19,6 +19,7 @@ class ArushiExperienceSettingsActivity : Activity() {
     private var expressiveVoice = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         val savedAppearance = ArushiExperience.appearance(this)
         val savedPersonality = ArushiExperience.personality(this)
