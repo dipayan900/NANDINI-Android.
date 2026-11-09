@@ -199,7 +199,8 @@ object LocalAiRuntime {
             try {
                 val answer = StringBuilder()
                 conversation.sendMessageAsync(userText).collect { chunk ->
-                    answer.append(chunk.toString())\n                    onChunk(chunk.toString())
+                    answer.append(chunk.toString())
+                    onChunk(chunk.toString())
                 }
                 answer.toString().trim().ifBlank {
                     "I couldn't produce a local reply. Try a shorter prompt."
