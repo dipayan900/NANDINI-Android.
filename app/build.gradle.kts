@@ -25,6 +25,14 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // Keep the bundled native executable unpacked in nativeLibraryDir so ARUSHI
+    // can launch the filtered engine as its own private child process.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 kotlin {
