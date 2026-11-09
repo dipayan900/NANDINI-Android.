@@ -2063,6 +2063,15 @@ private fun loadAllChats() {
     }
 }
 
+private fun cleanupOrphanedChatImages() {
+    val directory = File(filesDir, "generated_images")
+    if (!directory.isDirectory) return
+    val referenced = chatStore.referencedImageNames()
+    directory.listFiles()?.filter { it.isFile && it.name !in referenced }?.forEach { file ->
+        if (!file.delete()) Log.w("ARUSHI_STORAGE", "Could not remove unused image ${file.name}")
+    }
+}
+
 private fun applyChatRetentionPolicy() {
     val days = getSharedPreferences("arushi_storage", Context.MODE_PRIVATE)
         .getInt("auto_delete_days", 0)
@@ -2075,6 +2084,7 @@ private fun applyChatRetentionPolicy() {
             chatStore.listChats().forEach { stored ->
                 savedChats.add(SavedChat(stored.id, stored.title, stored.preview))
             }
+            cleanupOrphanedChatImages()
             Log.i("ARUSHI_STORAGE", "Automatic retention removed $deleted expired chats")
         }
     } catch (e: Exception) {
