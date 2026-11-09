@@ -14,16 +14,16 @@ import android.widget.Toast
 
 /** Full-screen host for ARUSHI's existing 3D companion renderer. */
 class HologramStudioActivity : Activity() {
-    private val bg = Color.rgb(3, 2, 9)
-    private val accent = Color.rgb(202, 151, 255)
-    private val muted = Color.rgb(205, 193, 224)
+    private val palette get() = ArushiExperience.palette(this)
+    private val bg get() = palette.background
+    private val accent get() = palette.accent
+    private val muted get() = palette.muted
     private lateinit var companion: Anime3DView
     private lateinit var modeLabel: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        ArushiExperience.applySystemBars(this)
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
