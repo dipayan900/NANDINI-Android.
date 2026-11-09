@@ -1503,6 +1503,19 @@ if (attachedBitmap != null || wantsImageOutput) {
     return
 }
 
+// Answer creator-identity questions deterministically so even the small offline model cannot lose this fact.
+val creatorReply = if (attachedText.isNullOrBlank() && attachedBitmap == null) creatorIdentityReply(userText) else null
+if (creatorReply != null) {
+    addMessage("ARUSHI", creatorReply)
+    setAvatarEmotionFromText(creatorReply)
+    history.add(ChatMessage("model", creatorReply))
+    trimHistory()
+    saveHistory()
+    saveCurrentChat()
+    speakReply(creatorReply)
+    return
+}
+
 // Handle Android device commands before sending to Gemini.
 // Handle Spotify before Android commands or Firebase AI.
 if (attachedText.isNullOrBlank() && isSpotifyCommand(userText)) {
@@ -1741,7 +1754,7 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
             trimHistory(); saveHistory(); saveCurrentChat()
         } catch (e: Exception) {
             Log.e("ARUSHI", "Image request failed", e)
-            replyView.text = if (generateImage) "I couldn't generate the image. Firebase image generation requires the Blaze pay-as-you-go plan and a supported image model. Check billing and model access, then retry. 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
+            replyView.text = if (generateImage) imageGenerationFailureMessage(e) else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
         } finally {
             isBusy = false; setControlsEnabled(true); statusText.text = "● READY"
             scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
@@ -1757,7 +1770,7 @@ private suspend fun analyzeImage(promptText: String, bitmap: Bitmap): String {
 
 private suspend fun generateOrEditImage(promptText: String, bitmap: Bitmap?): Bitmap {
     val model = Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel(
-        modelName = "gemini-3.1-flash-image",
+        modelName = "gemini-nano-banana-2.1",
         generationConfig = com.google.firebase.ai.type.generationConfig { responseModalities = listOf(ResponseModality.IMAGE) }
     )
     val prompt = content {
@@ -1814,6 +1827,29 @@ val weatherWords = listOf(
 )
 
 return weatherWords.any { it in text }
+}
+
+
+private fun creatorIdentityReply(message: String): String? {
+    val question = message.lowercase(Locale.ROOT).replace("’", "'").trim()
+    val asksCreator = listOf(
+        "who created you", "who made you", "who built you", "who developed you",
+        "who is your creator", "who's your creator", "who is your developer",
+        "who programmed you", "who created arushi", "who made arushi",
+        "who is arushi's creator", "creator of arushi", "your creator", "your developer"
+    ).any { question.contains(it) }
+    if (!asksCreator) return null
+    return "I’m ARUSHI, an AI assistant created by Dipayan Roy. He is the creator and developer behind this app and its companion experience. I’m software, not a human. 💜"
+}
+
+private fun imageGenerationFailureMessage(error: Exception): String {
+    val detail = (error.toString() + " " + (error.cause?.toString() ?: "")).lowercase(Locale.ROOT)
+    return when {
+        listOf("billing", "blaze", "permission_denied", "permission denied", "403", "quota", "billing account").any { it in detail } ->
+            "Image generation is connected to Firebase, but this project is not currently authorized to use the image model. Firebase image generation requires a Blaze billing plan and an enabled supported model. Image requests may incur charges, so the Firebase project owner should review billing and access before enabling it. 💜"
+        else ->
+            "I couldn't generate that image. Please check the Firebase AI Logic setup, supported image-model access, internet connection, and the app's error log, then try again. 💜"
+    }
 }
 
 private suspend fun generateReplyWithRetry(userText: String, onLocalChunk: (String) -> Unit = {}): String {
