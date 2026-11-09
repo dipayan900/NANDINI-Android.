@@ -22,6 +22,7 @@ class HologramStudioActivity : Activity() {
     private lateinit var modeLabel: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         ArushiExperience.applySystemBars(this)
         @Suppress("DEPRECATION")
