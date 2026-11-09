@@ -83,7 +83,7 @@ object BackupRestoreManager {
 
     private fun isSensitivePreferenceFile(name: String): Boolean {
         val n = name.lowercase()
-        return listOf("spotify_auth", "firebase", "appcheck", "credential", "oauth", "auth_token")
+        return listOf("spotify_auth", "firebase", "appcheck", "credential", "oauth", "auth_token", "arushi_local_ai")
             .any { it in n }
     }
 
