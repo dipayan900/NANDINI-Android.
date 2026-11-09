@@ -25,6 +25,7 @@ import kotlin.concurrent.thread
 
 /** On-device image generation powered by ARUSHI's bundled LocalDream runtime. */
 class ArushiImageStudioActivity : Activity() {
+    private var appliedAppearanceKey = ""
     private val palette get() = ArushiExperience.palette(this)
     private val bg get() = palette.background
     private val panel get() = palette.panel
@@ -41,6 +42,7 @@ class ArushiImageStudioActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
+        appliedAppearanceKey = ArushiExperience.appearance(this) + ":" + ArushiExperience.palette(this).background
         ArushiExperience.applySystemBars(this)
 
         val root = LinearLayout(this).apply {
@@ -103,6 +105,17 @@ class ArushiImageStudioActivity : Activity() {
         setContentView(root)
         renderHistory()
         checkServer()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val key = ArushiExperience.appearance(this) + ":" + ArushiExperience.palette(this).background
+        if (appliedAppearanceKey.isNotEmpty() && key != appliedAppearanceKey) {
+            appliedAppearanceKey = key
+            recreate()
+            return
+        }
+        appliedAppearanceKey = key
     }
 
     private fun generate() {
