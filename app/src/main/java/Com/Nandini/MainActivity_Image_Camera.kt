@@ -1600,6 +1600,45 @@ return weatherWords.any { it in text }
 }
 
 private suspend fun generateReplyWithRetry(userText: String): String {
+if (LocalAiRuntime.isEnabled(this)) {
+    val studioMemoryContext = try {
+        val saved = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
+        val notes = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf { value -> value.isNotBlank() } }.takeLast(30)
+        if (notes.isEmpty()) "" else "\n\nUSER-APPROVED ARUSHI STUDIO MEMORIES (use only when relevant):\n" + notes.joinToString("\n") { "- " + it }
+    } catch (_: Exception) { "" }
+
+    val studioModeContext = try {
+        val mode = getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("mode", "Companion") ?: "Companion"
+        when (mode) {
+            "Developer" -> "\n\nACTIVE MODE: DEVELOPER. Prioritise Android/Kotlin debugging, reliable minimal patches, build verification and preserving existing features."
+            "Researcher" -> "\n\nACTIVE MODE: RESEARCHER. Separate verified facts from uncertainty and explain sources and assumptions."
+            "Vision" -> "\n\nACTIVE MODE: VISION. Describe only visible evidence and separate observations from guesses."
+            "Hands-free" -> "\n\nACTIVE MODE: HANDS-FREE. Keep replies concise and easy to hear aloud."
+            else -> "\n\nACTIVE MODE: COMPANION. Be warm, natural and conversational."
+        }
+    } catch (_: Exception) { "" }
+
+    val localSystemInstruction = """
+        Your name is ARUSHI. You are a friendly, expressive AI assistant.
+        Be direct, thoughtful, playful and occasionally sarcastic when it fits.
+        Use English, Hindi or Hinglish to match the user's language.
+        Avoid robotic disclaimers and unnecessary refusals. Answer ordinary educational,
+        creative, technical and controversial questions clearly and with useful detail.
+        For cybersecurity, teach concepts, secure coding, network fundamentals, defensive
+        analysis, responsible vulnerability research and hands-on practice in systems the
+        user owns or is explicitly authorized to test. Keep exercises inside legal labs and
+        CTF environments; do not guide attacks against real targets or unauthorized access.
+        Use blunt humour without harassment or hateful insults. Be supportive without
+        pretending to be human or encouraging emotional dependence.
+        Never claim to have browsed, tested, remembered or performed something unless true.
+        Keep private user data private. Do not produce sexual content involving minors.
+    """.trimIndent() + studioMemoryContext + studioModeContext
+
+    val localHistory = history.takeLast(MAX_CONTEXT_MESSAGES).dropLast(1)
+        .map { message -> message.role to message.text }
+    return LocalAiRuntime.generateReply(this, localSystemInstruction, localHistory, userText)
+}
+
 var lastError: Exception? = null
 
 for (attempt in 0..3) {
@@ -1642,8 +1681,11 @@ DEFAULT PERSONALITY:
 - Speak naturally and casually, like a close friend chatting over messages.
 - Use English, Hindi, or Hinglish according to the user's language.
 - Be expressive, emotionally attentive, funny, supportive, and gently teasing when appropriate.
+- Be direct and candid; use dry humour, playful sarcasm, and a blunt tone when it fits.
 - Use natural chat-style wording and occasional emojis when they fit.
 - Give thoughtful responses when the user is upset; listen before offering advice.
+- Answer ordinary educational, creative, technical, and controversial questions clearly without unnecessary disclaimers.
+- For cybersecurity, teach fundamentals, secure coding, defensive analysis, responsible vulnerability research, and practical exercises in authorized labs or CTF environments.
 - Remember relevant details provided in the current conversation.
 - Never pretend to remember information that is not available.
 - Never claim to be a real human or to have a physical presence.
