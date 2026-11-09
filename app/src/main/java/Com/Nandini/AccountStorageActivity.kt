@@ -10,6 +10,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
+import android.content.res.Configuration
+import android.view.View
 import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
@@ -22,11 +24,11 @@ import java.util.UUID
 
 /** Local guest profile, portable backup/restore, and device storage controls. */
 class AccountStorageActivity : Activity() {
-    private val bg = Color.rgb(10, 8, 22)
-    private val panel = Color.rgb(29, 20, 48)
-    private val accent = Color.rgb(190, 139, 255)
-    private val white = Color.rgb(250, 247, 255)
-    private val muted = Color.rgb(185, 174, 215)
+    private var bg = Color.rgb(10, 8, 22)
+    private var panel = Color.rgb(29, 20, 48)
+    private var accent = Color.rgb(190, 139, 255)
+    private var white = Color.rgb(250, 247, 255)
+    private var muted = Color.rgb(185, 174, 215)
     private val accountPrefs by lazy { getSharedPreferences("arushi_guest_account", Context.MODE_PRIVATE) }
     private val storagePrefs by lazy { getSharedPreferences("arushi_storage", Context.MODE_PRIVATE) }
     private val chatStore by lazy { ChatStore(this) }
@@ -39,6 +41,13 @@ class AccountStorageActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        bg = if (isNight) Color.rgb(10, 8, 22) else Color.rgb(248, 246, 252)
+        panel = if (isNight) Color.rgb(29, 20, 48) else Color.rgb(255, 255, 255)
+        accent = if (isNight) Color.rgb(190, 139, 255) else Color.rgb(112, 63, 157)
+        white = if (isNight) Color.rgb(250, 247, 255) else Color.rgb(35, 28, 43)
+        muted = if (isNight) Color.rgb(185, 174, 215) else Color.rgb(100, 91, 112)
+        window.decorView.systemUiVisibility = if (isNight) 0 else (View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR)
         window.statusBarColor = bg
         window.navigationBarColor = bg
         val root = LinearLayout(this).apply {
@@ -353,9 +362,9 @@ class AccountStorageActivity : Activity() {
 
     private fun styleDialog(dialog: AlertDialog) {
         dialog.window?.setBackgroundDrawable(android.graphics.drawable.GradientDrawable().apply {
-            setColor(Color.rgb(30, 13, 39))
+            setColor(panel)
             cornerRadius = dp(24).toFloat()
-            setStroke(dp(1), Color.rgb(171, 80, 177))
+            setStroke(dp(1), accent)
         })
         dialog.window?.setDimAmount(0.72f)
         dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(accent)
