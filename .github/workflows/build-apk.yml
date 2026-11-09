@@ -6,7 +6,8 @@ on:
     branches:
       - main
       - feature/myraa-style-avatar-safe
-      - feature/arushi-local-ai-upgrade
+      - feature/arushi-holographic-studio
+      - feature/arushi-complete-integration
 
 permissions:
   contents: read
