@@ -1872,7 +1872,7 @@ val model = Firebase.ai(
                 ).generativeModel(
         modelName = "gemini-3.8-flash",
        systemInstruction = content {    
-   text(ArushiExperience.systemInstruction(this) + studioMemoryContext + studioModeContext)
+   text(ArushiExperience.systemInstruction(this@MainActivity) + studioMemoryContext + studioModeContext)
 
 }
 
