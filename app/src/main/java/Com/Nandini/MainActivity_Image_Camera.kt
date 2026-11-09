@@ -49,8 +49,8 @@ import java.net.URL
 import org.json.JSONObject
 import org.json.JSONArray
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
-import org.apache.pdfbox.pdmodel.PDDocument
-import org.apache.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import java.util.zip.ZipInputStream
 
 import com.google.firebase.Firebase
@@ -1610,7 +1610,7 @@ private fun extractDocumentText(uri: Uri, mimeType: String, displayName: String)
                         .joinToString(" ") { match ->
                             match.groupValues[1]
                                 .replace("&lt;", "<").replace("&gt;", ">")
-                                .replace("&quot;", String(charArrayOf(34))).replace("&apos;", "'")
+                                .replace("&quot;", "\"").replace("&apos;", "'")
                                 .replace("&amp;", "&")
                         }
                 }
