@@ -1502,7 +1502,6 @@ if (deviceReply != null) {
     setAvatarEmotionFromText(deviceReply)
     history.add(ChatMessage("model", deviceReply))
 saveHistory()
-    saveCurrentChat()
     speakReply(deviceReply)
     return
 }
@@ -1537,7 +1536,6 @@ replyView.text = reply
     setAvatarEmotionFromText(reply)
     history.add(ChatMessage("model", reply))
 saveHistory()
-    saveCurrentChat()
     speakReply(reply)    
 
 } catch (e: CancellationException) {    
@@ -1689,7 +1687,7 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
                 history.add(ChatMessage("model", answer))
                 speakReply(answer)
             }
-; saveHistory(); saveCurrentChat()
+; saveHistory()
         } catch (e: Exception) {
             Log.e("ARUSHI", "Image request failed", e)
             replyView.text = if (generateImage) "I couldn't generate the image. Firebase image generation requires the Blaze pay-as-you-go plan and a supported image model. Check billing and model access, then retry. 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
@@ -1969,7 +1967,6 @@ private fun startNewChat() {
     tts?.stop()
     addMessage("ARUSHI", "Fresh start! ✨ What's on your mind?")
     saveHistory()
-    saveCurrentChat()
     Toast.makeText(this, "New chat started. Previous chats are in History.", Toast.LENGTH_SHORT).show()
 }
 
