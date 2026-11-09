@@ -227,14 +227,21 @@ class AccountStorageActivity : Activity() {
     }
 
     private fun exportBackup(uri: Uri) {
-        try {
-            val output = contentResolver.openOutputStream(uri)
-                ?: throw IllegalStateException("Couldn't open the selected backup destination.")
-            output.use { BackupRestoreManager.createBackup(this, it) }
-            toast("Backup exported successfully. Keep the ZIP file somewhere safe.")
-        } catch (e: Exception) {
-            toast("Backup export failed: ${e.message ?: "Please try again."}")
-        }
+        toast("Preparing your backup…")
+        Thread {
+            try {
+                val output = contentResolver.openOutputStream(uri)
+                    ?: throw IllegalStateException("Couldn't open the selected backup destination.")
+                output.use { BackupRestoreManager.createBackup(this, it) }
+                runOnUiThread {
+                    if (!isFinishing) toast("Backup exported successfully. Keep the ZIP file somewhere safe.")
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (!isFinishing) toast("Backup export failed: ${e.message ?: "Please try again."}")
+                }
+            }
+        }.start()
     }
 
     private fun confirmImport(uri: Uri) {
@@ -242,19 +249,28 @@ class AccountStorageActivity : Activity() {
             .setTitle("Restore this ARUSHI backup?")
             .setMessage("Restoring replaces the current chats, Studio records, guest profile and saved app preferences with the backup contents. Export your current data first if you want to keep it. The restore is applied after ARUSHI restarts.")
             .setPositiveButton("CONTINUE") { _, _ ->
-                try {
-                    val input = contentResolver.openInputStream(uri)
-                        ?: throw IllegalStateException("Couldn't open the selected file.")
-                    input.use { BackupRestoreManager.stageRestore(this, it) }
-                    AlertDialog.Builder(this)
-                        .setTitle("Backup verified")
-                        .setMessage("The backup is ready. ARUSHI will close now. Open the app again to apply the restore.")
-                        .setPositiveButton("CLOSE ARUSHI") { _, _ -> finishAffinity() }
-                        .setCancelable(false)
-                        .show().also { styleDialog(it) }
-                } catch (e: Exception) {
-                    toast("Import failed: ${e.message ?: "This file may not be a valid ARUSHI backup."}")
-                }
+                toast("Checking backup file…")
+                Thread {
+                    try {
+                        val input = contentResolver.openInputStream(uri)
+                            ?: throw IllegalStateException("Couldn't open the selected file.")
+                        input.use { BackupRestoreManager.stageRestore(this, it) }
+                        runOnUiThread {
+                            if (!isFinishing) {
+                                AlertDialog.Builder(this)
+                                    .setTitle("Backup verified")
+                                    .setMessage("The backup is ready. ARUSHI will close now. Open the app again to apply the restore.")
+                                    .setPositiveButton("CLOSE ARUSHI") { _, _ -> finishAffinity() }
+                                    .setCancelable(false)
+                                    .show().also { styleDialog(it) }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        runOnUiThread {
+                            if (!isFinishing) toast("Import failed: ${e.message ?: "This file may not be a valid ARUSHI backup."}")
+                        }
+                    }
+                }.start()
             }
             .setNegativeButton("CANCEL", null)
             .show().also { styleDialog(it) }
