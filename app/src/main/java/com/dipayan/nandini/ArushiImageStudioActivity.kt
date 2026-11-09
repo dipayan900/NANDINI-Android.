@@ -25,10 +25,11 @@ import kotlin.concurrent.thread
 
 /** On-device image generation powered by ARUSHI's bundled LocalDream runtime. */
 class ArushiImageStudioActivity : Activity() {
-    private val bg = Color.rgb(7, 8, 23)
-    private val panel = Color.rgb(19, 22, 48)
-    private val accent = Color.rgb(184, 126, 255)
-    private val cyan = Color.rgb(90, 211, 255)
+    private val palette get() = ArushiExperience.palette(this)
+    private val bg get() = palette.background
+    private val panel get() = palette.panel
+    private val accent get() = palette.accent
+    private val cyan get() = palette.accentSecondary
     private lateinit var prompt: EditText
     private lateinit var status: TextView
     private lateinit var preview: ImageView
@@ -39,8 +40,7 @@ class ArushiImageStudioActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        ArushiExperience.applySystemBars(this)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -63,6 +63,9 @@ class ArushiImageStudioActivity : Activity() {
 
         status = text("Checking LocalDream connection…", 12f, cyan)
         content.addView(status, margin(-1, -2, 0, 8, 0, 8))
+        content.addView(actionButton("EXPERIENCE & APPEARANCE") {
+            startActivity(Intent(this, ArushiExperienceSettingsActivity::class.java))
+        }, margin(-1, dp(42), 0, 0, 0, 8))
         content.addView(actionButton("MANAGE MODELS") {
             startActivity(Intent(this, LocalDreamModelManagerActivity::class.java))
         }, margin(-1, dp(44), 0, 0, 0, 8))
@@ -71,7 +74,7 @@ class ArushiImageStudioActivity : Activity() {
         }, margin(-1, dp(44), 0, 0, 0, 8))
         prompt = EditText(this).apply {
             hint = "Describe the image you want to create…"
-            setHintTextColor(Color.LTGRAY); setTextColor(Color.WHITE); textSize = 15f
+            setHintTextColor(palette.muted); setTextColor(palette.text); textSize = 15f
             minLines = 3; gravity = Gravity.TOP or Gravity.START
             setPadding(dp(12), dp(12), dp(12), dp(12))
             background = rounded(panel, accent)
