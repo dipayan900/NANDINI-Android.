@@ -73,6 +73,7 @@ class NandiniStudioActivity : Activity() {
         addFeature("⚡ TASK ENGINE", "Turn a goal into an editable checklist and keep a local task log. This version plans; it does not silently execute actions.") { showTaskEngine() }
         addFeature("📱 SYSTEM INTELLIGENCE", "Inspect battery, memory and network availability, plus quick Android settings shortcuts.") { showSystemCentre() }
         addFeature("🛠 CREATOR MODE", "Open your project repository and copy prompts for build-error diagnosis or release preparation.") { showCreatorMode() }
+        addFeature("✦ CREATOR CREDITS", "View the separate ARUSHI creator and project credits page.") { startActivity(Intent(this, CreatorCreditsActivity::class.java)) }
         addFeature("🎭 ADAPTIVE MODES", "Choose a working mode to guide your next request in ARUSHI chat.") { showModes() }
         addFeature("👤 GUEST ACCOUNT & STORAGE", "Create a local guest profile, export or restore a complete backup, delete old chats and manage device storage.") { startActivity(Intent(this, AccountStorageActivity::class.java)) }
         addFeature("🛡 PRIVACY & SECURITY", "Review local data, copy a memory backup, clear saved records, or open Android app permissions.") { showPrivacyCentre() }
