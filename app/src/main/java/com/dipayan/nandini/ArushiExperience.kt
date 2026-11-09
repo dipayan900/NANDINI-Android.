@@ -28,13 +28,14 @@ object ArushiExperience {
 
     /** Apply before Activity.super.onCreate so platform widgets and dialogs follow the selected theme. */
     fun applyActivityTheme(activity: Activity) {
-        activity.setTheme(
-            when (appearance(activity)) {
-                "light" -> R.style.ArushiLightTheme
-                "dark" -> R.style.ArushiDarkTheme
-                else -> R.style.NandiniTheme
-            }
-        )
+        val systemNight = (activity.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val selectedTheme = when (appearance(activity)) {
+            "light" -> R.style.ArushiLightTheme
+            "dark" -> R.style.ArushiDarkTheme
+            else -> if (systemNight) R.style.ArushiDarkTheme else R.style.ArushiLightTheme
+        }
+        activity.setTheme(selectedTheme)
     }
 
     fun appearance(context: Context): String =
