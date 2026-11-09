@@ -457,6 +457,12 @@ private const val MAX_CONTEXT_MESSAGES = 14
 
 override fun onCreate(savedInstanceState: Bundle?) {
 super.onCreate(savedInstanceState)
+try {
+    BackupRestoreManager.applyPendingRestore(this)
+} catch (e: Exception) {
+    Log.e("ARUSHI_BACKUP", "Pending backup restore failed", e)
+    Toast.makeText(this, "Backup restore couldn't be applied: ${e.message ?: "Unknown error"}", Toast.LENGTH_LONG).show()
+}
 handleSpotifyCallback(intent)
 window.statusBarColor = bg    
 window.navigationBarColor = bg    
@@ -472,6 +478,8 @@ try {
     Log.e("ARUSHI", "App Check setup failed", e)    
 }    
 
+loadAllChats()
+applyAutoDeletePolicy()
 loadAllChats()
 loadHistory()
 tts = TextToSpeech(this, this)
@@ -1678,9 +1686,10 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
         try {
             if (generateImage) {
                 val generated = withContext(Dispatchers.IO) { generateOrEditImage(prompt, bitmap) }
+                val savedImageName = withContext(Dispatchers.IO) { saveGeneratedImage(generated) }
                 replyView.text = "Here’s your image! 💜"
                 showGeneratedImage(generated)
-                history.add(ChatMessage("model", "[Generated image] $prompt"))
+                history.add(ChatMessage("model", "[Generated image] $prompt\n[ARUSHI_IMAGE:$savedImageName]")
             } else {
                 val answer = withContext(Dispatchers.IO) { analyzeImage(prompt, bitmap ?: throw IllegalStateException("Choose an image or take a photo first.")) }
                 replyView.text = answer
@@ -1715,6 +1724,30 @@ private suspend fun generateOrEditImage(promptText: String, bitmap: Bitmap?): Bi
     }
     return model.generateContent(prompt).candidates.firstOrNull()?.content?.parts?.filterIsInstance<ImagePart>()?.firstOrNull()?.image
         ?: throw IllegalStateException("The image model returned no image.")
+}
+
+private fun saveGeneratedImage(bitmap: Bitmap): String {
+    val directory = java.io.File(filesDir, "generated_images")
+    if (!directory.exists() && !directory.mkdirs()) {
+        throw IllegalStateException("Couldn't create the generated-images folder.")
+    }
+    val name = "arushi_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}.png"
+    val target = java.io.File(directory, name)
+    java.io.FileOutputStream(target).use { output ->
+        if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+            throw IllegalStateException("Couldn't save the generated image.")
+        }
+        output.flush()
+    }
+    return name
+}
+
+private fun showSavedGeneratedImage(name: String) {
+    if (!name.matches(Regex("[A-Za-z0-9_.-]{1,120}"))) return
+    val file = java.io.File(java.io.File(filesDir, "generated_images"), name)
+    if (!file.isFile) return
+    val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
+    showGeneratedImage(bitmap)
 }
 
 private fun showGeneratedImage(bitmap: Bitmap) {
@@ -1990,6 +2023,14 @@ private fun loadAllChats() {
     }
 }
 
+private fun applyAutoDeletePolicy() {
+    val days = getSharedPreferences("arushi_storage", Context.MODE_PRIVATE)
+        .getInt("auto_delete_days", 0)
+    if (days <= 0) return
+    val cutoff = System.currentTimeMillis() - days.toLong() * 24L * 60L * 60L * 1000L
+    chatStore.deleteOlderThan(cutoff, currentChatId)
+}
+
 private fun showChatHistory() {
     if (isBusy) {
         Toast.makeText(this, "Wait for the current reply to finish first.", Toast.LENGTH_SHORT).show()
@@ -2000,19 +2041,46 @@ private fun showChatHistory() {
         Toast.makeText(this, "No saved conversations yet.", Toast.LENGTH_SHORT).show()
         return
     }
-    val labels = savedChats.asReversed().map { chat ->
+    val ordered = savedChats.asReversed()
+    val labels = ordered.map { chat ->
         "${chat.title}\n${chat.preview.replace("\n", " ").take(50)}"
     }.toTypedArray()
     android.app.AlertDialog.Builder(this)
         .setTitle("Chat history")
         .setItems(labels) { _, which ->
-            val chosen = savedChats.asReversed()[which]
-            history.clear()
-            history.addAll(chatStore.loadMessages(chosen.id).map { ChatMessage(it.first, it.second) })
-            currentChatId = chosen.id
-            saveHistory()
-            renderHistory()
-            Toast.makeText(this, "Conversation opened", Toast.LENGTH_SHORT).show()
+            val chosen = ordered[which]
+            android.app.AlertDialog.Builder(this)
+                .setTitle(chosen.title)
+                .setItems(arrayOf("Open conversation", "Delete conversation")) { _, action ->
+                    if (action == 0) {
+                        history.clear()
+                        history.addAll(chatStore.loadMessages(chosen.id).map { ChatMessage(it.first, it.second) })
+                        currentChatId = chosen.id
+                        saveHistory()
+                        renderHistory()
+                        Toast.makeText(this, "Conversation opened", Toast.LENGTH_SHORT).show()
+                    } else {
+                        android.app.AlertDialog.Builder(this)
+                            .setTitle("Delete this conversation?")
+                            .setMessage("This permanently deletes this chat from this device. Export a backup first if you may need it.")
+                            .setPositiveButton("DELETE") { _, _ ->
+                                chatStore.deleteChat(chosen.id)
+                                savedChats.removeAll { it.id == chosen.id }
+                                if (currentChatId == chosen.id) {
+                                    history.clear()
+                                    currentChatId = System.currentTimeMillis().toString()
+                                    prefs.edit().putString("currentChatId", currentChatId).apply()
+                                    messages.removeAllViews()
+                                    addMessage("ARUSHI", "Fresh start! ✨ What's on your mind?")
+                                }
+                                Toast.makeText(this, "Conversation deleted.", Toast.LENGTH_SHORT).show()
+                            }
+                            .setNegativeButton("CANCEL", null)
+                            .show()
+                    }
+                }
+                .setNegativeButton("CLOSE", null)
+                .show()
         }
         .setNeutralButton("New chat") { _, _ -> startNewChat() }
         .setNegativeButton("Close", null)
@@ -2172,18 +2240,20 @@ private fun saveHistory() {
     saveCurrentChat()
 }
 
-private fun renderHistory() {  
-    messages.removeAllViews()  
+private fun renderHistory() {
+    messages.removeAllViews()
 
-    history.forEach { message ->  
-        addMessage(  
-            if (message.role == "user") "YOU" else "ARUSHI",  
-            message.text  
-        )  
-    }  
+    history.forEach { message ->
+        val imageMatch = Regex("\\[ARUSHI_IMAGE:([A-Za-z0-9_.-]{1,120})]").find(message.text)
+        val visibleText = if (imageMatch != null) message.text.removeRange(imageMatch.range).trim() else message.text
+        if (visibleText.isNotBlank()) {
+            addMessage(if (message.role == "user") "YOU" else "ARUSHI", visibleText)
+        }
+        imageMatch?.let { showSavedGeneratedImage(it.groupValues[1]) }
+    }
 
-    scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }  
-}  
+    scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+}
 
 private fun addMessage(  
     label: String,  
