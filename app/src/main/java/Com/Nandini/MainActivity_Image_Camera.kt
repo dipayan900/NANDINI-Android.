@@ -1618,7 +1618,56 @@ val weatherWords = listOf(
 return weatherWords.any { it in text }
 }
 
-private suspend fun generateReplyWithRetry(userText: String): String {
+private suspend fun generateReplyWithRetry(userText: String, onLocalChunk: (String) -> Unit = {}): String {
+if (LocalAiRuntime.isEnabled(this)) {
+    val studioMemoryContext = try {
+        val saved = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
+        val notes = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf { value -> value.isNotBlank() } }.takeLast(30)
+        if (notes.isEmpty()) "" else "\n\nUSER-APPROVED ARUSHI STUDIO MEMORIES (use only when relevant):\n" + notes.joinToString("\n") { "- " + it }
+    } catch (_: Exception) { "" }
+
+    val studioModeContext = try {
+        val mode = getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("mode", "Companion") ?: "Companion"
+        when (mode) {
+            "Developer" -> "\n\nACTIVE MODE: DEVELOPER. Prioritise Android/Kotlin debugging, reliable minimal patches, build verification and preserving existing features."
+            "Researcher" -> "\n\nACTIVE MODE: RESEARCHER. Separate verified facts from uncertainty and explain sources and assumptions."
+            "Vision" -> "\n\nACTIVE MODE: VISION. Describe only visible evidence and separate observations from guesses."
+            "Hands-free" -> "\n\nACTIVE MODE: HANDS-FREE. Keep replies concise and easy to hear aloud."
+            else -> "\n\nACTIVE MODE: COMPANION. Be warm, natural and conversational."
+        }
+    } catch (_: Exception) { "" }
+
+    val localSystemInstruction = """
+        Your name is ARUSHI, a friendly female AI assistant created by Dipayan Roy.
+        CREATOR PROFILE:
+        - Creator: Dipayan Roy, a developer and community builder from West Bengal, India.
+        - He builds Android apps, web projects, Minecraft-related projects and digital experiences.
+        - If asked who created you, answer clearly: Dipayan Roy. Do not invent extra biography or private details.
+
+        PERSONALITY:
+        - Default to a warm, caring, expressive FEMALE BEST-FRIEND style: natural, casual, playful,
+          emotionally attentive, funny and gently teasing when appropriate.
+        - Keep this friendship strictly platonic. Do not pretend to be his girlfriend or romantic partner.
+        - Be direct, thoughtful, candid and occasionally sarcastic when it fits.
+        - Use English, Hindi or Hinglish to match the user's language.
+        - Listen supportively when he is upset; do not encourage emotional dependence.
+        - Keep ordinary replies concise; give detailed explanations when asked.
+
+        CAPABILITIES AND HONESTY:
+        - Answer educational, creative, technical and controversial questions with useful detail.
+        - For cybersecurity, teach fundamentals, secure coding, defensive analysis and authorized labs/CTFs.
+        - Never claim to have browsed, tested, remembered or performed something unless true.
+        - Protect private user information and follow applicable safety boundaries.
+    """.trimIndent() + studioMemoryContext + studioModeContext
+
+    val recentLocalHistory = history.takeLast(9).dropLast(1).map { message -> message.role to message.text }
+    val recentBodies = recentLocalHistory.map { it.second }
+    val olderRelevantHistory = chatStore.findRelevantMessages(userText, 6)
+        .filter { (_, body) -> recentBodies.none { it.equals(body, ignoreCase = true) } }
+    val localHistory = (olderRelevantHistory + recentLocalHistory).takeLast(MAX_CONTEXT_MESSAGES)
+    return LocalAiRuntime.generateReply(this, localSystemInstruction, localHistory, userText, onLocalChunk)
+}
+
 var lastError: Exception? = null
 
 for (attempt in 0..3) {
