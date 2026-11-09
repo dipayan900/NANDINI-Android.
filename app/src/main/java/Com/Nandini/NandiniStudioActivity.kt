@@ -121,15 +121,12 @@ class NandiniStudioActivity : Activity() {
                     0 -> {
                         val entries = readArray("memory")
                         val backup = buildString {
-                            append("ARUSHI Memory Backup
-")
+                            append("ARUSHI Memory Backup\n")
                             for (i in 0 until entries.length()) {
                                 val item = entries.optJSONObject(i) ?: continue
-                                append("• ").append(item.optString("text")).append('
-')
+                                append("• ").append(item.optString("text")).append('\n')
                             }
-                            if (entries.length() == 0) append("(No saved memories)
-")
+                            if (entries.length() == 0) append("(No saved memories)\n")
                         }
                         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("ARUSHI memory backup", backup))
@@ -175,8 +172,7 @@ class NandiniStudioActivity : Activity() {
             "• Cloud image generation and online model downloads",
             "",
             "The 3D companion renderer and bundled files are included in the APK, but first launch or some WebView/device conditions may still affect rendering. Offline mode does not make cloud AI unlimited."
-        ).joinToString("
-")
+        ).joinToString("\n")
         AlertDialog.Builder(this).setTitle("📡 Offline Toolbox")
             .setMessage(message)
             .setPositiveButton("MEMORIES") { _, _ -> showMemoryPalace() }
@@ -242,9 +238,7 @@ class NandiniStudioActivity : Activity() {
                     task.optString("title") + "  •  " + complete + "/" + steps.length() + " steps"
                 }
             }
-            text = if (lines.isEmpty()) "No saved plans yet." else "RECENT PLANS
-" + lines.takeLast(8).joinToString("
-") { "• " + it }
+            text = if (lines.isEmpty()) "No saved plans yet." else "RECENT PLANS\n" + lines.takeLast(8).joinToString("\n") { "• " + it }
             setPadding(0, dp(10), 0, 0)
         }
         val wrap = LinearLayout(this).apply {
@@ -381,14 +375,8 @@ class NandiniStudioActivity : Activity() {
                 else -> "Connected"
             }
         } else "Status unavailable on this Android version"
-        val info = "BATTERY: " + battery + "
-
-NETWORK: " + network + "
-
-DEVICE MEMORY: " + ram +
-            "
-
-These are diagnostic readings, not a guarantee that AI services are reachable."
+        val info = "BATTERY: " + battery + "\n\nNETWORK: " + network + "\n\nDEVICE MEMORY: " + ram +
+            "\n\nThese are diagnostic readings, not a guarantee that AI services are reachable."
         AlertDialog.Builder(this).setTitle("📱 System Intelligence").setMessage(info)
             .setPositiveButton("NETWORK SETTINGS") { _, _ ->
                 try { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
@@ -413,20 +401,8 @@ These are diagnostic readings, not a guarantee that AI services are reachable."
                 1 -> showLatestBuildStatus()
                 2 -> openUrl("https://github.com/dipayan900/ARUSHI-Android./actions")
                 3 -> openUrl("https://github.com/dipayan900/ARUSHI-Android./pull/1")
-                4 -> copyText("ARUSHI Android/Kotlin build diagnosis:
-1. Read the first real compiler error, not only later cascading errors.
-2. Inspect the referenced file and surrounding code.
-3. Identify the confirmed root cause and smallest reversible fix.
-4. Preserve chat/history, Firebase AI, voice, camera, image generation, wake word and companion overlay.
-5. Run the GitHub Actions APK build and inspect its complete log if it fails.
-6. Never claim a fix is verified until the build succeeds.")
-                4 -> copyText("ARUSHI APK release checklist:
-1. Build on feature/myraa-style-avatar-safe.
-2. Confirm the latest GitHub Actions run succeeded and the artifact belongs to the latest commit.
-3. Install on the target Android phone.
-4. Test all six Studio features plus chat, saved history, voice, wake word, camera, image generation and companion overlay.
-5. Check logs for crashes and test offline/permission-denied cases.
-6. Keep the last known-good APK for rollback.")
+                4 -> copyText("ARUSHI Android/Kotlin build diagnosis:\n1. Read the first real compiler error, not only later cascading errors.\n2. Inspect the referenced file and surrounding code.\n3. Identify the confirmed root cause and smallest reversible fix.\n4. Preserve chat/history, Firebase AI, voice, camera, image generation, wake word and companion overlay.\n5. Run the GitHub Actions APK build and inspect its complete log if it fails.\n6. Never claim a fix is verified until the build succeeds.")
+                4 -> copyText("ARUSHI APK release checklist:\n1. Build on feature/myraa-style-avatar-safe.\n2. Confirm the latest GitHub Actions run succeeded and the artifact belongs to the latest commit.\n3. Install on the target Android phone.\n4. Test all six Studio features plus chat, saved history, voice, wake word, camera, image generation and companion overlay.\n5. Check logs for crashes and test offline/permission-denied cases.\n6. Keep the last known-good APK for rollback.")
             }
         }.setNegativeButton("CLOSE", null).show().also { styleDialog(it); it }
     }
@@ -457,15 +433,7 @@ These are diagnostic readings, not a guarantee that AI services are reachable."
                         val conclusion = run.optString("conclusion", "pending")
                         val sha = run.optString("head_sha", "").take(7)
                         runUrl = run.optString("html_url", runUrl)
-                        message = "LATEST BUILD
-
-$title
-Branch: $branch
-Status: $status
-Result: $conclusion
-Commit: $sha
-
-This checks the build status only; it doesn't install or device-test the APK."
+                        message = "LATEST BUILD\n\n$title\nBranch: $branch\nStatus: $status\nResult: $conclusion\nCommit: $sha\n\nThis checks the build status only; it doesn't install or device-test the APK."
                     } else {
                         message = "No GitHub Actions runs were returned. Open Actions to inspect the repository."
                     }
@@ -473,9 +441,7 @@ This checks the build status only; it doesn't install or device-test the APK."
                     connection.disconnect()
                 }
             } catch (e: Exception) {
-                message = "Build status check failed: " + (e.message ?: "network error") + "
-
-Open GitHub Actions to inspect it manually."
+                message = "Build status check failed: " + (e.message ?: "network error") + "\n\nOpen GitHub Actions to inspect it manually."
             }
             runOnUiThread {
                 AlertDialog.Builder(this).setTitle("🛠 Creator Build Monitor")
