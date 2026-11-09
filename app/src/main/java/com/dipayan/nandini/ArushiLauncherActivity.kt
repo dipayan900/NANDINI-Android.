@@ -40,6 +40,7 @@ class ArushiLauncherActivity : Activity() {
     private lateinit var root: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         themeIndex = prefs.getInt("theme", 0).coerceIn(0, themeNames.lastIndex)
         buildUi()
