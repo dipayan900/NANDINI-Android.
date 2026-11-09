@@ -31,16 +31,12 @@ class ArushiLauncherActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("arushi_theme_engine", MODE_PRIVATE) }
     private var themeIndex = 0
     private val themeNames = listOf("NEON CYBERPUNK", "LOVE HOLOGRAM", "ICE BLUE HUD")
-    private val backgrounds = intArrayOf(Color.rgb(5, 7, 22), Color.rgb(19, 5, 28), Color.rgb(3, 15, 27))
-    private val panels = intArrayOf(Color.rgb(14, 18, 43), Color.rgb(35, 12, 43), Color.rgb(8, 28, 43))
-    private val purples = intArrayOf(Color.rgb(177, 105, 255), Color.rgb(255, 105, 205), Color.rgb(91, 220, 255))
-    private val blues = intArrayOf(Color.rgb(83, 190, 255), Color.rgb(151, 139, 255), Color.rgb(113, 245, 255))
-    private val pinks = intArrayOf(Color.rgb(255, 105, 205), Color.rgb(255, 125, 190), Color.rgb(148, 175, 255))
-    private val bg get() = backgrounds[themeIndex]
-    private val panel get() = panels[themeIndex]
-    private val purple get() = purples[themeIndex]
-    private val blue get() = blues[themeIndex]
-    private val pink get() = pinks[themeIndex]
+    private val palette get() = ArushiExperience.palette(this)
+    private val bg get() = palette.background
+    private val panel get() = palette.panel
+    private val purple get() = when (themeIndex) { 1 -> Color.rgb(222, 104, 183); 2 -> palette.accentSecondary; else -> palette.accent }
+    private val blue get() = palette.accentSecondary
+    private val pink get() = when (themeIndex) { 1 -> Color.rgb(222, 104, 183); 2 -> palette.accentSecondary; else -> palette.accent }
     private lateinit var root: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -101,9 +97,7 @@ class ArushiLauncherActivity : Activity() {
     }
 
     private fun buildUi() {
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
-        window.decorView.systemUiVisibility = 0
+        ArushiExperience.applySystemBars(this)
         val scroll = ScrollView(this).apply { setBackgroundColor(bg); isFillViewport = true }
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
