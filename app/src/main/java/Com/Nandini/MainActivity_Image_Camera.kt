@@ -1689,7 +1689,7 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
                 val savedImageName = withContext(Dispatchers.IO) { saveGeneratedImage(generated) }
                 replyView.text = "Here’s your image! 💜"
                 showGeneratedImage(generated)
-                history.add(ChatMessage("model", "[Generated image] $prompt\n[ARUSHI_IMAGE:$savedImageName]"))
+                history.add(ChatMessage("model", "[Generated image] $prompt\n[ARUSHI_IMAGE:$savedImageName]")))
             } else {
                 val answer = withContext(Dispatchers.IO) { analyzeImage(prompt, bitmap ?: throw IllegalStateException("Choose an image or take a photo first.")) }
                 replyView.text = answer
