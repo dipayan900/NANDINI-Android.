@@ -213,6 +213,20 @@ class ChatStore(context: Context) :
         if (it.moveToFirst()) it.getInt(0) else 0
     }
 
+    /** Image files still referenced by saved chat messages. */
+    fun referencedImageNames(): Set<String> {
+        val names = linkedSetOf<String>()
+        val marker = Regex("""\\[arushi_image:([A-Za-z0-9._-]+)]""")
+        readableDatabase.rawQuery("SELECT body FROM messages", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                marker.findAll(cursor.getString(0)).forEach { match ->
+                    match.groupValues.getOrNull(1)?.let(names::add)
+                }
+            }
+        }
+        return names
+    }
+
     /**
      * Lightweight lexical retrieval over older conversations. Recent context is
      * supplied separately by the caller; these are additional older matches.
