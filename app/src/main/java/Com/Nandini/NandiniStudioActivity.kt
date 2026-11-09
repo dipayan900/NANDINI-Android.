@@ -39,6 +39,7 @@ class NandiniStudioActivity : Activity() {
     private lateinit var body: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         ArushiExperience.applySystemBars(this)
         val root = LinearLayout(this).apply {
