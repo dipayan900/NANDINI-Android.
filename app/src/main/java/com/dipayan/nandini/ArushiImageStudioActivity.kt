@@ -39,6 +39,7 @@ class ArushiImageStudioActivity : Activity() {
     private var busy = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         ArushiExperience.applySystemBars(this)
 
