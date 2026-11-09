@@ -9,7 +9,8 @@ import org.json.JSONArray
 data class StoredChatSummary(
     val id: String,
     val title: String,
-    val preview: String
+    val preview: String,
+    val updatedAt: Long
 )
 
 /**
@@ -144,7 +145,8 @@ class ChatStore(context: Context) :
         val result = mutableListOf<StoredChatSummary>()
         readableDatabase.rawQuery(
             """SELECT c.id, c.title,
-                (SELECT m.body FROM messages m WHERE m.chat_id = c.id ORDER BY m.id DESC LIMIT 1) AS preview
+                (SELECT m.body FROM messages m WHERE m.chat_id = c.id ORDER BY m.id DESC LIMIT 1) AS preview,
+                c.updated_at
                 FROM chats c ORDER BY c.updated_at ASC""".trimIndent(),
             null
         ).use { cursor ->
@@ -153,7 +155,8 @@ class ChatStore(context: Context) :
                     StoredChatSummary(
                         cursor.getString(0),
                         cursor.getString(1),
-                        cursor.getString(2).orEmpty()
+                        cursor.getString(2).orEmpty(),
+                        cursor.getLong(3)
                     )
                 )
             }
@@ -175,6 +178,53 @@ class ChatStore(context: Context) :
             while (cursor.moveToNext()) result.add(cursor.getString(0) to cursor.getString(1))
         }
         return result
+    }
+
+    fun deleteChat(chatId: String): Int =
+        writableDatabase.delete("chats", "id = ?", arrayOf(chatId)).also {
+            writableDatabase.delete("messages", "chat_id = ?", arrayOf(chatId))
+        }
+
+    /** Delete conversations older than the selected retention window. */
+    fun deleteOlderThan(cutoffMillis: Long, keepChatId: String? = null): Int {
+        val db = writableDatabase
+        val ids = mutableListOf<String>()
+        db.query(
+            "chats",
+            arrayOf("id"),
+            if (keepChatId.isNullOrBlank()) "updated_at < ?" else "updated_at < ? AND id != ?",
+            if (keepChatId.isNullOrBlank()) arrayOf(cutoffMillis.toString()) else arrayOf(cutoffMillis.toString(), keepChatId),
+            null, null, null
+        ).use { cursor -> while (cursor.moveToNext()) ids.add(cursor.getString(0)) }
+        db.beginTransaction()
+        try {
+            ids.forEach { id ->
+                db.delete("messages", "chat_id = ?", arrayOf(id))
+                db.delete("chats", "id = ?", arrayOf(id))
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        return ids.size
+    }
+
+    fun chatCount(): Int = readableDatabase.rawQuery("SELECT COUNT(*) FROM chats", null).use {
+        if (it.moveToFirst()) it.getInt(0) else 0
+    }
+
+    /** Image files still referenced by saved chat messages. */
+    fun referencedImageNames(): Set<String> {
+        val names = linkedSetOf<String>()
+        val marker = Regex("""\[arushi_image:([A-Za-z0-9._-]+)]""")
+        readableDatabase.rawQuery("SELECT body FROM messages", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                marker.findAll(cursor.getString(0)).forEach { match ->
+                    match.groupValues.getOrNull(1)?.let(names::add)
+                }
+            }
+        }
+        return names
     }
 
     /**

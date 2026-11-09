@@ -30,8 +30,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.content.Intent
 import android.provider.AlarmClock
-import android.provider.Settings
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.net.Uri
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraCharacteristics
@@ -44,14 +44,11 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.tasks.await
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
 import org.json.JSONArray
-import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
-import com.tom_roush.pdfbox.pdmodel.PDDocument
-import com.tom_roush.pdfbox.text.PDFTextStripper
-import java.util.zip.ZipInputStream
 
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
@@ -78,6 +75,10 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 import java.util.Locale
+import java.util.zip.ZipInputStream
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlin.concurrent.thread
 
 class MainActivity : Activity(), TextToSpeech.OnInitListener {
@@ -427,6 +428,7 @@ private fun testSpotifyPlayback() {
 private val prefs by lazy {
 getSharedPreferences("nandini_chat", Context.MODE_PRIVATE)
 }
+private val chatStore by lazy { ChatStore(this) }
 
 private data class ChatMessage(
 val role: String,
@@ -434,9 +436,8 @@ val text: String
 )
 
 private val history = mutableListOf<ChatMessage>()
-private data class SavedChat(val id: String, var title: String, val messages: MutableList<ChatMessage>, var preview: String = "")
+private data class SavedChat(val id: String, val title: String, val preview: String)
 private val savedChats = mutableListOf<SavedChat>()
-private val chatStore by lazy { ChatStore(this) }
 private var currentChatId: String = System.currentTimeMillis().toString()
 private val memoryPrefs by lazy { getSharedPreferences("nandini_memory", Context.MODE_PRIVATE) }
 
@@ -452,7 +453,7 @@ private const val REQUEST_MIC_PERMISSION = 201
 private const val REQUEST_SPEECH = 202
 private const val REQUEST_PICK_FILE = 204
 private const val REQUEST_CAMERA_IMAGE = 205
-private const val MAX_CONTEXT_MESSAGES = 14
+private const val MAX_CONTEXT_MESSAGES = 16
 }
 
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -473,6 +474,7 @@ try {
 }    
 
 loadAllChats()
+applyChatRetentionPolicy()
 loadHistory()
 tts = TextToSpeech(this, this)
 buildUi()
@@ -480,7 +482,11 @@ val previousWakeStage = getSharedPreferences(
     "wake_word_diagnostics", Context.MODE_PRIVATE
 ).getString("last_stage", "No wake-word attempt recorded")
 statusText.text = "WAKE DIAGNOSTIC: $previousWakeStage"
-renderHistory()
+renderHistory()    
+
+if (history.isEmpty()) {    
+    addMessage("ARUSHI", "Hey! I'm ARUSHI 💜\nTalk to me in Hindi, English, or Hinglish.")    
+}
 
 if (LocalAiRuntime.isModelReady(this)) {
     scope.launch(Dispatchers.IO) {
@@ -491,10 +497,6 @@ if (LocalAiRuntime.isModelReady(this)) {
             Log.w("ARUSHI_LOCAL_AI", "Model prewarm failed; it will initialize on first request", e)
         }
     }
-}    
-
-if (history.isEmpty()) {    
-    addMessage("ARUSHI", "Hey! I'm ARUSHI 💜\nTalk to me in Hindi, English, or Hinglish.")    
 }
 
 }
@@ -557,7 +559,23 @@ statusText = TextView(this).apply {
         setStroke(dp(1), Color.argb(125, 184, 133, 255))
     }
 }
-root.addView(statusText, LinearLayout.LayoutParams(-1, dp(28)))    
+root.addView(statusText, LinearLayout.LayoutParams(-1, dp(28)))
+
+val callAssistantButton = Button(this).apply {
+    text = "☎  AI CALL ASSISTANT"
+    isAllCaps = false
+    textSize = 13f
+    setTextColor(Color.WHITE)
+    backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(94, 52, 139))
+    contentDescription = "Open ARUSHI AI Call Assistant setup"
+    setOnClickListener {
+        startActivity(Intent(this@MainActivity, ArushiCallAssistantActivity::class.java))
+    }
+}
+root.addView(callAssistantButton, LinearLayout.LayoutParams(-1, dp(44)).apply {
+    topMargin = dp(6)
+    bottomMargin = dp(6)
+})
 
 scroll = ScrollView(this).apply {    
     clipToPadding = false    
@@ -1081,8 +1099,9 @@ private fun startWakeWordSession() {
                             .replace(Regex("[^a-z0-9 ]"), " ")
                             .replace(Regex("\\s+"), " ")
                             .trim()
-                        normalized.contains("hey arushi") ||
-                            normalized.contains("hey arush")
+                        normalized.contains("hey nandini") ||
+                            normalized.contains("hey nandin") ||
+                            normalized.contains("hey nandi")
                     }
 
                     if (heardWakeWord && wakeWordEnabled) {
@@ -1107,8 +1126,9 @@ private fun startWakeWordSession() {
                             .replace(Regex("[^a-z0-9 ]"), " ")
                             .replace(Regex("\\s+"), " ")
                             .trim()
-                        normalized.contains("hey arushi") ||
-                            normalized.contains("hey arush")
+                        normalized.contains("hey nandini") ||
+                            normalized.contains("hey nandin") ||
+                            normalized.contains("hey nandi")
                     }
                     if (heardWakeWord && wakeWordEnabled) {
                         wakeWordEnabled = false
@@ -1445,8 +1465,8 @@ private fun sendMessage() {
 val userText = input.text.toString().trim()
 if (userText.isEmpty() || isBusy || isReadingAttachment) return
 
-// Route weather questions to the live weather feature.
-if (isWeatherQuestion(userText)) {
+// Route weather questions to the live weather feature only when no file is attached.
+if (pendingImage == null && pendingDocumentText.isNullOrBlank() && isWeatherQuestion(userText)) {
 input.text.clear()
 
 val imm = getSystemService(Context.INPUT_METHOD_SERVICE)    
@@ -1470,6 +1490,7 @@ history.add(ChatMessage("user", when {
     !attachedText.isNullOrBlank() -> modelPrompt
     else -> userText
 }))
+trimHistory()
 saveHistory()
 input.text.clear()
 
@@ -1484,12 +1505,12 @@ if (attachedBitmap != null || wantsImageOutput) {
 
 // Handle Android device commands before sending to Gemini.
 // Handle Spotify before Android commands or Firebase AI.
-if (isSpotifyCommand(userText)) {
+if (attachedText.isNullOrBlank() && isSpotifyCommand(userText)) {
     handleSpotifyCommand(userText)
     return
 }
 
-val deviceReply = runDeviceCommand(userText)
+val deviceReply = if (attachedText.isNullOrBlank()) runDeviceCommand(userText) else null
 
 if (deviceReply != null) {
     input.text.clear()
@@ -1501,7 +1522,10 @@ if (deviceReply != null) {
     addMessage("ARUSHI", deviceReply)
     setAvatarEmotionFromText(deviceReply)
     history.add(ChatMessage("model", deviceReply))
-saveHistory()
+
+    trimHistory()
+    saveHistory()
+    saveCurrentChat()
     speakReply(deviceReply)
     return
 }
@@ -1532,10 +1556,13 @@ val reply = withContext(Dispatchers.IO) {
         }
     }
 }
+
 replyView.text = reply
     setAvatarEmotionFromText(reply)
-    history.add(ChatMessage("model", reply))
-saveHistory()
+    history.add(ChatMessage("model", reply))    
+    trimHistory()    
+    saveHistory()
+    saveCurrentChat()
     speakReply(reply)    
 
 } catch (e: CancellationException) {    
@@ -1676,18 +1703,42 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
     statusText.text = if (generateImage) "● CREATING IMAGE..." else "● ANALYZING IMAGE..."
     scope.launch {
         try {
+            if (bitmap != null) {
+                val attachedImageName = withContext(Dispatchers.IO) {
+                    runCatching { saveGeneratedImage(bitmap) }.onFailure {
+                        Log.e("ARUSHI_STORAGE", "Attached image could not be saved", it)
+                    }.getOrNull()
+                }
+                if (attachedImageName != null) {
+                    val userIndex = history.indexOfLast { it.role == "user" }
+                    if (userIndex >= 0) {
+                        val oldMessage = history[userIndex].text
+                        history[userIndex] = ChatMessage("user", "$oldMessage\n[arushi_image:$attachedImageName]")
+                        saveHistory()
+                    }
+                }
+            }
             if (generateImage) {
                 val generated = withContext(Dispatchers.IO) { generateOrEditImage(prompt, bitmap) }
+                val savedImageName = withContext(Dispatchers.IO) {
+                    runCatching { saveGeneratedImage(generated) }.onFailure {
+                        Log.e("ARUSHI_STORAGE", "Generated image could not be saved", it)
+                    }.getOrNull()
+                }
                 replyView.text = "Here’s your image! 💜"
                 showGeneratedImage(generated)
-                history.add(ChatMessage("model", "[Generated image] $prompt"))
+                val imageMarker = savedImageName?.let { "\n[arushi_image:$it]" }.orEmpty()
+                history.add(ChatMessage("model", "[Generated image] $prompt$imageMarker"))
+                if (savedImageName == null) {
+                    Toast.makeText(this@MainActivity, "Image generated, but device storage prevented saving it for backup.", Toast.LENGTH_LONG).show()
+                }
             } else {
                 val answer = withContext(Dispatchers.IO) { analyzeImage(prompt, bitmap ?: throw IllegalStateException("Choose an image or take a photo first.")) }
                 replyView.text = answer
                 history.add(ChatMessage("model", answer))
                 speakReply(answer)
             }
-; saveHistory()
+            trimHistory(); saveHistory(); saveCurrentChat()
         } catch (e: Exception) {
             Log.e("ARUSHI", "Image request failed", e)
             replyView.text = if (generateImage) "I couldn't generate the image. Firebase image generation requires the Blaze pay-as-you-go plan and a supported image model. Check billing and model access, then retry. 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
@@ -1717,9 +1768,39 @@ private suspend fun generateOrEditImage(promptText: String, bitmap: Bitmap?): Bi
         ?: throw IllegalStateException("The image model returned no image.")
 }
 
+private fun saveGeneratedImage(bitmap: Bitmap): String {
+    val directory = File(filesDir, "generated_images")
+    if (!directory.exists() && !directory.mkdirs()) {
+        throw IllegalStateException("Could not create the generated-images folder.")
+    }
+    val name = "${System.currentTimeMillis()}-${java.util.UUID.randomUUID().toString().take(8)}.png"
+    val destination = File(directory, name)
+    java.io.FileOutputStream(destination).use { output ->
+        if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+            throw IllegalStateException("Could not encode the generated image.")
+        }
+        output.flush()
+    }
+    return name
+}
+
+private fun addGeneratedImageView(bitmap: Bitmap) {
+    val imageView = ImageView(this).apply {
+        setImageBitmap(bitmap)
+        adjustViewBounds = true
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        setBackgroundColor(panel)
+        contentDescription = "Image generated by ARUSHI"
+        setPadding(dp(4), dp(4), dp(4), dp(4))
+    }
+    messages.addView(imageView, LinearLayout.LayoutParams(-1, dp(300)).apply {
+        topMargin = dp(6)
+        bottomMargin = dp(10)
+    })
+}
+
 private fun showGeneratedImage(bitmap: Bitmap) {
-    val imageView = ImageView(this).apply { setImageBitmap(bitmap); adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_CENTER; setBackgroundColor(panel); contentDescription = "Image generated by ARUSHI"; setPadding(dp(4), dp(4), dp(4), dp(4)) }
-    messages.addView(imageView, LinearLayout.LayoutParams(-1, dp(300)).apply { topMargin = dp(6); bottomMargin = dp(10) })
+    addGeneratedImageView(bitmap)
     scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
 }
 
@@ -1759,7 +1840,6 @@ if (LocalAiRuntime.isEnabled(this)) {
         CREATOR PROFILE:
         - Creator: Dipayan Roy, a developer and community builder from West Bengal, India.
         - He builds Android apps, web projects, Minecraft-related projects and digital experiences.
-        - He is developing ARUSHI for Android.
         - If asked who created you, answer clearly: Dipayan Roy. Do not invent extra biography or private details.
 
         PERSONALITY:
@@ -1767,24 +1847,18 @@ if (LocalAiRuntime.isEnabled(this)) {
           emotionally attentive, funny and gently teasing when appropriate.
         - Keep this friendship strictly platonic. Do not pretend to be his girlfriend or romantic partner.
         - Be direct, thoughtful, candid and occasionally sarcastic when it fits.
-        - Use English, Hindi or Hinglish to match the user's language, with natural chat-style wording.
+        - Use English, Hindi or Hinglish to match the user's language.
         - Listen supportively when he is upset; do not encourage emotional dependence.
         - Keep ordinary replies concise; give detailed explanations when asked.
 
         CAPABILITIES AND HONESTY:
-        - Answer educational, creative, technical and controversial questions with useful detail,
-          without unnecessary disclaimers.
-        - For cybersecurity, teach fundamentals, secure coding, network concepts, defensive analysis,
-          responsible vulnerability research and practical work in systems he owns or is authorized
-          to test. Keep hands-on exercises in legal labs and CTFs; do not guide unauthorized attacks.
+        - Answer educational, creative, technical and controversial questions with useful detail.
+        - For cybersecurity, teach fundamentals, secure coding, defensive analysis and authorized labs/CTFs.
         - Never claim to have browsed, tested, remembered or performed something unless true.
-        - Use only conversation history and explicitly saved memories actually provided to you.
-        - Protect private user information. Do not reveal private conversations or invent personal facts.
-        - Follow applicable safety boundaries, including no sexual content involving minors.
+        - Protect private user information and follow applicable safety boundaries.
     """.trimIndent() + studioMemoryContext + studioModeContext
 
-    val recentLocalHistory = history.takeLast(9).dropLast(1)
-        .map { message -> message.role to message.text }
+    val recentLocalHistory = history.takeLast(9).dropLast(1).map { message -> message.role to message.text }
     val recentBodies = recentLocalHistory.map { it.second }
     val olderRelevantHistory = chatStore.findRelevantMessages(userText, 6)
         .filter { (_, body) -> recentBodies.none { it.equals(body, ignoreCase = true) } }
@@ -1834,11 +1908,8 @@ DEFAULT PERSONALITY:
 - Speak naturally and casually, like a close friend chatting over messages.
 - Use English, Hindi, or Hinglish according to the user's language.
 - Be expressive, emotionally attentive, funny, supportive, and gently teasing when appropriate.
-- Be direct and candid; use dry humour, playful sarcasm, and a blunt tone when it fits.
 - Use natural chat-style wording and occasional emojis when they fit.
 - Give thoughtful responses when the user is upset; listen before offering advice.
-- Answer ordinary educational, creative, technical, and controversial questions clearly without unnecessary disclaimers.
-- For cybersecurity, teach fundamentals, secure coding, defensive analysis, responsible vulnerability research, and practical exercises in authorized labs or CTF environments.
 - Remember relevant details provided in the current conversation.
 - Never pretend to remember information that is not available.
 - Never claim to be a real human or to have a physical presence.
@@ -1967,17 +2038,19 @@ private fun startNewChat() {
     tts?.stop()
     addMessage("ARUSHI", "Fresh start! ✨ What's on your mind?")
     saveHistory()
+    saveCurrentChat()
     Toast.makeText(this, "New chat started. Previous chats are in History.", Toast.LENGTH_SHORT).show()
 }
 
 private fun saveCurrentChat() {
-    if (history.isEmpty()) return
     val firstUser = history.firstOrNull { it.role == "user" }?.text.orEmpty()
     val title = firstUser.replace("\n", " ").take(36).ifBlank { "New conversation" }
-    chatStore.saveChat(currentChatId, title, history.map { it.role to it.text })
-    val existing = savedChats.indexOfFirst { it.id == currentChatId }
-    val summary = SavedChat(currentChatId, title, history.toMutableList(), history.lastOrNull()?.text.orEmpty())
-    if (existing >= 0) savedChats[existing] = summary else savedChats.add(summary)
+    if (history.isNotEmpty()) {
+        chatStore.saveChat(currentChatId, title, history.map { it.role to it.text })
+        val summary = SavedChat(currentChatId, title, history.lastOrNull()?.text.orEmpty())
+        val existing = savedChats.indexOfFirst { it.id == currentChatId }
+        if (existing >= 0) savedChats[existing] = summary else savedChats.add(summary)
+    }
     prefs.edit().putString("currentChatId", currentChatId).apply()
 }
 
@@ -1986,7 +2059,36 @@ private fun loadAllChats() {
     chatStore.migrateLegacy(prefs.getString("chats", null), prefs.getString("history", null), currentChatId)
     savedChats.clear()
     chatStore.listChats().forEach { stored ->
-        savedChats.add(SavedChat(stored.id, stored.title, mutableListOf(), stored.preview))
+        savedChats.add(SavedChat(stored.id, stored.title, stored.preview))
+    }
+}
+
+private fun cleanupOrphanedChatImages() {
+    val directory = File(filesDir, "generated_images")
+    if (!directory.isDirectory) return
+    val referenced = chatStore.referencedImageNames()
+    directory.listFiles()?.filter { it.isFile && it.name !in referenced }?.forEach { file ->
+        if (!file.delete()) Log.w("ARUSHI_STORAGE", "Could not remove unused image ${file.name}")
+    }
+}
+
+private fun applyChatRetentionPolicy() {
+    val days = getSharedPreferences("arushi_storage", Context.MODE_PRIVATE)
+        .getInt("auto_delete_days", 0)
+    if (days <= 0) return
+    try {
+        val cutoff = System.currentTimeMillis() - days.toLong() * 24L * 60L * 60L * 1000L
+        val deleted = chatStore.deleteOlderThan(cutoff, currentChatId)
+        if (deleted > 0) {
+            savedChats.clear()
+            chatStore.listChats().forEach { stored ->
+                savedChats.add(SavedChat(stored.id, stored.title, stored.preview))
+            }
+            cleanupOrphanedChatImages()
+            Log.i("ARUSHI_STORAGE", "Automatic retention removed $deleted expired chats")
+        }
+    } catch (e: Exception) {
+        Log.e("ARUSHI_STORAGE", "Automatic chat cleanup failed", e)
     }
 }
 
@@ -2000,13 +2102,14 @@ private fun showChatHistory() {
         Toast.makeText(this, "No saved conversations yet.", Toast.LENGTH_SHORT).show()
         return
     }
-    val labels = savedChats.asReversed().map { chat ->
+    val ordered = savedChats.asReversed()
+    val labels = ordered.map { chat ->
         "${chat.title}\n${chat.preview.replace("\n", " ").take(50)}"
     }.toTypedArray()
     android.app.AlertDialog.Builder(this)
         .setTitle("Chat history")
         .setItems(labels) { _, which ->
-            val chosen = savedChats.asReversed()[which]
+            val chosen = ordered[which]
             history.clear()
             history.addAll(chatStore.loadMessages(chosen.id).map { ChatMessage(it.first, it.second) })
             currentChatId = chosen.id
@@ -2022,38 +2125,21 @@ private fun showChatHistory() {
 private fun loadMemories(): MutableList<String> {
     val out = mutableListOf<String>()
     try {
-        val legacy = JSONArray(memoryPrefs.getString("memories", "[]") ?: "[]")
-        for (i in 0 until legacy.length()) {
-            val value = legacy.optString(i).trim()
+        val arr = JSONArray(memoryPrefs.getString("memories", "[]") ?: "[]")
+        for (i in 0 until arr.length()) {
+            val value = arr.optString(i).trim()
             if (value.isNotEmpty()) out.add(value)
         }
     } catch (e: Exception) {
-        Log.e("ARUSHI", "Legacy memories couldn't be read", e)
-    }
-    try {
-        val studio = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
-        for (i in 0 until studio.length()) {
-            val value = studio.optJSONObject(i)?.optString("text")?.trim().orEmpty()
-            if (value.isNotEmpty() && out.none { it.equals(value, ignoreCase = true) }) out.add(value)
-        }
-    } catch (e: Exception) {
-        Log.e("ARUSHI", "Studio memories couldn't be read", e)
+        Log.e("ARUSHI", "Saved memories couldn't be read", e)
     }
     return out
 }
 
 private fun saveMemories(items: List<String>) {
-    val unique = items.map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase(Locale.ROOT) }
-    val legacy = JSONArray()
-    unique.take(100).forEach { legacy.put(it) }
-    memoryPrefs.edit().putString("memories", legacy.toString()).apply()
-
-    val studio = JSONArray()
-    unique.takeLast(30).forEach { value ->
-        studio.put(JSONObject().put("text", value).put("createdAt", System.currentTimeMillis()))
-    }
-    getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE)
-        .edit().putString("memory", studio.toString()).apply()
+    val arr = JSONArray()
+    items.distinct().take(100).forEach { arr.put(it) }
+    memoryPrefs.edit().putString("memories", arr.toString()).apply()
 }
 
 private fun loadMemoriesText(): String {
@@ -2147,9 +2233,9 @@ private fun showMemoryManager() {
 
 private fun loadHistory() {
     history.clear()
-    val savedCurrent = savedChats.firstOrNull { it.id == currentChatId }
-    if (savedCurrent != null) {
-        history.addAll(chatStore.loadMessages(currentChatId).map { ChatMessage(it.first, it.second) })
+    val stored = chatStore.loadMessages(currentChatId)
+    if (stored.isNotEmpty()) {
+        history.addAll(stored.map { ChatMessage(it.first, it.second) })
         return
     }
     val raw = prefs.getString("history", "[]") ?: "[]"
@@ -2172,17 +2258,26 @@ private fun saveHistory() {
     saveCurrentChat()
 }
 
-private fun renderHistory() {  
-    messages.removeAllViews()  
+private fun trimHistory() {
+    // Full conversation history remains in SQLite. The AI prompt uses a bounded context.
+}
 
-    history.forEach { message ->  
-        addMessage(  
-            if (message.role == "user") "YOU" else "ARUSHI",  
-            message.text  
-        )  
-    }  
-
-    scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }  
+private fun renderHistory() {
+    messages.removeAllViews()
+    val imageMarker = Regex("""\n\[arushi_image:([A-Za-z0-9._-]+)]""")
+    history.forEach { message ->
+        val match = imageMarker.find(message.text)
+        val displayText = message.text.substringBefore("\n[arushi_image:")
+        addMessage(if (message.role == "user") "YOU" else "ARUSHI", displayText)
+        val imageName = match?.groupValues?.getOrNull(1)
+        if (imageName != null) {
+            val imageFile = File(File(filesDir, "generated_images"), imageName)
+            if (imageFile.isFile) {
+                BitmapFactory.decodeFile(imageFile.absolutePath)?.let { addGeneratedImageView(it) }
+            }
+        }
+    }
+    scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
 }  
 
 private fun addMessage(  
@@ -2718,6 +2813,7 @@ override fun onResume() {
 
 override fun onDestroy() {
     stopWakeWordListening()
+    chatStore.close()
     super.onDestroy()
     scope.cancel()
     tts?.stop()  

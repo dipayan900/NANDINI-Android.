@@ -8,6 +8,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
@@ -130,7 +131,22 @@ class SplashActivity : Activity() {
             setPadding(dp(8), dp(4), dp(8), dp(4))
         }, FrameLayout.LayoutParams(-1, dp(34), Gravity.BOTTOM))
         setContentView(root)
-        handler.postDelayed(tick, 40L)
+        percent.text = "Checking saved data…"
+        Thread {
+            val restored = try {
+                BackupRestoreManager.applyPendingRestore(this@SplashActivity)
+            } catch (e: Exception) {
+                Log.e("ARUSHI_BACKUP", "Pending backup restore failed", e)
+                runOnUiThread {
+                    android.widget.Toast.makeText(this@SplashActivity, "Backup restore failed: ${e.message ?: "invalid backup"}", android.widget.Toast.LENGTH_LONG).show()
+                }
+                false
+            }
+            runOnUiThread {
+                if (restored) percent.text = "Backup restored"
+                handler.postDelayed(tick, 40L)
+            }
+        }.start()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
