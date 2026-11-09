@@ -80,6 +80,7 @@
         <activity android:name=".AccountStorageActivity" android:exported="false" android:label="ARUSHI Account &amp; Storage" android:theme="@style/NandiniTheme" />
         <activity android:name=".ArushiImageStudioActivity" android:exported="false" android:label="ARUSHI Image Studio" android:theme="@style/NandiniTheme" />
         <activity android:name=".LocalDreamModelManagerActivity" android:exported="false" android:label="ARUSHI Model Manager" android:theme="@style/NandiniTheme" />
+        <activity android:name=".LocalDreamSettingsActivity" android:exported="false" android:label="ARUSHI Image Settings" android:theme="@style/NandiniTheme" />
         <activity android:name=".LocalAiSetupActivity" android:exported="false" android:label="ARUSHI Local AI" android:theme="@style/NandiniTheme" />
         <activity android:name=".NandiniStudioActivity" android:exported="false" android:label="ARUSHI Studio" android:theme="@style/NandiniTheme" />
         <activity android:name=".NandiniCommandCenterActivity" android:exported="false" android:label="ARUSHI Command Center" android:theme="@style/NandiniTheme" />
