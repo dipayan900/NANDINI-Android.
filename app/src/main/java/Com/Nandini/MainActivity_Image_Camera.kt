@@ -1845,43 +1845,23 @@ private fun startNewChat() {
 }
 
 private fun saveCurrentChat() {
-    if (history.isEmpty()) return
-    val existing = savedChats.indexOfFirst { it.id == currentChatId }
     val firstUser = history.firstOrNull { it.role == "user" }?.text.orEmpty()
     val title = firstUser.replace("\n", " ").take(36).ifBlank { "New conversation" }
-    val chat = SavedChat(currentChatId, title, history.toMutableList())
-    if (existing >= 0) savedChats[existing] = chat else savedChats.add(chat)
-    while (savedChats.size > MAX_SAVED_CHATS) savedChats.removeAt(0)
-    val array = JSONArray()
-    savedChats.forEach { item ->
-        val msgs = JSONArray()
-        item.messages.forEach { m ->
-            msgs.put(JSONObject().put("role", m.role).put("text", m.text))
-        }
-        array.put(JSONObject().put("id", item.id).put("title", item.title).put("messages", msgs))
+    if (history.isNotEmpty()) {
+        chatStore.saveChat(currentChatId, title, history.map { it.role to it.text })
+        val summary = SavedChat(currentChatId, title, history.lastOrNull()?.text.orEmpty())
+        val existing = savedChats.indexOfFirst { it.id == currentChatId }
+        if (existing >= 0) savedChats[existing] = summary else savedChats.add(summary)
     }
-    prefs.edit().putString("chats", array.toString()).putString("currentChatId", currentChatId).apply()
+    prefs.edit().putString("currentChatId", currentChatId).apply()
 }
 
 private fun loadAllChats() {
+    currentChatId = prefs.getString("currentChatId", currentChatId) ?: currentChatId
+    chatStore.migrateLegacy(prefs.getString("chats", null), prefs.getString("history", null), currentChatId)
     savedChats.clear()
-    try {
-        val array = JSONArray(prefs.getString("chats", "[]") ?: "[]")
-        for (i in 0 until array.length()) {
-            val item = array.getJSONObject(i)
-            val msgs = mutableListOf<ChatMessage>()
-            val stored = item.optJSONArray("messages") ?: JSONArray()
-            for (j in 0 until stored.length()) {
-                val m = stored.getJSONObject(j)
-                val role = m.optString("role")
-                val txt = m.optString("text")
-                if ((role == "user" || role == "model") && txt.isNotBlank()) msgs.add(ChatMessage(role, txt))
-            }
-            if (msgs.isNotEmpty()) savedChats.add(SavedChat(item.optString("id"), item.optString("title", "Conversation"), msgs))
-        }
-        currentChatId = prefs.getString("currentChatId", currentChatId) ?: currentChatId
-    } catch (e: Exception) {
-        Log.e("ARUSHI", "Saved chats couldn't be read", e)
+    chatStore.listChats().forEach { stored ->
+        savedChats.add(SavedChat(stored.id, stored.title, stored.preview))
     }
 }
 
@@ -1895,16 +1875,16 @@ private fun showChatHistory() {
         Toast.makeText(this, "No saved conversations yet.", Toast.LENGTH_SHORT).show()
         return
     }
-    val labels = savedChats.asReversed().map { chat ->
-        val preview = chat.messages.lastOrNull()?.text.orEmpty().replace("\n", " ").take(50)
-        "${chat.title}\n$preview"
+    val ordered = savedChats.asReversed()
+    val labels = ordered.map { chat ->
+        "\${chat.title}\n\${chat.preview.replace("\n", " ").take(50)}"
     }.toTypedArray()
     android.app.AlertDialog.Builder(this)
         .setTitle("Chat history")
         .setItems(labels) { _, which ->
-            val chosen = savedChats.asReversed()[which]
+            val chosen = ordered[which]
             history.clear()
-            history.addAll(chosen.messages)
+            history.addAll(chatStore.loadMessages(chosen.id).map { ChatMessage(it.first, it.second) })
             currentChatId = chosen.id
             saveHistory()
             renderHistory()
@@ -2025,56 +2005,35 @@ private fun showMemoryManager() {
 }
 
 private fun loadHistory() {
-history.clear()
-val savedCurrent = savedChats.firstOrNull { it.id == currentChatId }
-if (savedCurrent != null) {
-    history.addAll(savedCurrent.messages)
-    trimHistory()
-    return
-}
-val raw = prefs.getString("history", "[]") ?: "[]"
-
-try {    
-    val array = JSONArray(raw)    
-    for (i in 0 until array.length()) {    
-        val item = array.getJSONObject(i)    
-        val role = item.optString("role")    
-        val text = item.optString("text")    
-
-        if ((role == "user" || role == "model") && text.isNotBlank()) {    
-            history.add(ChatMessage(role, text))    
-        }    
-    }    
-    trimHistory()
-    if (history.isNotEmpty()) saveCurrentChat()
-} catch (e: Exception) {    
-    Log.e("ARUSHI", "Saved history couldn't be read", e)    
-    history.clear()    
+    history.clear()
+    val stored = chatStore.loadMessages(currentChatId)
+    if (stored.isNotEmpty()) {
+        history.addAll(stored.map { ChatMessage(it.first, it.second) })
+        return
+    }
+    val raw = prefs.getString("history", "[]") ?: "[]"
+    try {
+        val array = JSONArray(raw)
+        for (i in 0 until array.length()) {
+            val item = array.getJSONObject(i)
+            val role = item.optString("role")
+            val text = item.optString("text")
+            if ((role == "user" || role == "model") && text.isNotBlank()) history.add(ChatMessage(role, text))
+        }
+        if (history.isNotEmpty()) saveCurrentChat()
+    } catch (e: Exception) {
+        Log.e("ARUSHI", "Saved history couldn't be read", e)
+        history.clear()
+    }
 }
 
-}
 private fun saveHistory() {
-val array = JSONArray()
-
-history.forEach { message ->    
-    array.put(    
-        JSONObject()    
-            .put("role", message.role)    
-            .put("text", message.text)    
-    )    
-}    
-
-prefs.edit()    
-    .putString("history", array.toString())    
-    .apply()
-
+    saveCurrentChat()
 }
 
 private fun trimHistory() {
-while (history.size > MAX_SAVED_MESSAGES) {  
-        history.removeAt(0)  
-    }  
-}  
+    // Full conversation history remains in SQLite. The AI prompt uses a bounded context.
+}
 
 private fun renderHistory() {  
     messages.removeAllViews()  
