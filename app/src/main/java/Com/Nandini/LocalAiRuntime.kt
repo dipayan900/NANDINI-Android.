@@ -240,6 +240,7 @@ class LocalAiSetupActivity : Activity() {
     private val muted get() = palette.muted
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         ArushiExperience.applySystemBars(this)
 
