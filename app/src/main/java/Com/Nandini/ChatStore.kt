@@ -56,7 +56,8 @@ class ChatStore(context: Context) :
             val chats = JSONArray(chatsJson ?: "[]")
             for (i in 0 until chats.length()) {
                 val item = chats.optJSONObject(i) ?: continue
-                val id = item.optString("id").ifBlank { continue }
+                val id = item.optString("id")
+                if (id.isBlank()) continue
                 val messages = mutableListOf<Pair<String, String>>()
                 val stored = item.optJSONArray("messages") ?: JSONArray()
                 for (j in 0 until stored.length()) {
