@@ -33,7 +33,7 @@ class LocalDreamModelManagerActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(14), dp(16), dp(14))
-            setBackgroundColor(background)
+            setBackgroundColor(this@LocalDreamModelManagerActivity.background)
         }
         root.addView(label("ARUSHI MODEL MANAGER", 22f, accent, true))
         root.addView(label(
