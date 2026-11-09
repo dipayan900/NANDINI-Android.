@@ -460,7 +460,8 @@ private const val MAX_CONTEXT_MESSAGES = 16
 }
 
 override fun onCreate(savedInstanceState: Bundle?) {
-super.onCreate(savedInstanceState)
+ArushiExperience.applyActivityTheme(this)
+        super.onCreate(savedInstanceState)
 lastPaletteKey = currentPaletteKey()
 handleSpotifyCallback(intent)
 ArushiExperience.applySystemBars(this)
