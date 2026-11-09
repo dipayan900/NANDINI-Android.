@@ -25,6 +25,7 @@ class ReminderActivity : Activity() {
     private lateinit var list: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         ArushiExperience.applySystemBars(this)
         createNotificationChannel()
