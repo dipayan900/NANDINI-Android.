@@ -60,8 +60,8 @@ object BackupRestoreManager {
             if (isSensitivePreferenceFile(name)) return@forEach
             val values = context.getSharedPreferences(name, Context.MODE_PRIVATE).all
             val json = JSONObject()
-            values.forEach { (key, value) ->
-                if (isSensitiveKey(key) || value == null) return@forEach
+            values.forEach valueLoop@ { (key, value) ->
+                if (isSensitiveKey(key) || value == null) return@valueLoop
                 val encoded = when (value) {
                     is String -> JSONObject().put("type", "string").put("value", value)
                     is Boolean -> JSONObject().put("type", "boolean").put("value", value)
