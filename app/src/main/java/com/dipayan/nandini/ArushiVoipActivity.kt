@@ -43,6 +43,7 @@ class ArushiVoipActivity : Activity() {
     private val panel get() = palette.panel
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         ArushiExperience.applySystemBars(this)
         tts = TextToSpeech(this) { result ->
