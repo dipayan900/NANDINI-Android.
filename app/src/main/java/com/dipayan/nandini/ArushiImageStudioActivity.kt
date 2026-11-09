@@ -66,6 +66,9 @@ class ArushiImageStudioActivity : Activity() {
         content.addView(actionButton("MANAGE MODELS") {
             startActivity(Intent(this, LocalDreamModelManagerActivity::class.java))
         }, margin(-1, dp(44), 0, 0, 0, 8))
+        content.addView(actionButton("GENERATION SETTINGS") {
+            startActivity(Intent(this, LocalDreamSettingsActivity::class.java))
+        }, margin(-1, dp(44), 0, 0, 0, 8))
         prompt = EditText(this).apply {
             hint = "Describe the image you want to create…"
             setHintTextColor(Color.LTGRAY); setTextColor(Color.WHITE); textSize = 15f
