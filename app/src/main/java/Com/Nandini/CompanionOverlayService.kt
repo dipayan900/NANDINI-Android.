@@ -55,6 +55,7 @@ class CompanionOverlayService : Service() {
 
     private fun createOverlay() {
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        val palette = ArushiExperience.palette(this)
         val container = FrameLayout(this)
         container.setPadding(0, 0, 0, 0)
         // Fully transparent overlay: only the character and small close control are drawn.
@@ -64,14 +65,14 @@ class CompanionOverlayService : Service() {
         container.addView(avatar, FrameLayout.LayoutParams(dp(164), dp(280), Gravity.CENTER))
         val close = TextView(this).apply {
             text = "×"
-            contentDescription = "Close NANDINI floating companion"
+            contentDescription = "Close ARUSHI floating companion"
             textSize = 20f
             gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
+            setTextColor(palette.text)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.rgb(111, 42, 134))
-                setStroke(dp(1), Color.rgb(255, 132, 190))
+                setColor(palette.panel)
+                setStroke(dp(1), palette.accent)
             }
         }
         container.addView(close, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.TOP or Gravity.END))
@@ -162,8 +163,8 @@ class CompanionOverlayService : Service() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
-                NotificationChannel(channelId, "NANDINI Companion", NotificationManager.IMPORTANCE_LOW).apply {
-                    description = "Keeps the floating companion active while you use other apps."
+                NotificationChannel(channelId, "ARUSHI Companion", NotificationManager.IMPORTANCE_LOW).apply {
+                    description = "Keeps the ARUSHI floating companion active while you use other apps."
                 }
             )
         }
@@ -177,8 +178,8 @@ class CompanionOverlayService : Service() {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
         }.setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("NANDINI companion is active")
-            .setContentText("Your floating companion is available. Return to NANDINI to turn it off.")
+            .setContentTitle("ARUSHI companion is active")
+            .setContentText("Your floating companion is available. Return to ARUSHI to turn it off.")
             .setContentIntent(openIntent)
             .setOngoing(true)
             .build()
