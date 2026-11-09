@@ -216,7 +216,7 @@ class ChatStore(context: Context) :
     /** Image files still referenced by saved chat messages. */
     fun referencedImageNames(): Set<String> {
         val names = linkedSetOf<String>()
-        val marker = Regex("""\\[arushi_image:([A-Za-z0-9._-]+)]""")
+        val marker = Regex("""\[arushi_image:([A-Za-z0-9._-]+)]""")
         readableDatabase.rawQuery("SELECT body FROM messages", null).use { cursor ->
             while (cursor.moveToNext()) {
                 marker.findAll(cursor.getString(0)).forEach { match ->
