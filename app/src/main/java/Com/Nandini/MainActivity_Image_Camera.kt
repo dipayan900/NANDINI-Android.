@@ -1741,7 +1741,7 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
             trimHistory(); saveHistory(); saveCurrentChat()
         } catch (e: Exception) {
             Log.e("ARUSHI", "Image request failed", e)
-            replyView.text = if (generateImage) "I couldn't generate the image. Open LocalDream, load a compatible model, and make sure its local server is running at 127.0.0.1:8081. Details: ${e.message ?: "Unknown LocalDream error"} 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
+            replyView.text = if (generateImage) "I couldn't generate the image. Open ARUSHI Image Studio → Model Manager, import and select a compatible SD 1.5 MNN model, then try again. Details: ${e.message ?: "Unknown embedded engine error"} 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
         } finally {
             isBusy = false; setControlsEnabled(true); statusText.text = "● READY"
             scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
@@ -1756,10 +1756,8 @@ private suspend fun analyzeImage(promptText: String, bitmap: Bitmap): String {
 }
 
 private suspend fun generateOrEditImage(promptText: String, bitmap: Bitmap?): Bitmap {
-    // Image generation/editing is local: LocalDream must be running on this phone.
-    // Img2img is attempted only when a source image is supplied; the backend may
-    // reject it if the currently loaded model was built without image-encoder support.
-    return LocalDreamImageClient.generate(promptText, bitmap)
+    // ARUSHI starts and manages its bundled, filtered LocalDream runtime.
+    return LocalDreamImageClient.generate(this, promptText, bitmap)
 }
 
 private fun saveGeneratedImage(bitmap: Bitmap): String {
