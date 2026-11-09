@@ -127,6 +127,7 @@ class AccountStorageActivity : Activity() {
                         System.currentTimeMillis() - 30L * 24L * 60L * 60L * 1000L,
                         keepId
                     )
+                    cleanupOrphanedImages()
                     toast("Deleted $deleted old conversation(s).")
                     render()
                 }
@@ -307,10 +308,19 @@ class AccountStorageActivity : Activity() {
         if (days <= 0) return 0
         val keepId = getSharedPreferences("nandini_chat", Context.MODE_PRIVATE)
             .getString("currentChatId", null)
-        return ChatStore(this).deleteOlderThan(
+        val deleted = chatStore.deleteOlderThan(
             System.currentTimeMillis() - days.toLong() * 24L * 60L * 60L * 1000L,
             keepId
         )
+        if (deleted > 0) cleanupOrphanedImages()
+        return deleted
+    }
+
+    private fun cleanupOrphanedImages() {
+        val directory = File(filesDir, "generated_images")
+        if (!directory.isDirectory) return
+        val referenced = chatStore.referencedImageNames()
+        directory.listFiles()?.filter { it.isFile && it.name !in referenced }?.forEach { it.delete() }
     }
 
     private fun storageSummary(): String {
