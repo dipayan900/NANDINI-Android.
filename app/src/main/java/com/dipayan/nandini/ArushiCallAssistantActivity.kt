@@ -52,6 +52,7 @@ class ArushiCallAssistantActivity : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         applySystemThemePalette()
         ArushiExperience.applySystemBars(this)
