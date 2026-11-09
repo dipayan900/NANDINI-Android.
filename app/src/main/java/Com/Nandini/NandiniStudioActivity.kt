@@ -74,7 +74,7 @@ class NandiniStudioActivity : Activity() {
         addFeature("📱 SYSTEM INTELLIGENCE", "Inspect battery, memory and network availability, plus quick Android settings shortcuts.") { showSystemCentre() }
         addFeature("🛠 CREATOR MODE", "Open your project repository and copy prompts for build-error diagnosis or release preparation.") { showCreatorMode() }
         addFeature("🎭 ADAPTIVE MODES", "Choose a working mode to guide your next request in ARUSHI chat.") { showModes() }
-        addFeature("🛡 PRIVACY & SECURITY", "Review local data, copy a memory backup, clear saved records, or open Android app permissions.") { showPrivacyCentre() }
+        addFeature("👤 GUEST ACCOUNT & STORAGE", "Create a local guest profile, export or restore a full backup, manage chat retention, and free device storage.") { startActivity(Intent(this, AccountStorageActivity::class.java)) }\n        addFeature("🛡 PRIVACY & SECURITY", "Review local data, copy a memory backup, clear saved records, or open Android app permissions.") { showPrivacyCentre() }
         addFeature("📡 OFFLINE TOOLBOX", "Use local memories, task plans, diagnostics and Android settings shortcuts without relying on cloud AI.") { showOfflineToolbox() }
         addFeature("🧠 LOCAL AI ENGINE", "Download a compact on-device chat model once, then use ARUSHI chat offline without Gemini API quotas.") { startActivity(Intent(this, LocalAiSetupActivity::class.java)) }
         addFeature("✦ COMMAND NEXUS", "Futuristic local-first control hub: offline calculator, private notes, Android reminders, overlay and screen-access settings, and live diagnostics.") { startActivity(Intent(this, NandiniCommandCenterActivity::class.java)) }
