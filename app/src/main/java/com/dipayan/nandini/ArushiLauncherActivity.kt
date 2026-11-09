@@ -217,6 +217,7 @@ class ArushiLauncherActivity : Activity() {
             "gallery" -> Intent(Intent.ACTION_VIEW).setType("image/*")
             "music" -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MUSIC)
             "settings" -> Intent(Settings.ACTION_SETTINGS)
+            "image" -> Intent(this, ArushiImageStudioActivity::class.java)
             "browser" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))
             else -> return
         }
