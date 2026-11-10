@@ -205,8 +205,13 @@ class ArushiConnectActivity : Activity() {
         root.addView(action("SEND MESSAGE") {
             val text = input.text.toString()
             scope.launch {
-                try { repo.sendText(conversationId, text); input.setText("") }
-                catch (e: Exception) { toast(e.message ?: "Message could not be sent.") }
+                try {
+                    val sent = repo.sendText(conversationId, text)
+                    localStore.cache(listOf(sent))
+                    currentChatMessages = localStore.readConversation(conversationId)
+                    renderMessages(messages, currentChatMessages)
+                    input.setText("")
+                } catch (e: Exception) { toast(e.message ?: "Message could not be sent.") }
             }
         })
         root.addView(action("＋  ATTACH PHOTO / VIDEO / DOCUMENT / AUDIO") {
@@ -336,6 +341,22 @@ class ArushiConnectActivity : Activity() {
         }
     }
 
+    private suspend fun persistOutgoingMedia(
+        message: ArushiConnectRepository.ChatMessage,
+        sourceUri: Uri
+    ) {
+        val destination = localStore.mediaFile(message.conversationId, message.id)
+        withContext(Dispatchers.IO) {
+            destination.parentFile?.mkdirs()
+            contentResolver.openInputStream(sourceUri)?.use { input ->
+                destination.outputStream().use { output -> input.copyTo(output) }
+            } ?: error("Could not read the selected attachment.")
+        }
+        localStore.cache(listOf(message.copy(localMediaPath = destination.absolutePath)))
+        localStore.saveMediaPath(message.conversationId, message.id, destination.absolutePath)
+        currentChatMessages = localStore.readConversation(message.conversationId)
+    }
+
     private fun getDisplayName(uri: Uri): String {
         val projection = arrayOf(OpenableColumns.DISPLAY_NAME)
         contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
@@ -382,7 +403,8 @@ class ArushiConnectActivity : Activity() {
                 if (file != null && file.exists() && file.length() > 0L) scope.launch {
                     try {
                         val url = repo.uploadAttachment(conversationId, Uri.fromFile(file), "audio/mp4", file.name)
-                        repo.sendMedia(conversationId, url, "audio")
+                        val sent = repo.sendMedia(conversationId, url, "audio")
+                        persistOutgoingMedia(sent, Uri.fromFile(file))
                         file.delete()
                         voiceFile = null
                         toast("Voice note sent.")
@@ -486,7 +508,8 @@ class ArushiConnectActivity : Activity() {
             scope.launch {
                 try {
                     val url = repo.uploadAttachment(conversationId, uri, mime, getDisplayName(uri))
-                    repo.sendMedia(conversationId, url, type)
+                    val sent = repo.sendMedia(conversationId, url, type)
+                    persistOutgoingMedia(sent, uri)
                     toast("Attachment sent.")
                 } catch (e: Exception) { toast(e.message ?: "Attachment upload failed.") }
             }
