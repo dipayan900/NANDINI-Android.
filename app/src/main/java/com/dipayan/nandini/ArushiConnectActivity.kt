@@ -1,150 +1,349 @@
 package com.dipayan.nandini
 
+import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Color
+import android.media.MediaRecorder
+import android.net.Uri
 import android.os.Bundle
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.View
+import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import java.io.File
 
-/**
- * ARUSHI Connect entry point.
- *
- * This screen deliberately does not fabricate remote chats or calls. Remote features
- * remain unavailable until Firebase Auth/Firestore/Storage, FCM and a secured
- * WebRTC signaling + TURN deployment are configured for this application.
- */
+/** ARUSHI Connect workspace using the existing ARUSHI Experience palette. */
 class ArushiConnectActivity : Activity() {
-    private val palette get() = ArushiExperience.palette(this)
-    private val bg get() = palette.background
-    private val panel get() = palette.panel
-    private val accent get() = palette.accent
-    private lateinit var content: LinearLayout
-    private var selected = "CHATS"
+    private val repo by lazy { ArushiConnectRepository() }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val palette by lazy { ArushiExperience.palette(this) }
+    private lateinit var root: LinearLayout
+    private lateinit var scroll: ScrollView
+    private var messageListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var recorder: MediaRecorder? = null
+    private var voiceFile: File? = null
+    private var pendingConversation: String? = null
+    private val pickAttachment = 8401
+    private val requestAudio = 8402
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         ArushiExperience.applySystemBars(this)
-        render()
+        showLoading()
+        scope.launch {
+            try {
+                repo.ensureSignedIn()
+                val profile = repo.getMyProfile()
+                if (profile == null) showOnboarding() else showHome(profile.username)
+            } catch (e: Exception) {
+                showError("ARUSHI Connect could not start: ${e.message ?: "Check your connection."}")
+            }
+        }
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
-    private fun text(value: String, size: Float, color: Int, bold: Boolean = false) =
+    private fun base(title: String, subtitle: String = "") {
+        scroll = ScrollView(this).apply { setBackgroundColor(palette.background); isFillViewport = true }
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(18), dp(18), dp(26))
+            setBackgroundColor(palette.background)
+        }
+        scroll.addView(root)
+        setContentView(scroll)
+        root.addView(label("✦  ARUSHI CONNECT", 13f, palette.accentSecondary, true))
+        root.addView(label(title, 27f, palette.text, true))
+        if (subtitle.isNotBlank()) root.addView(label(subtitle, 13f, palette.muted))
+        root.addView(space(12))
+    }
+
+    private fun label(value: String, size: Float, color: Int, bold: Boolean = false) =
         TextView(this).apply {
             text = value
             textSize = size
             setTextColor(color)
-            if (bold) typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-            setPadding(dp(4), dp(7), dp(4), dp(7))
+            gravity = Gravity.START
+            if (bold) typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
+            setPadding(dp(5), dp(7), dp(5), dp(7))
         }
 
-    private fun surface(color: Int, stroke: Int = accent) = GradientDrawable().apply {
-        setColor(color)
-        cornerRadius = dp(16).toFloat()
-        setStroke(dp(1), stroke)
+    private fun space(height: Int) = View(this).apply {
+        layoutParams = LinearLayout.LayoutParams(1, dp(height))
     }
 
-    private fun action(label: String, onClick: () -> Unit) = TextView(this).apply {
-        text = label
-        textSize = 13f
-        gravity = Gravity.CENTER
-        setTextColor(palette.text)
-        background = surface(panel)
-        setPadding(dp(12), dp(13), dp(12), dp(13))
-        isClickable = true
-        isFocusable = true
-        setOnClickListener { onClick() }
-    }
-
-    private fun render() {
-        val scroll = ScrollView(this).apply {
-            setBackgroundColor(bg)
-            isFillViewport = true
-        }
-        content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(18), dp(18), dp(28))
-        }
-        scroll.addView(content)
-        setContentView(scroll)
-
-        content.addView(text("✦  ARUSHI CONNECT", 25f, accent, true))
-        content.addView(text("PRIVATE MESSAGING  •  CALLS  •  SHARING", 10f, palette.muted, true))
-        content.addView(text("Your conversations belong inside ARUSHI. The Connect service is being prepared; this build will not display fake contacts or pretend that messages have been delivered.", 14f, palette.text))
-
-        val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf("CHATS", "CALLS", "STATUS", "SETTINGS").forEach { tab ->
-            val item = TextView(this).apply {
-                text = tab
-                textSize = 10f
-                gravity = Gravity.CENTER
-                setTextColor(if (selected == tab) accent else palette.muted)
-                background = surface(if (selected == tab) panel else bg)
-                setPadding(dp(8), dp(13), dp(8), dp(13))
-                isClickable = true
-                setOnClickListener { selected = tab; render() }
-            }
-            tabs.addView(item, LinearLayout.LayoutParams(0, -2, 1f).apply {
-                setMargins(dp(2), dp(8), dp(2), dp(8))
-            })
-        }
-        content.addView(tabs)
-
-        when (selected) {
-            "CHATS" -> chats()
-            "CALLS" -> calls()
-            "STATUS" -> status()
-            else -> settings()
-        }
-    }
-
-    private fun heading(value: String) {
-        content.addView(text(value, 16f, accent, true))
-    }
-
-    private fun note(value: String) {
-        content.addView(TextView(this).apply {
-            text = value
-            textSize = 13f
+    private fun field(hintText: String, singleLine: Boolean = true) =
+        EditText(this).apply {
+            hint = hintText
+            setSingleLine(singleLine)
+            textSize = 15f
             setTextColor(palette.text)
-            background = surface(panel)
-            setPadding(dp(14), dp(14), dp(14), dp(14))
-        }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+            setHintTextColor(palette.muted)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            setBackgroundColor(palette.panel)
+        }
+
+    private fun action(title: String, onClick: () -> Unit) =
+        Button(this).apply {
+            text = title
+            isAllCaps = false
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+            setOnClickListener { onClick() }
+        }
+
+    private fun showLoading() {
+        base("Connecting…", "Setting up your ARUSHI identity")
+        root.addView(label("Connecting to ARUSHI services…", 14f, palette.muted))
     }
 
-    private fun chats() {
-        heading("MESSAGES")
-        note("No remote conversations yet. Sign-in, unique ARUSHI IDs, contact discovery, message sync and delivery receipts must be connected before chats can be created.")
-        note("Planned: one-to-one and group chats, replies, forwarding, reactions, edit/delete, pinned and archived chats, mute, search, read receipts and chat export.")
-        note("Sharing will support photos, videos, documents, audio, contacts and location, with per-chat media controls and storage cleanup.")
+    private fun showError(message: String) {
+        base("Connect unavailable", "No messages have been sent.")
+        root.addView(label(message, 14f, Color.rgb(255, 170, 170)))
+        root.addView(action("RETRY") { recreate() })
     }
 
-    private fun calls() {
-        heading("INTERNET CALLS")
-        note("The existing WebRTC prototype is separate from this Connect inbox. It still needs authenticated call signaling, incoming-call delivery, TURN relay service and camera/video-track handling before it can be presented as a reliable calling feature.")
-        note("Planned: voice and video calls, incoming-call screen, mute, speaker, camera switching, call history and missed-call notifications.")
-        content.addView(action("OPEN EXISTING VOIP TEST SCREEN") {
-            startActivity(android.content.Intent(this, ArushiVoipActivity::class.java))
-        }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+    private fun showOnboarding() {
+        base("Your space. Your people.", "Create your unique ARUSHI ID. Phone discovery can be added after verification is configured.")
+        val username = field("Choose username (3–20 characters)")
+        val displayName = field("Display name")
+        root.addView(label("ARUSHI ID", 12f, palette.accentSecondary, true))
+        root.addView(username)
+        root.addView(label("DISPLAY NAME", 12f, palette.accentSecondary, true))
+        root.addView(displayName)
+        root.addView(action("CREATE MY ARUSHI ID") {
+            scope.launch {
+                try {
+                    val profile = repo.createUsername(username.text.toString(), displayName.text.toString())
+                    showHome(profile.username)
+                } catch (e: Exception) { toast(e.message ?: "Could not create username.") }
+            }
+        })
+        root.addView(label("Your phone number will not be a public username. Phone-number discovery requires optional verified phone ownership and backend configuration.", 12f, palette.muted))
     }
 
-    private fun status() {
-        heading("STATUS")
-        note("Status updates and viewer lists require authenticated user profiles, media storage, expiry jobs and privacy rules. They are not enabled in this build.")
-        note("Planned: text/photo/video status, audience controls, view receipts and mute status updates.")
+    private fun showHome(username: String) {
+        messageListener?.remove()
+        base("Messages", "@$username  •  ARUSHI purple/blue")
+        root.addView(action("＋  FIND PEOPLE / NEW CHAT") { showDiscover() })
+        root.addView(action("◉  STATUS UPDATES") { showStatus() })
+        root.addView(action("☎  INTERNET CALLS") { showCallInfo() })
+        root.addView(action("⚙  PRIVACY & STORAGE") { showSettings() })
+        root.addView(space(14))
+        root.addView(label("YOUR CHATS", 12f, palette.accentSecondary, true))
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(list)
+        messageListener = repo.listenToMyConversations({ ids ->
+            list.removeAllViews()
+            if (ids.isEmpty()) list.addView(label("No chats yet. Find someone by their ARUSHI ID to start.", 14f, palette.muted))
+            ids.forEach { id -> list.addView(action("◈  Conversation  •  ${id.take(12)}…") { openChat(id) }) }
+        }, { toast("Chat list error: ${it.message}") })
     }
 
-    private fun settings() {
-        heading("ACCOUNT & PRIVACY")
-        note("Account discovery will support both unique ARUSHI usernames/invite links and optional verified phone numbers. Phone numbers will not be public profile fields.")
-        note("Planned controls: block/report, last-seen and online visibility, profile photo/about privacy, read receipts, group invite permissions and linked-device sessions.")
-        note("Storage controls will include usage by chat, media auto-download preferences, clear-chat, delete-chat and backup/restore.")
-        note("SECURITY: transport encryption and Firebase access rules must be configured before remote data is enabled. End-to-end encryption will not be claimed until an established, reviewed protocol is integrated.")
-        note("SERVICE STATUS: backend credentials and deployment are not yet configured. No SMS, storage or TURN billing has been enabled.")
+    private fun showDiscover() {
+        base("Find people", "Search by exact ARUSHI username or share your username.")
+        val query = field("@username")
+        root.addView(query)
+        root.addView(action("SEARCH ARUSHI ID") {
+            scope.launch {
+                try {
+                    val person = repo.findByUsername(query.text.toString())
+                    if (person == null) toast("No matching ARUSHI ID found.")
+                    else AlertDialog.Builder(this@ArushiConnectActivity)
+                        .setTitle(person.displayName)
+                        .setMessage("@${person.username}")
+                        .setPositiveButton("START CHAT") { _, _ ->
+                            scope.launch {
+                                try { openChat(repo.createDirectConversation(person.uid)) }
+                                catch (e: Exception) { toast(e.message ?: "Could not start chat.") }
+                            }
+                        }.setNegativeButton("CANCEL", null).show()
+                } catch (e: Exception) { toast(e.message ?: "Search failed.") }
+            }
+        })
+        root.addView(action("← BACK TO CHATS") { backHome() })
+    }
+
+    private fun backHome() {
+        scope.launch {
+            try { showHome(repo.getMyProfile()?.username ?: "") }
+            catch (e: Exception) { showError(e.message ?: "Could not load profile.") }
+        }
+    }
+
+    private fun openChat(conversationId: String) {
+        messageListener?.remove()
+        base("Conversation", "ARUSHI Connect  •  ${conversationId.take(12)}")
+        val messages = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(messages)
+        val input = field("Message…")
+        root.addView(input)
+        root.addView(action("SEND MESSAGE") {
+            val text = input.text.toString()
+            scope.launch {
+                try { repo.sendText(conversationId, text); input.setText("") }
+                catch (e: Exception) { toast(e.message ?: "Message could not be sent.") }
+            }
+        })
+        root.addView(action("＋  ATTACH PHOTO / VIDEO / DOCUMENT / AUDIO") {
+            pendingConversation = conversationId
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*", "audio/*", "application/pdf", "application/*"))
+            }
+            startActivityForResult(intent, pickAttachment)
+        })
+        root.addView(action("🎙  RECORD VOICE NOTE") { toggleVoiceNote(conversationId) })
+        root.addView(action("☎  CALL SETUP") { showCallInfo() })
+        root.addView(action("← BACK TO CHATS") { backHome() })
+        messageListener = repo.listenToMessages(conversationId, { items ->
+            messages.removeAllViews()
+            items.forEach { item ->
+                val mine = item.senderId == repo.currentUid
+                val body = when (item.type) {
+                    "text" -> item.text
+                    "image" -> "▧  Image  ${item.text}"
+                    "video" -> "▶  Video  ${item.text}"
+                    "audio" -> "♫  Audio / voice note"
+                    else -> "▤  ${item.type.uppercase()}  ${item.text}"
+                }
+                messages.addView(label((if (mine) "YOU  " else "THEM  ") + body + if (item.edited) "  (edited)" else "", 14f,
+                    if (mine) palette.accentSecondary else palette.text))
+            }
+        }, { toast("Could not load messages: ${it.message}") })
+    }
+
+    private fun toggleVoiceNote(conversationId: String) {
+        if (recorder != null) {
+            try {
+                recorder?.stop()
+                recorder?.release()
+                recorder = null
+                val file = voiceFile
+                if (file != null && file.exists() && file.length() > 0L) scope.launch {
+                    try {
+                        val url = repo.uploadAttachment(conversationId, Uri.fromFile(file), "audio/mp4", file.name)
+                        repo.sendMedia(conversationId, url, "audio")
+                        toast("Voice note sent.")
+                    } catch (e: Exception) { toast(e.message ?: "Voice note upload failed.") }
+                }
+            } catch (e: Exception) {
+                runCatching { recorder?.release() }
+                recorder = null
+                toast("Voice note recording failed.")
+            }
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), requestAudio)
+            return
+        }
+        try {
+            val file = File(cacheDir, "voice_${System.currentTimeMillis()}.m4a")
+            voiceFile = file
+            recorder = MediaRecorder().apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setOutputFile(file.absolutePath)
+                prepare()
+                start()
+            }
+            toast("Recording… tap again to send the voice note.")
+        } catch (e: Exception) {
+            runCatching { recorder?.release() }
+            recorder = null
+            toast("Microphone could not start: ${e.message}")
+        }
+    }
+
+    private fun showStatus() {
+        base("Status", "Text status updates currently use a 24-hour expiry field.")
+        val text = field("What's happening?", false)
+        root.addView(text)
+        root.addView(action("POST TEXT STATUS") {
+            scope.launch {
+                try { repo.publishStatus(text.text.toString()); toast("Status posted.") }
+                catch (e: Exception) { toast(e.message ?: "Could not post status.") }
+            }
+        })
+        root.addView(action("← BACK") { backHome() })
+    }
+
+    private fun showCallInfo() {
+        AlertDialog.Builder(this)
+            .setTitle("ARUSHI internet calls")
+            .setMessage("The existing WebRTC prototype still needs a deployed signaling service, authenticated call invites, TURN relay, incoming-call notifications and video-track support. It is not yet a WhatsApp-equivalent calling service.")
+            .setPositiveButton("OPEN CALL TEST") { _, _ ->
+                startActivity(Intent(this, ArushiVoipActivity::class.java))
+            }.setNegativeButton("CANCEL", null).show()
+    }
+
+    private fun showSettings() {
+        base("Privacy & storage", "Your ARUSHI identity and visibility controls.")
+        val discoverable = android.widget.CheckBox(this).apply { text = "Allow username discovery"; isChecked = true; setTextColor(palette.text) }
+        val receipts = android.widget.CheckBox(this).apply { text = "Read receipts"; isChecked = true; setTextColor(palette.text) }
+        val lastSeen = android.widget.CheckBox(this).apply { text = "Show last seen"; isChecked = false; setTextColor(palette.text) }
+        root.addView(discoverable); root.addView(receipts); root.addView(lastSeen)
+        root.addView(action("SAVE PRIVACY SETTINGS") {
+            scope.launch {
+                try {
+                    repo.updatePrivacy(discoverable.isChecked, receipts.isChecked, lastSeen.isChecked)
+                    toast("Privacy settings saved.")
+                } catch (e: Exception) { toast(e.message ?: "Could not save settings.") }
+            }
+        })
+        root.addView(label("Storage usage, per-chat cleanup, archive, block/report, backup/restore and full account deletion still need their dedicated flows.", 12f, palette.muted))
+        root.addView(action("← BACK TO CHATS") { backHome() })
+    }
+
+    @Deprecated("Deprecated by Android; retained for document picker compatibility.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == pickAttachment && resultCode == RESULT_OK) {
+            val uri = data?.data ?: return
+            val conversationId = pendingConversation ?: return
+            val mime = contentResolver.getType(uri) ?: "application/octet-stream"
+            val type = when {
+                mime.startsWith("image/") -> "image"
+                mime.startsWith("video/") -> "video"
+                mime.startsWith("audio/") -> "audio"
+                else -> "document"
+            }
+            scope.launch {
+                try {
+                    val url = repo.uploadAttachment(conversationId, uri, mime, "file_${System.currentTimeMillis()}")
+                    repo.sendMedia(conversationId, url, type)
+                    toast("Attachment sent.")
+                } catch (e: Exception) { toast(e.message ?: "Attachment upload failed.") }
+            }
+        }
+    }
+
+    private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+
+    override fun onDestroy() {
+        messageListener?.remove()
+        runCatching { recorder?.stop() }
+        runCatching { recorder?.release() }
+        recorder = null
+        scope.cancel()
+        super.onDestroy()
     }
 }
