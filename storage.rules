@@ -16,7 +16,7 @@ service firebase.storage {
         && request.auth.uid == uid
         && request.resource.size < 25 * 1024 * 1024
         && request.resource.contentType.matches(
-          'image/.*|video/.*|audio/.*|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.*|text/.*'
+          'image/.*|video/.*|audio/.*|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.*|application/octet-stream|application/zip|application/x-7z-compressed|text/.*'
         );
       // Users can remove only media they uploaded; deletion has no request.resource.
       allow delete: if isConversationMember(conversationId)
