@@ -106,6 +106,16 @@
                 <data android:scheme="tel" />
             </intent-filter>
         </activity>
+        <activity android:name=".ArushiConnectActivity" android:exported="false" android:label="ARUSHI Connect" android:theme="@style/NandiniTheme" />
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.connect.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/connect_file_paths" />
+        </provider>
         <activity android:name=".ArushiVoipActivity" android:exported="false" android:label="ARUSHI Internet Voice Call" android:theme="@style/NandiniTheme" />
         <service
             android:name=".ArushiInCallService"

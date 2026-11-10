@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+
+    function isConversationMember(conversationId) {
+      return signedIn()
+        && request.auth.uid in firestore.get(
+          /databases/(default)/documents/connect_conversations/$(conversationId)
+        ).data.members;
+    }
+
+    match /connect_media/{conversationId}/{uid}/{fileName} {
+      allow read: if isConversationMember(conversationId);
+      allow create, update: if isConversationMember(conversationId)
+        && request.auth.uid == uid
+        && request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType.matches(
+          'image/.*|video/.*|audio/.*|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.*|application/octet-stream|application/zip|application/x-7z-compressed|text/.*'
+        );
+      // Users can remove only media they uploaded; deletion has no request.resource.
+      allow delete: if isConversationMember(conversationId)
+        && request.auth.uid == uid;
+    }
+  }
+}

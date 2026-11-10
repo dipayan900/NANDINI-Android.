@@ -13,6 +13,7 @@ on:
       - feature/arushi-localdream-image-studio
       - feature/arushi-embedded-localdream-engine
       - fix/arushi-chat-personality-loop
+      - feature/arushi-connect
 
 permissions:
   contents: read

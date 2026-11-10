@@ -1,0 +1,140 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+
+    function isMember(conversationId) {
+      return signedIn()
+        && request.auth.uid in get(
+          /databases/$(database)/documents/connect_conversations/$(conversationId)
+        ).data.members;
+    }
+
+    match /connect_usernames/{username} {
+      // Exact username lookup only; the client reads the document matching the typed ID.
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'username'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.username == username;
+      // Usernames cannot be silently reassigned or modified from a client.
+      allow update, delete: if false;
+    }
+
+    match /connect_profiles/{uid} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.username is string
+        && request.resource.data.displayName is string;
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['discoverable', 'readReceipts', 'lastSeenVisible', 'privacyUpdatedAt']);
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /connect_conversations/{conversationId} {
+      allow create: if signedIn()
+        && request.auth.uid in request.resource.data.members
+        && request.resource.data.members is list
+        && request.resource.data.members.size() >= 2
+        && request.resource.data.members.size() <= 256
+        && request.resource.data.type in ['direct', 'group']
+        && request.resource.data.lastMessage is string
+        && request.resource.data.lastMessageAt == request.time
+        && request.resource.data.createdAt == request.time
+        && (request.resource.data.type != 'direct'
+          || request.resource.data.members.size() == 2)
+        && (request.resource.data.type != 'group'
+          || (request.resource.data.admins is list
+            && request.auth.uid in request.resource.data.admins
+            && request.resource.data.name is string));
+      // A signed-in user may read a missing deterministic direct-chat ID during
+      // createDirectConversation's transaction; existing chats remain member-only.
+      allow get: if signedIn()
+        && (!exists(/databases/$(database)/documents/connect_conversations/$(conversationId))
+          || request.auth.uid in resource.data.members);
+      allow list: if signedIn() && request.auth.uid in resource.data.members;
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.members
+        && request.resource.data.members == resource.data.members
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['lastMessage', 'lastMessageAt', 'lastSenderId'])
+        && request.resource.data.lastMessage is string
+        && request.resource.data.lastMessage.size() <= 160
+        && request.resource.data.lastMessageAt == request.time
+        && request.resource.data.lastSenderId == request.auth.uid;
+      allow delete: if signedIn()
+        && request.auth.uid in resource.data.members
+        && (resource.data.admins == null || request.auth.uid in resource.data.admins);
+
+      match /messages/{messageId} {
+        allow read: if isMember(conversationId);
+        allow create: if isMember(conversationId)
+          && request.resource.data.keys().hasOnly([
+            'conversationId', 'senderId', 'text', 'type', 'mediaUrl',
+            'replyTo', 'edited', 'createdAt', 'deletedFor', 'reactions', 'deliveredBy'
+          ])
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.conversationId == conversationId
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 10000
+          && request.resource.data.type in ['text', 'image', 'video', 'audio', 'document']
+          && request.resource.data.mediaUrl is string
+          && request.resource.data.replyTo is string
+          && request.resource.data.edited == false
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.deliveredBy is list
+          && request.resource.data.deliveredBy.size() == 1
+          && request.auth.uid in request.resource.data.deliveredBy;
+        allow update: if isMember(conversationId)
+          && (
+            (resource.data.senderId == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['text', 'edited', 'editedAt'])
+              && request.resource.data.text is string
+              && request.resource.data.text.size() <= 10000
+              && request.resource.data.edited == true)
+            || request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['reactions', 'deletedFor'])
+            || (request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['deliveredBy'])
+              && resource.data.deliveredBy is list
+              && request.resource.data.deliveredBy is list
+              && request.resource.data.deliveredBy.size() == resource.data.deliveredBy.size() + 1
+              && request.resource.data.deliveredBy.hasAll(resource.data.deliveredBy)
+              && request.auth.uid in request.resource.data.deliveredBy
+              && !(request.auth.uid in resource.data.deliveredBy))
+          );
+        allow delete: if isMember(conversationId)
+          && (resource.data.senderId == request.auth.uid
+            || (resource.data.type == 'text'
+              && resource.data.deliveredBy is list
+              && get(/databases/$(database)/documents/connect_conversations/$(conversationId)).data.members.size()
+                == resource.data.deliveredBy.size()
+              && resource.data.deliveredBy.hasAll(
+                get(/databases/$(database)/documents/connect_conversations/$(conversationId)).data.members
+              )));
+      }
+    }
+
+    match /connect_status/{statusId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 1000
+        && request.resource.data.expiresAt is int;
+      allow update, delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
