@@ -457,7 +457,7 @@ private const val REQUEST_MIC_PERMISSION = 201
 private const val REQUEST_SPEECH = 202
 private const val REQUEST_PICK_FILE = 204
 private const val REQUEST_CAMERA_IMAGE = 205
-private const val MAX_CONTEXT_MESSAGES = 16
+private const val MAX_CONTEXT_MESSAGES = 24
 }
 
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -493,7 +493,7 @@ if (history.isEmpty()) {
     addMessage("ARUSHI", "Hey! I'm ARUSHI 💜\nTalk to me in Hindi, English, or Hinglish.")    
 }
 
-if (LocalAiRuntime.isModelReady(this)) {
+if (LocalAiRuntime.isEnabled(this) && LocalAiRuntime.isModelReady(this)) {
     scope.launch(Dispatchers.IO) {
         try {
             LocalAiRuntime.prewarm(this@MainActivity)
@@ -1816,102 +1816,99 @@ val weatherWords = listOf(
 return weatherWords.any { it in text }
 }
 
-private suspend fun generateReplyWithRetry(userText: String, onLocalChunk: (String) -> Unit = {}): String {
-if (LocalAiRuntime.isEnabled(this)) {
+private suspend fun generateReplyWithRetry(
+    userText: String,
+    onLocalChunk: (String) -> Unit = {}
+): String {
     val studioMemoryContext = try {
-        val saved = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
-        val notes = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf { value -> value.isNotBlank() } }.takeLast(30)
-        if (notes.isEmpty()) "" else "\n\nUSER-APPROVED ARUSHI STUDIO MEMORIES (use only when relevant):\n" + notes.joinToString("\n") { "- " + it }
-    } catch (_: Exception) { "" }
-
-    val studioModeContext = try {
-        val mode = getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("mode", "Companion") ?: "Companion"
-        when (mode) {
-            "Developer" -> "\n\nACTIVE MODE: DEVELOPER. Prioritise Android/Kotlin debugging, reliable minimal patches, build verification and preserving existing features."
-            "Researcher" -> "\n\nACTIVE MODE: RESEARCHER. Separate verified facts from uncertainty and explain sources and assumptions."
-            "Vision" -> "\n\nACTIVE MODE: VISION. Describe only visible evidence and separate observations from guesses."
-            "Hands-free" -> "\n\nACTIVE MODE: HANDS-FREE. Keep replies concise and easy to hear aloud."
-            else -> "\n\nACTIVE MODE: COMPANION. Be warm, natural and conversational."
+        val saved = JSONArray(
+            getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE)
+                .getString("memory", "[]") ?: "[]"
+        )
+        val notes = (0 until saved.length())
+            .mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf(String::isNotBlank) }
+            .takeLast(30)
+        if (notes.isEmpty()) "" else {
+            "\n\nUSER-APPROVED ARUSHI STUDIO MEMORIES (use only when relevant):\n" +
+                notes.joinToString("\n") { "- $it" }
         }
     } catch (_: Exception) { "" }
 
-    val localSystemInstruction = ArushiExperience.systemInstruction(this) + studioMemoryContext + studioModeContext
+    val studioModeContext = try {
+        when (getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE)
+            .getString("mode", "Companion") ?: "Companion") {
+            "Developer" -> "\n\nACTIVE MODE: DEVELOPER. Give practical, correct coding help. Explain assumptions, diagnose errors from evidence, provide complete patches when asked, and never claim a build or test passed unless it actually did."
+            "Researcher" -> "\n\nACTIVE MODE: RESEARCHER. Distinguish verified facts from uncertainty. For current facts, use available search/grounding tools when configured; never pretend to browse."
+            "Vision" -> "\n\nACTIVE MODE: VISION. Describe visible evidence accurately and separate observations from guesses."
+            "Hands-free" -> "\n\nACTIVE MODE: HANDS-FREE. Keep replies concise and easy to hear aloud."
+            else -> "\n\nACTIVE MODE: COMPANION. Be warm, natural and conversational while answering the actual request."
+        }
+    } catch (_: Exception) { "" }
 
-    val recentLocalHistory = history.takeLast(9).dropLast(1).map { message -> message.role to message.text }
-    val recentBodies = recentLocalHistory.map { it.second }
-    val olderRelevantHistory = chatStore.findRelevantMessages(userText, 6)
+    val systemPrompt = ArushiExperience.systemInstruction(this) +
+        studioMemoryContext + studioModeContext
+
+    // Retrieve relevant older turns only from this conversation, never from another chat.
+    val recent = history.takeLast(MAX_CONTEXT_MESSAGES)
+    val recentBodies = recent.map { it.text }
+    val olderRelevant = chatStore.findRelevantMessages(currentChatId, userText, 6)
         .filter { (_, body) -> recentBodies.none { it.equals(body, ignoreCase = true) } }
-    val localHistory = (olderRelevantHistory + recentLocalHistory).takeLast(MAX_CONTEXT_MESSAGES)
-    return LocalAiRuntime.generateReply(this, localSystemInstruction, localHistory, userText, onLocalChunk)
-}
+        .map { (role, body) -> role to body.takeLast(6000) }
 
-var lastError: Exception? = null
-
-for (attempt in 0..3) {
-try {
-
-val studioMemoryContext = try {
-    val saved = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
-    val notes = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf { value -> value.isNotBlank() } }.takeLast(30)
-    if (notes.isEmpty()) "" else "\n\nUSER-APPROVED ARUSHI STUDIO MEMORIES (use only when relevant; these were explicitly saved by the user):\n" + notes.joinToString("\n") { "- " + it }
-} catch (_: Exception) { "" }
-
-val studioModeContext = try {
-    val mode = getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("mode", "Companion") ?: "Companion"
-    when (mode) {
-        "Developer" -> "\n\nACTIVE USER-SELECTED MODE: DEVELOPER. Prioritise Kotlin/Android debugging, minimal safe patches, build verification, and preserving existing functionality. Distinguish confirmed causes from hypotheses."
-        "Researcher" -> "\n\nACTIVE USER-SELECTED MODE: RESEARCHER. Structure answers around evidence, uncertainty, and actionable next steps. Never claim live research unless a tool was actually used."
-        "Vision" -> "\n\nACTIVE USER-SELECTED MODE: VISION. For image-related requests, describe visible evidence accurately and separate observation from inference. Ask for an image if needed."
-        "Hands-free" -> "\n\nACTIVE USER-SELECTED MODE: HANDS-FREE. Keep replies concise and easy to hear aloud. Avoid long lists unless requested."
-        else -> "\n\nACTIVE USER-SELECTED MODE: COMPANION. Be warm and conversational while remaining honest and helpful."
+    if (LocalAiRuntime.isEnabled(this)) {
+        val recentLocal = history.dropLast(1).takeLast(9).map { it.role to it.text }
+        val localBodies = recentLocal.map { it.second }
+        val relevantLocal = olderRelevant.filter { (_, body) ->
+            localBodies.none { it.equals(body, ignoreCase = true) }
+        }
+        val localHistory = (relevantLocal + recentLocal).takeLast(MAX_CONTEXT_MESSAGES)
+        return LocalAiRuntime.generateReply(
+            this, systemPrompt, localHistory, userText, onLocalChunk
+        )
     }
-} catch (_: Exception) { "" }
 
-val model = Firebase.ai(
-        backend = GenerativeBackend.googleAI()
-                ).generativeModel(
-        modelName = "gemini-3.8-flash",
-       systemInstruction = content {    
-   text(ArushiExperience.systemInstruction(this@MainActivity) + studioMemoryContext + studioModeContext)
+    var lastError: Exception? = null
+    for (attempt in 0..3) {
+        var emittedAnyChunk = false
+        try {
+            val model = Firebase.ai(backend = GenerativeBackend.googleAI())
+                .generativeModel(
+                    modelName = "gemini-3.8-flash",
+                    systemInstruction = content { text(systemPrompt) }
+                )
 
-}
+            val contextMessages = olderRelevant + recent
+            val savedHistory = contextMessages
+                .dropLast(1)
+                .filter { it.text.isNotBlank() }
+                .map { message ->
+                    content(role = message.role) { text(message.text) }
+                }
 
-)
+            val chat = model.startChat(history = savedHistory)
+            val answer = StringBuilder()
+            chat.sendMessageStream(userText).collect { chunk ->
+                val piece = chunk.text.orEmpty()
+                if (piece.isNotEmpty()) {
+                    emittedAnyChunk = true
+                    answer.append(piece)
+                    onLocalChunk(piece)
+                }
+            }
 
-val recent = history.takeLast(MAX_CONTEXT_MESSAGES)
-val savedHistory = recent.dropLast(1).map { message ->
-
-val role = message.role    
-            val savedText = message.text    
-            content(role = role) {    
-                text(savedText)    
-            }    
-        }    
-
-        val chat = model.startChat(history = savedHistory)    
-        val response = chat.sendMessage(    
-            recent.lastOrNull { it.role == "user" }?.text    
-                ?: throw IllegalStateException("No user message to send.")    
-        )    
-
-        return response.text    
-            ?.trim()    
-            ?.takeIf { it.isNotEmpty() }    
-            ?: "I couldn't generate a reply. Please try again."    
-
-    } catch (e: Exception) {    
-        lastError = e    
-
-        if (!isTemporaryServerError(e) || attempt == 3) {    
-            throw e    
-        }    
-
-        delay(1000L * (1L shl attempt))    
-    }    
-}    
-
-throw lastError ?: IllegalStateException("AI request failed.")
-
+            return answer.toString().trim().ifBlank {
+                throw IllegalStateException("The AI service returned an empty response. Please try again.")
+            }
+        } catch (e: Exception) {
+            lastError = e
+            // Retrying after partial output would duplicate text in the chat bubble.
+            if (emittedAnyChunk || !isTemporaryServerError(e) || attempt == 3) {
+                throw e
+            }
+            delay(1000L * (1L shl attempt))
+        }
+    }
+    throw lastError ?: IllegalStateException("AI request failed.")
 }
 
 private fun isTemporaryServerError(error: Exception): Boolean {
