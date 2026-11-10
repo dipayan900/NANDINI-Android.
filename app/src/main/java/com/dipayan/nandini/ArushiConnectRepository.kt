@@ -100,6 +100,7 @@ class ArushiConnectRepository(
         val index = db.collection("connect_usernames").document(normalized).get().await()
         val uid = index.getString("uid") ?: return null
         val profile = db.collection("connect_profiles").document(uid).get().await()
+        if (!profile.exists() || profile.getBoolean("discoverable") == false) return null
         return profile.toPerson()
     }
 
