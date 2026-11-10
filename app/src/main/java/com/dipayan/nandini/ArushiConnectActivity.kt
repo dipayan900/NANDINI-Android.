@@ -321,7 +321,8 @@ class ArushiConnectActivity : Activity() {
         if (!mediaDownloadsInFlight.add(message.id)) return
         toast("Downloading media to ARUSHI's private app storage…")
         scope.launch {
-            val destination = localStore.mediaFile(message.conversationId, message.id)
+            val extension = getDisplayName(sourceUri).substringAfterLast('.', "").takeIf { it.length in 1..8 }.orEmpty()
+        val destination = localStore.mediaFile(message.conversationId, message.id, extension)
             try {
                 withContext(Dispatchers.IO) {
                     destination.parentFile?.mkdirs()
