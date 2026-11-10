@@ -10,6 +10,8 @@ import android.graphics.Color
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -334,6 +336,17 @@ class ArushiConnectActivity : Activity() {
         }
     }
 
+    private fun getDisplayName(uri: Uri): String {
+        val projection = arrayOf(OpenableColumns.DISPLAY_NAME)
+        contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) return cursor.getString(index)
+            }
+        }
+        return "attachment_${System.currentTimeMillis()}"
+    }
+
     private fun openLocalMedia(file: File, type: String) {
         try {
             val uri = FileProvider.getUriForFile(
@@ -343,7 +356,9 @@ class ArushiConnectActivity : Activity() {
                 "image" -> "image/*"
                 "video" -> "video/*"
                 "audio" -> "audio/*"
-                else -> "application/octet-stream"
+                else -> MimeTypeMap.getSingleton()
+                    .getMimeTypeFromExtension(file.extension.lowercase())
+                    ?: "application/octet-stream"
             }
             val view = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, mime)
@@ -368,6 +383,8 @@ class ArushiConnectActivity : Activity() {
                     try {
                         val url = repo.uploadAttachment(conversationId, Uri.fromFile(file), "audio/mp4", file.name)
                         repo.sendMedia(conversationId, url, "audio")
+                        file.delete()
+                        voiceFile = null
                         toast("Voice note sent.")
                     } catch (e: Exception) { toast(e.message ?: "Voice note upload failed.") }
                 }
@@ -468,7 +485,7 @@ class ArushiConnectActivity : Activity() {
             }
             scope.launch {
                 try {
-                    val url = repo.uploadAttachment(conversationId, uri, mime, "file_${System.currentTimeMillis()}")
+                    val url = repo.uploadAttachment(conversationId, uri, mime, getDisplayName(uri))
                     repo.sendMedia(conversationId, url, type)
                     toast("Attachment sent.")
                 } catch (e: Exception) { toast(e.message ?: "Attachment upload failed.") }
