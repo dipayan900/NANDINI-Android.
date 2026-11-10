@@ -469,18 +469,21 @@ class ArushiConnectActivity : Activity() {
 
     private fun showSettings() {
         base("Privacy & storage", "Your ARUSHI identity and visibility controls.")
-        val discoverable = android.widget.CheckBox(this).apply { text = "Allow username discovery"; isChecked = true; setTextColor(palette.text) }
-        val receipts = android.widget.CheckBox(this).apply { text = "Read receipts"; isChecked = true; setTextColor(palette.text) }
-        val lastSeen = android.widget.CheckBox(this).apply { text = "Show last seen"; isChecked = false; setTextColor(palette.text) }
-        root.addView(discoverable); root.addView(receipts); root.addView(lastSeen)
+        val discoverable = android.widget.CheckBox(this).apply {
+            text = "Allow people to find me by ARUSHI username"
+            isChecked = true
+            setTextColor(palette.text)
+        }
+        root.addView(discoverable)
         root.addView(action("SAVE PRIVACY SETTINGS") {
             scope.launch {
                 try {
-                    repo.updatePrivacy(discoverable.isChecked, receipts.isChecked, lastSeen.isChecked)
-                    toast("Privacy settings saved.")
+                    repo.updatePrivacy(discoverable.isChecked, true, false)
+                    toast("Username discovery setting saved.")
                 } catch (e: Exception) { toast(e.message ?: "Could not save settings.") }
             }
         })
+        root.addView(label("Read receipts, last-seen controls and contact syncing are not active in this build.", 12f, palette.muted))
         root.addView(label("Chat history is cached in this phone's private ARUSHI app data. Clearing it here does not erase the other participant's copy. Android also removes this local database if ARUSHI app data is cleared or the app is uninstalled.", 12f, palette.muted))
         root.addView(action("CLEAR ALL LOCAL CHAT HISTORY") {
             AlertDialog.Builder(this)
