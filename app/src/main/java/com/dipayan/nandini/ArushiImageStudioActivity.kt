@@ -23,12 +23,14 @@ import java.io.FileOutputStream
 import java.util.UUID
 import kotlin.concurrent.thread
 
-/** Local, on-device image generation powered by the user's running LocalDream app. */
+/** On-device image generation powered by ARUSHI's bundled LocalDream runtime. */
 class ArushiImageStudioActivity : Activity() {
-    private val bg = Color.rgb(7, 8, 23)
-    private val panel = Color.rgb(19, 22, 48)
-    private val accent = Color.rgb(184, 126, 255)
-    private val cyan = Color.rgb(90, 211, 255)
+    private var appliedAppearanceKey = ""
+    private val palette get() = ArushiExperience.palette(this)
+    private val bg get() = palette.background
+    private val panel get() = palette.panel
+    private val accent get() = palette.accent
+    private val cyan get() = palette.accentSecondary
     private lateinit var prompt: EditText
     private lateinit var status: TextView
     private lateinit var preview: ImageView
@@ -38,9 +40,10 @@ class ArushiImageStudioActivity : Activity() {
     private var busy = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        appliedAppearanceKey = ArushiExperience.appearance(this) + ":" + ArushiExperience.palette(this).background
+        ArushiExperience.applySystemBars(this)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -63,9 +66,18 @@ class ArushiImageStudioActivity : Activity() {
 
         status = text("Checking LocalDream connection…", 12f, cyan)
         content.addView(status, margin(-1, -2, 0, 8, 0, 8))
+        content.addView(actionButton("EXPERIENCE & APPEARANCE") {
+            startActivity(Intent(this, ArushiExperienceSettingsActivity::class.java))
+        }, margin(-1, dp(42), 0, 0, 0, 8))
+        content.addView(actionButton("MANAGE MODELS") {
+            startActivity(Intent(this, LocalDreamModelManagerActivity::class.java))
+        }, margin(-1, dp(44), 0, 0, 0, 8))
+        content.addView(actionButton("GENERATION SETTINGS") {
+            startActivity(Intent(this, LocalDreamSettingsActivity::class.java))
+        }, margin(-1, dp(44), 0, 0, 0, 8))
         prompt = EditText(this).apply {
             hint = "Describe the image you want to create…"
-            setHintTextColor(Color.LTGRAY); setTextColor(Color.WHITE); textSize = 15f
+            setHintTextColor(palette.muted); setTextColor(palette.text); textSize = 15f
             minLines = 3; gravity = Gravity.TOP or Gravity.START
             setPadding(dp(12), dp(12), dp(12), dp(12))
             background = rounded(panel, accent)
@@ -95,6 +107,17 @@ class ArushiImageStudioActivity : Activity() {
         checkServer()
     }
 
+    override fun onResume() {
+        super.onResume()
+        val key = ArushiExperience.appearance(this) + ":" + ArushiExperience.palette(this).background
+        if (appliedAppearanceKey.isNotEmpty() && key != appliedAppearanceKey) {
+            appliedAppearanceKey = key
+            recreate()
+            return
+        }
+        appliedAppearanceKey = key
+    }
+
     private fun generate() {
         if (busy) return
         val requestPrompt = prompt.text.toString().trim()
@@ -104,10 +127,10 @@ class ArushiImageStudioActivity : Activity() {
         }
         busy = true
         generateButton.isEnabled = false
-        status.text = "LocalDream is generating… keep its app running."
+        status.text = "Starting ARUSHI embedded image engine…"
         thread(name = "arushi-localdream-generation") {
             try {
-                val result = LocalDreamImageClient.generate(requestPrompt, sourceImage)
+                val result = LocalDreamImageClient.generate(this@ArushiImageStudioActivity, requestPrompt, sourceImage)
                 val name = saveImage(result)
                 runOnUiThread {
                     preview.setImageBitmap(result)
@@ -129,13 +152,12 @@ class ArushiImageStudioActivity : Activity() {
     }
 
     private fun checkServer() {
-        status.text = "Checking 127.0.0.1:8081…"
-        thread(name = "arushi-localdream-health") {
-            val online = runCatching { LocalDreamImageClient.checkHealth() }.getOrDefault(false)
-            runOnUiThread {
-                if (online) status.text = "✓ LocalDream connected • 127.0.0.1:8081"
-                else status.text = "LocalDream offline. Open LocalDream and start its model/server."
-            }
+        status.text = "Checking selected model…"
+        val selected = LocalDreamModelStore.selectedModelId(this)
+        status.text = if (selected == null) {
+            "No model selected. Tap MANAGE MODELS to import a compatible SD 1.5 MNN ZIP."
+        } else {
+            "Selected model: $selected • ARUSHI will start its embedded engine when you generate."
         }
     }
 

@@ -1,5 +1,6 @@
 package com.dipayan.nandini
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -12,12 +13,10 @@ import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
 /**
- * Same-device LocalDream client. LocalDream owns 127.0.0.1:8081;
- * ARUSHI is only an HTTP client and never starts/stops the server.
+ * Image generation client for ARUSHI's bundled LocalDream runtime.
+ * It starts and manages the native engine itself; no separate app is required.
  */
 object LocalDreamImageClient {
-    private const val BASE_URL = "http://127.0.0.1:8081"
-
     private val client = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
         .writeTimeout(45, TimeUnit.SECONDS)
@@ -26,34 +25,29 @@ object LocalDreamImageClient {
         .retryOnConnectionFailure(false)
         .build()
 
-    private val healthClient = OkHttpClient.Builder()
-        .connectTimeout(3, TimeUnit.SECONDS)
-        .readTimeout(3, TimeUnit.SECONDS)
-        .callTimeout(5, TimeUnit.SECONDS)
-        .build()
+    fun checkHealth(): Boolean = EmbeddedLocalDreamRuntime.isHealthy()
 
-    fun checkHealth(): Boolean {
-        val request = Request.Builder().url("$BASE_URL/health").get().build()
-        return healthClient.newCall(request).execute().use { it.isSuccessful }
-    }
-
-    /**
-     * Waits for LocalDream's Server-Sent Events stream to emit its complete
-     * event, then decodes the returned PNG/JPEG bytes into a Bitmap.
-     * Supplying sourceImage requests img2img; that requires backend support.
-     */
-    fun generate(prompt: String, sourceImage: Bitmap? = null): Bitmap {
+    fun generate(context: Context, prompt: String, sourceImage: Bitmap? = null): Bitmap {
         require(prompt.isNotBlank()) { "Enter an image prompt first." }
+        val modelId = LocalDreamModelStore.selectedModelId(context)
+            ?: throw IllegalStateException("Open Model Manager and import/select a compatible SD 1.5 MNN model first.")
 
+        EmbeddedLocalDreamRuntime.ensureRunning(context, modelId)
+
+        val settings = LocalDreamSettingsStore.load(context)
         val payload = JSONObject()
             .put("prompt", prompt.trim())
-            .put("steps", 6)
-            .put("width", 512)
-            .put("height", 512)
+            .put("negative_prompt", settings.negativePrompt)
+            .put("steps", settings.steps)
+            .put("cfg", settings.guidanceScale.toDouble())
+            .put("width", settings.width)
+            .put("height", settings.height)
+            .put("scheduler", settings.scheduler)
             .put("output_format", "png")
+        settings.seed?.let { payload.put("seed", it) }
 
         if (sourceImage != null) {
-            val scaled = Bitmap.createScaledBitmap(sourceImage, 512, 512, true)
+            val scaled = Bitmap.createScaledBitmap(sourceImage, settings.width, settings.height, true)
             val bytes = ByteArrayOutputStream().use { output ->
                 if (!scaled.compress(Bitmap.CompressFormat.PNG, 100, output)) {
                     throw IllegalStateException("Could not encode the selected image.")
@@ -66,7 +60,7 @@ object LocalDreamImageClient {
         }
 
         val request = Request.Builder()
-            .url("$BASE_URL/generate")
+            .url("${EmbeddedLocalDreamRuntime.BASE_URL}/generate")
             .header("Accept", "text/event-stream")
             .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
             .build()
@@ -74,10 +68,14 @@ object LocalDreamImageClient {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 val detail = response.body?.string()?.take(500).orEmpty()
-                throw IllegalStateException("LocalDream returned HTTP ${response.code}. ${detail.ifBlank { "Check that its model and server are running." }}")
+                throw IllegalStateException(
+                    "The embedded image engine returned HTTP ${response.code}. " +
+                        detail.ifBlank { "Check the imported model package and try again." }
+                )
             }
 
-            val body = response.body ?: throw IllegalStateException("LocalDream returned an empty response.")
+            val body = response.body
+                ?: throw IllegalStateException("The embedded image engine returned an empty response.")
             val source = body.source()
             var currentEvent = ""
             while (true) {
@@ -91,13 +89,20 @@ object LocalDreamImageClient {
                         val type = data.optString("type", currentEvent)
                         when {
                             currentEvent == "error" || type == "error" -> {
-                                throw IllegalStateException(data.optString("message").ifBlank { "LocalDream generation failed." })
+                                throw IllegalStateException(
+                                    data.optString("message").ifBlank { "Image generation failed." }
+                                )
                             }
                             currentEvent == "complete" || type == "complete" -> {
                                 val encoded = data.optString("image")
-                                if (encoded.isBlank()) throw IllegalStateException("LocalDream completed without returning an image.")
-                                val imageBytes = try { Base64.decode(encoded, Base64.DEFAULT) }
-                                    catch (e: IllegalArgumentException) { throw IllegalStateException("LocalDream returned invalid image data.", e) }
+                                if (encoded.isBlank()) {
+                                    throw IllegalStateException("Generation completed without an image.")
+                                }
+                                val imageBytes = try {
+                                    Base64.decode(encoded, Base64.DEFAULT)
+                                } catch (error: IllegalArgumentException) {
+                                    throw IllegalStateException("The engine returned invalid image data.", error)
+                                }
                                 return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
                                     ?: throw IllegalStateException("The generated image could not be decoded.")
                             }
@@ -105,7 +110,7 @@ object LocalDreamImageClient {
                     }
                 }
             }
-            throw IllegalStateException("LocalDream closed the generation stream before completion. Keep its app open and check that the model is loaded.")
+            throw IllegalStateException("The embedded image engine closed the generation stream unexpectedly.")
         }
     }
 }

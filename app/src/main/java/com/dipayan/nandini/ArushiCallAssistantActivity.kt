@@ -52,17 +52,10 @@ class ArushiCallAssistantActivity : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         applySystemThemePalette()
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            window.decorView.systemUiVisibility = if (isLightTheme()) {
-                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-            } else {
-                0
-            }
-        }
+        ArushiExperience.applySystemBars(this)
         if (intent?.action == Intent.ACTION_DIAL) {
             dialNumber = intent.data?.schemeSpecificPart
         }
@@ -395,25 +388,16 @@ class ArushiCallAssistantActivity : Activity() {
         endButton.isEnabled = live && !ringing
     }
 
-    private fun isLightTheme(): Boolean =
-        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_NO
+    private fun isLightTheme(): Boolean = ArushiExperience.palette(this).isLight
 
     private fun applySystemThemePalette() {
-        if (isLightTheme()) {
-            bg = Color.rgb(247, 245, 252)
-            panel = Color.rgb(255, 255, 255)
-            accent = Color.rgb(104, 69, 168)
-            textPrimary = Color.rgb(28, 24, 38)
-            textSecondary = Color.rgb(83, 77, 96)
-            warning = Color.rgb(135, 79, 10)
-        } else {
-            bg = Color.rgb(10, 12, 24)
-            panel = Color.rgb(22, 25, 44)
-            accent = Color.rgb(184, 142, 255)
-            textPrimary = Color.WHITE
-            textSecondary = Color.LTGRAY
-            warning = Color.rgb(255, 205, 130)
-        }
+        val p = ArushiExperience.palette(this)
+        bg = p.background
+        panel = p.panel
+        accent = p.accent
+        textPrimary = p.text
+        textSecondary = p.muted
+        warning = if (p.isLight) Color.rgb(135, 79, 10) else Color.rgb(255, 205, 130)
     }
 
     private fun card(title: String, body: String): View = LinearLayout(this).apply {

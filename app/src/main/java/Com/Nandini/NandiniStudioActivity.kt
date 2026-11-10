@@ -29,18 +29,21 @@ import org.json.JSONObject
 
 /** Additive local workspace; existing chat/history code is not changed. */
 class NandiniStudioActivity : Activity() {
-    private val bg = Color.rgb(10, 8, 22)
-    private val panel = Color.rgb(29, 20, 48)
-    private val accent = Color.rgb(190, 139, 255)
-    private val white = Color.rgb(250, 247, 255)
-    private val muted = Color.rgb(185, 174, 215)
+    private var appliedAppearanceKey = ""
+    private val palette get() = ArushiExperience.palette(this)
+    private val bg get() = palette.background
+    private val panel get() = palette.panel
+    private val accent get() = palette.accent
+    private val white get() = palette.text
+    private val muted get() = palette.muted
     private val prefs by lazy { getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE) }
     private lateinit var body: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        appliedAppearanceKey = ArushiExperience.appearance(this) + ":" + ArushiExperience.palette(this).background
+        ArushiExperience.applySystemBars(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(14), dp(16), dp(14))
@@ -66,6 +69,17 @@ class NandiniStudioActivity : Activity() {
         renderHome()
     }
 
+    override fun onResume() {
+        super.onResume()
+        val key = ArushiExperience.appearance(this) + ":" + ArushiExperience.palette(this).background
+        if (appliedAppearanceKey.isNotEmpty() && key != appliedAppearanceKey) {
+            appliedAppearanceKey = key
+            recreate()
+            return
+        }
+        appliedAppearanceKey = key
+    }
+
     private fun renderHome() {
         body.removeAllViews()
         addSection("YOUR WORKSPACE", "Choose a module. Studio data is stored locally on this device.")
@@ -77,6 +91,7 @@ class NandiniStudioActivity : Activity() {
         addFeature("👤 GUEST ACCOUNT & STORAGE", "Create a local guest profile, export or restore a complete backup, delete old chats and manage device storage.") { startActivity(Intent(this, AccountStorageActivity::class.java)) }
         addFeature("🛡 PRIVACY & SECURITY", "Review local data, copy a memory backup, clear saved records, or open Android app permissions.") { showPrivacyCentre() }
         addFeature("📡 OFFLINE TOOLBOX", "Use local memories, task plans, diagnostics and Android settings shortcuts without relying on cloud AI.") { showOfflineToolbox() }
+        addFeature("✦ EXPERIENCE & APPEARANCE", "Change app-wide light/dark theme and ARUSHI's text and voice personality.") { startActivity(Intent(this, ArushiExperienceSettingsActivity::class.java)) }
         addFeature("🎨 ARUSHI IMAGE STUDIO", "Generate images locally through the LocalDream app, edit a selected image when the loaded backend supports img2img, and keep a private on-device image history.") { startActivity(Intent(this, ArushiImageStudioActivity::class.java)) }
         addFeature("🧠 LOCAL AI ENGINE", "Download the compact on-device model once, then use ARUSHI text chat offline without Gemini API quotas.") { startActivity(Intent(this, LocalAiSetupActivity::class.java)) }
         addFeature("✦ COMMAND NEXUS", "Futuristic local-first control hub: offline calculator, private notes, Android reminders, overlay and screen-access settings, and live diagnostics.") { startActivity(Intent(this, NandiniCommandCenterActivity::class.java)) }

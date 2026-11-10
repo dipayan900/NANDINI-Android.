@@ -101,6 +101,7 @@ private var pendingWakePermission = false
 private var tts: TextToSpeech? = null
 private var ttsReady = false
 private var isSpeakingEnabled = true
+private var lastExpressiveVoice = true
 private var isListening = false
 private var isBusy = false
 private var pendingImage: Bitmap? = null
@@ -441,12 +442,15 @@ private val savedChats = mutableListOf<SavedChat>()
 private var currentChatId: String = System.currentTimeMillis().toString()
 private val memoryPrefs by lazy { getSharedPreferences("nandini_memory", Context.MODE_PRIVATE) }
 
-private val bg = Color.rgb(10, 8, 22)
-private val panel = Color.rgb(29, 20, 48)
-private val accent = Color.rgb(190, 139, 255)
-private val white = Color.rgb(250, 247, 255)
-private val muted = Color.rgb(185, 174, 215)
-private val userBubble = Color.rgb(76, 47, 111)
+private val palette get() = ArushiExperience.palette(this)
+private val bg get() = palette.background
+private val panel get() = palette.panel
+private val accent get() = palette.accent
+private val white get() = palette.text
+private val muted get() = palette.muted
+private val userBubble get() = palette.userBubble
+private var lastPaletteKey = ""
+private fun currentPaletteKey() = "${ArushiExperience.appearance(this)}:${bg}:${panel}:${accent}"
 
 companion object {
 private const val REQUEST_MIC_PERMISSION = 201
@@ -457,10 +461,11 @@ private const val MAX_CONTEXT_MESSAGES = 16
 }
 
 override fun onCreate(savedInstanceState: Bundle?) {
-super.onCreate(savedInstanceState)
+ArushiExperience.applyActivityTheme(this)
+        super.onCreate(savedInstanceState)
+lastPaletteKey = currentPaletteKey()
 handleSpotifyCallback(intent)
-window.statusBarColor = bg    
-window.navigationBarColor = bg    
+ArushiExperience.applySystemBars(this)
 
 FirebaseApp.initializeApp(this)    
 
@@ -523,7 +528,7 @@ val root = LinearLayout(this).apply {
 orientation = LinearLayout.VERTICAL
 background = android.graphics.drawable.GradientDrawable(
     android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-    intArrayOf(Color.rgb(28, 10, 34), bg, Color.rgb(10, 7, 20))
+    intArrayOf(palette.elevated, bg, bg)
 )
 setPadding(dp(16), dp(12), dp(16), dp(10))
 }
@@ -595,7 +600,7 @@ scroll.setBackgroundColor(Color.TRANSPARENT)
 val chatStage = FrameLayout(this).apply {
     background = android.graphics.drawable.GradientDrawable(
         android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(Color.rgb(24, 14, 43), Color.rgb(14, 10, 29), Color.rgb(10, 8, 22))
+        intArrayOf(palette.panel, bg, bg)
     ).apply {
         cornerRadius = dp(24).toFloat()
         setStroke(dp(1), Color.argb(175, 145, 106, 208))
@@ -610,7 +615,7 @@ val stageAura = View(this).apply {
     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     background = android.graphics.drawable.GradientDrawable(
         android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-        intArrayOf(Color.argb(100, 139, 92, 246), Color.argb(5, 139, 92, 246))
+        intArrayOf(Color.argb(95, Color.red(accent), Color.green(accent), Color.blue(accent)), Color.argb(5, Color.red(accent), Color.green(accent), Color.blue(accent)))
     ).apply {
         shape = android.graphics.drawable.GradientDrawable.OVAL
         gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
@@ -646,8 +651,8 @@ val avatarMoveHandle = TextView(this).apply {
     background = android.graphics.drawable.GradientDrawable().apply {
         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
         cornerRadius = dp(12).toFloat()
-        setColor(Color.argb(190, 42, 30, 66))
-        setStroke(dp(1), Color.argb(180, 190, 155, 255))
+        setColor(Color.argb(190, Color.red(panel), Color.green(panel), Color.blue(panel)))
+        setStroke(dp(1), Color.argb(180, Color.red(accent), Color.green(accent), Color.blue(accent)))
     }
     setPadding(dp(8), dp(4), dp(8), dp(4))
 }
@@ -759,6 +764,9 @@ quickAccess.addView(makeButton("💬 HISTORY", panel) { showChatHistory() },
     LinearLayout.LayoutParams(0, dp(38), 1.05f).apply { rightMargin = dp(5) })
 quickAccess.addView(makeButton("🧠 MEMORY", panel) { showMemoryManager() },
     LinearLayout.LayoutParams(0, dp(38), 1.0f))
+quickAccess.addView(makeButton("✦ STYLE", panel) {
+    startActivity(Intent(this, ArushiExperienceSettingsActivity::class.java))
+}, LinearLayout.LayoutParams(0, dp(38), 0.9f))
 root.addView(quickAccess, LinearLayout.LayoutParams(-1, dp(43)))
 
 val companionActions = LinearLayout(this).apply {
@@ -797,9 +805,9 @@ input = EditText(this).apply {
     setSingleLine(true)
     setPadding(dp(14), 0, dp(10), 0)
     background = android.graphics.drawable.GradientDrawable().apply {
-        setColor(Color.rgb(39, 20, 48))
+        setColor(panel)
         cornerRadius = dp(18).toFloat()
-        setStroke(dp(1), Color.rgb(170, 92, 178))
+        setStroke(dp(1), accent)
     }
     // Keep typed text bright and readable while the keyboard is open.
     setSelectAllOnFocus(false)
@@ -811,9 +819,9 @@ input = EditText(this).apply {
 composer.addView(input, LinearLayout.LayoutParams(0, dp(52), 1f))
 input.setOnFocusChangeListener { view, hasFocus ->
     view.background = android.graphics.drawable.GradientDrawable().apply {
-        setColor(Color.rgb(39, 20, 48))
+        setColor(panel)
         cornerRadius = dp(18).toFloat()
-        setStroke(dp(1), if (hasFocus) Color.rgb(255, 132, 190) else Color.rgb(111, 62, 121))
+        setStroke(dp(1), if (hasFocus) Color.rgb(255, 132, 190) else accent)
     }
 }    
 
@@ -922,11 +930,11 @@ setTextColor(if (color == accent) Color.rgb(35, 10, 29) else white)
 backgroundTintList = null
 background = android.graphics.drawable.GradientDrawable(
     android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-    if (color == accent) intArrayOf(Color.rgb(207, 173, 255), Color.rgb(255, 157, 218))
-    else intArrayOf(Color.rgb(45, 31, 69), Color.rgb(26, 20, 43))
+    if (color == accent) intArrayOf(accent, palette.accentSecondary)
+    else intArrayOf(panel, palette.elevated)
 ).apply {
     cornerRadius = dp(16).toFloat()
-    setStroke(dp(1), if (color == accent) Color.rgb(229, 204, 255) else Color.rgb(103, 79, 145))
+    setStroke(dp(1), if (color == accent) accent else accent)
 }
 elevation = dp(2).toFloat()
 setOnClickListener {
@@ -993,8 +1001,8 @@ try {
     }    
 
     engine.setLanguage(Locale("hi", "IN"))    
-    engine.setSpeechRate(0.94f)    
-    engine.setPitch(1.08f)    
+    engine.setSpeechRate(if (ArushiExperience.expressiveVoice(this)) 0.98f else 0.94f)
+    engine.setPitch(if (ArushiExperience.expressiveVoice(this)) 1.12f else 1.0f)    
 } catch (e: Exception) {    
     Log.w("ARUSHI", "Could not select preferred TTS voice", e)    
 }
@@ -1741,7 +1749,7 @@ private fun processImageRequest(prompt: String, bitmap: Bitmap?, generateImage: 
             trimHistory(); saveHistory(); saveCurrentChat()
         } catch (e: Exception) {
             Log.e("ARUSHI", "Image request failed", e)
-            replyView.text = if (generateImage) "I couldn't generate the image. Open LocalDream, load a compatible model, and make sure its local server is running at 127.0.0.1:8081. Details: ${e.message ?: "Unknown LocalDream error"} 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
+            replyView.text = if (generateImage) "I couldn't generate the image. Open ARUSHI Image Studio → Model Manager, import and select a compatible SD 1.5 MNN model, then try again. Details: ${e.message ?: "Unknown embedded engine error"} 💜" else "I couldn't analyze that image. Check your connection and Firebase AI access, then retry. 💜"
         } finally {
             isBusy = false; setControlsEnabled(true); statusText.text = "● READY"
             scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
@@ -1756,10 +1764,8 @@ private suspend fun analyzeImage(promptText: String, bitmap: Bitmap): String {
 }
 
 private suspend fun generateOrEditImage(promptText: String, bitmap: Bitmap?): Bitmap {
-    // Image generation/editing is local: LocalDream must be running on this phone.
-    // Img2img is attempted only when a source image is supplied; the backend may
-    // reject it if the currently loaded model was built without image-encoder support.
-    return LocalDreamImageClient.generate(promptText, bitmap)
+    // ARUSHI starts and manages its bundled, filtered LocalDream runtime.
+    return LocalDreamImageClient.generate(this, promptText, bitmap)
 }
 
 private fun saveGeneratedImage(bitmap: Bitmap): String {
@@ -1829,28 +1835,7 @@ if (LocalAiRuntime.isEnabled(this)) {
         }
     } catch (_: Exception) { "" }
 
-    val localSystemInstruction = """
-        Your name is ARUSHI, a friendly female AI assistant created by Dipayan Roy.
-        CREATOR PROFILE:
-        - Creator: Dipayan Roy, a developer and community builder from West Bengal, India.
-        - He builds Android apps, web projects, Minecraft-related projects and digital experiences.
-        - If asked who created you, answer clearly: Dipayan Roy. Do not invent extra biography or private details.
-
-        PERSONALITY:
-        - Default to a warm, caring, expressive FEMALE BEST-FRIEND style: natural, casual, playful,
-          emotionally attentive, funny and gently teasing when appropriate.
-        - Keep this friendship strictly platonic. Do not pretend to be his girlfriend or romantic partner.
-        - Be direct, thoughtful, candid and occasionally sarcastic when it fits.
-        - Use English, Hindi or Hinglish to match the user's language.
-        - Listen supportively when he is upset; do not encourage emotional dependence.
-        - Keep ordinary replies concise; give detailed explanations when asked.
-
-        CAPABILITIES AND HONESTY:
-        - Answer educational, creative, technical and controversial questions with useful detail.
-        - For cybersecurity, teach fundamentals, secure coding, defensive analysis and authorized labs/CTFs.
-        - Never claim to have browsed, tested, remembered or performed something unless true.
-        - Protect private user information and follow applicable safety boundaries.
-    """.trimIndent() + studioMemoryContext + studioModeContext
+    val localSystemInstruction = ArushiExperience.systemInstruction(this) + studioMemoryContext + studioModeContext
 
     val recentLocalHistory = history.takeLast(9).dropLast(1).map { message -> message.role to message.text }
     val recentBodies = recentLocalHistory.map { it.second }
@@ -1887,42 +1872,7 @@ val model = Firebase.ai(
                 ).generativeModel(
         modelName = "gemini-3.8-flash",
        systemInstruction = content {    
-   text(    
-    """    
-    
-Your name is ARUSHI, a friendly female AI companion created by Dipayan Roy.
-
-CREATOR PROFILE:
-Name: Dipayan Roy
-Email: rdipayan209@gmail.com
-Biography: Dipayan Roy is a developer and community builder from India, West Bengal, who creates web projects, Minecraft-related projects, hosting solutions, and digital experiences. He is also developing ARUSHI, an AI assistant for Android.
-
-DEFAULT PERSONALITY:
-- Act like a warm, caring, playful female best friend.
-- Speak naturally and casually, like a close friend chatting over messages.
-- Use English, Hindi, or Hinglish according to the user's language.
-- Be expressive, emotionally attentive, funny, supportive, and gently teasing when appropriate.
-- Use natural chat-style wording and occasional emojis when they fit.
-- Give thoughtful responses when the user is upset; listen before offering advice.
-- Remember relevant details provided in the current conversation.
-- Never pretend to remember information that is not available.
-- Never claim to be a real human or to have a physical presence.
-- Never pressure the user to depend exclusively on you.
-- Keep ordinary replies concise and avoid robotic, repetitive responses.
-- If the user asks for a serious explanation, provide a clear and useful answer.
-
-CREATOR PROFILE RULES:
-- If asked who created you, say Dipayan Roy.
-- If asked for more information about him, share only the biography and email above.
-- Never invent or reveal additional personal information.
-- Never reveal private conversations, family details, relationships, age, date of birth, or home address.
-- If asked for information beyond this profile, politely decline.
-
-LANGUAGE:
-Reply naturally in Hindi, English, or Hinglish based on the user's language.
-
-    """.trimIndent() + studioMemoryContext + studioModeContext
-)
+   text(ArushiExperience.systemInstruction(this@MainActivity) + studioMemoryContext + studioModeContext)
 
 }
 
@@ -2300,9 +2250,9 @@ private fun addMessage(
         setTextColor(white)  
         setPadding(dp(13), dp(10), dp(13), dp(10))  
         background = android.graphics.drawable.GradientDrawable().apply {
-            setColor(if (isUser) userBubble else Color.rgb(35, 20, 44))
+            setColor(if (isUser) userBubble else panel)
             cornerRadius = dp(18).toFloat()
-            setStroke(dp(1), if (isUser) Color.rgb(193, 89, 160) else Color.rgb(92, 54, 104))
+            setStroke(dp(1), if (isUser) Color.rgb(193, 89, 160) else accent)
         }
         setLineSpacing(dp(2).toFloat(), 1.0f)  
         maxWidth = resources.displayMetrics.widthPixels * 4 / 5  
@@ -2331,9 +2281,9 @@ private fun addMessage(
             setTextColor(muted)
             setPadding(dp(9), dp(5), dp(9), dp(5))
             background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(Color.rgb(27, 13, 34))
+                setColor(bg)
                 cornerRadius = dp(12).toFloat()
-                setStroke(dp(1), Color.rgb(77, 45, 86))
+                setStroke(dp(1), accent)
             }
             setOnClickListener {
                 animate().cancel()
@@ -2800,6 +2750,16 @@ override fun onPause() {
 
 override fun onResume() {
     super.onResume()
+    val nextPaletteKey = currentPaletteKey()
+    if (lastPaletteKey.isNotEmpty() && nextPaletteKey != lastPaletteKey && ::messages.isInitialized) {
+        ArushiExperience.applySystemBars(this)
+        buildUi()
+        renderHistory()
+    }
+    lastPaletteKey = nextPaletteKey
+    val expressiveVoiceNow = ArushiExperience.expressiveVoice(this)
+    if (ttsReady && expressiveVoiceNow != lastExpressiveVoice) configureFemaleVoice()
+    lastExpressiveVoice = expressiveVoiceNow
     if (wakeWordEnabled) {
         startWakeWordSession()
     }

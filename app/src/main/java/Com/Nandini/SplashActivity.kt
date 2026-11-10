@@ -36,19 +36,20 @@ class SplashActivity : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.rgb(9, 4, 24)
-        window.navigationBarColor = Color.rgb(9, 4, 24)
+        val palette = ArushiExperience.palette(this)
+        ArushiExperience.applySystemBars(this)
         val root = FrameLayout(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(36, 10, 70), Color.rgb(10, 5, 28), Color.rgb(5, 3, 18))
+                intArrayOf(palette.background, palette.panel, palette.background)
             )
         }
         val glow = View(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.argb(110, 155, 67, 255), Color.TRANSPARENT)
+                intArrayOf(Color.argb(90, Color.red(palette.accent), Color.green(palette.accent), Color.blue(palette.accent)), Color.TRANSPARENT)
             )
         }
         root.addView(glow, FrameLayout.LayoutParams(-1, -1))
@@ -62,8 +63,8 @@ class SplashActivity : Activity() {
             text = "✦"
             textSize = 54f
             gravity = Gravity.CENTER
-            setTextColor(Color.rgb(220, 173, 255))
-            setShadowLayer(24f, 0f, 0f, Color.MAGENTA)
+            setTextColor(palette.accent)
+            setShadowLayer(24f, 0f, 0f, palette.accent)
         }, LinearLayout.LayoutParams(-1, 70))
         content.addView(TextView(this).apply {
             text = "A R U S H I"
@@ -72,14 +73,14 @@ class SplashActivity : Activity() {
             letterSpacing = .10f
             typeface = Typeface.create("sans-serif", Typeface.BOLD)
             setTextColor(Color.WHITE)
-            setShadowLayer(18f, 0f, 0f, Color.rgb(163, 70, 255))
+            setShadowLayer(18f, 0f, 0f, palette.accent)
         }, LinearLayout.LayoutParams(-1, 56))
         content.addView(TextView(this).apply {
             text = "YOUR PERSONAL AI COMPANION"
             textSize = 10f
             gravity = Gravity.CENTER
             letterSpacing = .15f
-            setTextColor(Color.rgb(218, 194, 255))
+            setTextColor(palette.muted)
         }, LinearLayout.LayoutParams(-1, 34))
         val spinner = ProgressBar(this).apply {
             isIndeterminate = true
@@ -100,8 +101,8 @@ class SplashActivity : Activity() {
         content.addView(percent, LinearLayout.LayoutParams(-1, dp(32)))
         bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
-            progressTintList = android.content.res.ColorStateList.valueOf(Color.rgb(194, 111, 255))
-            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(90, 235, 205, 255))
+            progressTintList = android.content.res.ColorStateList.valueOf(palette.accent)
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(80, Color.red(palette.muted), Color.green(palette.muted), Color.blue(palette.muted)))
         }
         content.addView(bar, LinearLayout.LayoutParams(-1, 7).apply {
             leftMargin = 14
@@ -111,7 +112,7 @@ class SplashActivity : Activity() {
             text = "Preparing your universe..."
             textSize = 12f
             gravity = Gravity.CENTER
-            setTextColor(Color.rgb(220, 201, 245))
+            setTextColor(palette.muted)
         }, LinearLayout.LayoutParams(-1, 42))
         content.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
         val centered = FrameLayout(this).apply {
@@ -127,7 +128,7 @@ class SplashActivity : Activity() {
             textSize = 10f
             gravity = Gravity.CENTER
             letterSpacing = .10f
-            setTextColor(Color.rgb(192, 145, 246))
+            setTextColor(palette.accent)
             setPadding(dp(8), dp(4), dp(8), dp(4))
         }, FrameLayout.LayoutParams(-1, dp(34), Gravity.BOTTOM))
         setContentView(root)

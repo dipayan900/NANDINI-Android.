@@ -37,16 +37,21 @@ class ArushiVoipActivity : Activity() {
     private var transcript = StringBuilder()
     private var listening = false
     private val prefs by lazy { getSharedPreferences("arushi_voip", Context.MODE_PRIVATE) }
-    private val accent = Color.rgb(184, 142, 255)
-    private val bg = Color.rgb(7, 5, 16)
-    private val panel = Color.rgb(22, 25, 44)
+    private val palette get() = ArushiExperience.palette(this)
+    private val accent get() = palette.accent
+    private val bg get() = palette.background
+    private val panel get() = palette.panel
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        ArushiExperience.applySystemBars(this)
         tts = TextToSpeech(this) { result ->
-            if (result == TextToSpeech.SUCCESS) tts?.language = Locale.getDefault()
+            if (result == TextToSpeech.SUCCESS) {
+                tts?.language = Locale.getDefault()
+                tts?.setSpeechRate(if (ArushiExperience.expressiveVoice(this)) 0.98f else 0.94f)
+                tts?.setPitch(if (ArushiExperience.expressiveVoice(this)) 1.12f else 1.0f)
+            }
         }
         buildUi()
     }
@@ -60,8 +65,8 @@ class ArushiVoipActivity : Activity() {
         val scroll = ScrollView(this)
         scroll.addView(root)
         root.addView(text("ARUSHI", 14f, accent))
-        root.addView(text("INTERNET VOICE CALL", 26f, Color.WHITE, true))
-        root.addView(text("Separate from SIM calls • WebRTC audio • Both participants need ARUSHI", 14f, Color.LTGRAY))
+        root.addView(text("INTERNET VOICE CALL", 26f, palette.text, true))
+        root.addView(text("Separate from SIM calls • WebRTC audio • Both participants need ARUSHI", 14f, palette.muted))
         root.addView(field("Signaling WebSocket URL (wss://your-host)", "signal_url", ""))
         urlInput = root.getChildAt(root.childCount - 1) as EditText
         root.addView(field("Room code (same on both phones)", "room", ""))

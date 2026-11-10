@@ -14,4 +14,28 @@
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowBackground">@drawable/nandini_dialog_bg</item>
     </style>
+
+    <style name="ArushiLightTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#704BAE</item>
+        <item name="android:colorControlActivated">#704BAE</item>
+        <item name="android:colorControlHighlight">#55704BAE</item>
+        <item name="android:statusBarColor">#F7F5FC</item>
+        <item name="android:navigationBarColor">#F7F5FC</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#F7F5FC</item>
+    </style>
+    <style name="ArushiDarkTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#C397FF</item>
+        <item name="android:colorControlActivated">#C397FF</item>
+        <item name="android:colorControlHighlight">#55C397FF</item>
+        <item name="android:statusBarColor">#0A0916</item>
+        <item name="android:navigationBarColor">#0A0916</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#0A0916</item>
+    </style>
+
 </resources>

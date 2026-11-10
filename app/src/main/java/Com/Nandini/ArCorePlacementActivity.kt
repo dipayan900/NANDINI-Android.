@@ -52,6 +52,7 @@ class ArCorePlacementActivity : Activity(), GLSurfaceView.Renderer {
     private val requestCamera = 7412
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK

@@ -2,6 +2,7 @@ package com.dipayan.nandini
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
@@ -233,15 +234,16 @@ class LocalAiSetupActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
     private lateinit var downloadButton: Button
-    private val screenBackground = Color.rgb(12, 8, 24)
-    private val panel = Color.rgb(34, 20, 52)
-    private val accent = Color.rgb(191, 143, 255)
-    private val muted = Color.rgb(205, 190, 220)
+    private val palette get() = ArushiExperience.palette(this)
+    private val screenBackground get() = palette.background
+    private val panel get() = palette.panel
+    private val accent get() = palette.accent
+    private val muted get() = palette.muted
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
-        window.statusBarColor = screenBackground
-        window.navigationBarColor = screenBackground
+        ArushiExperience.applySystemBars(this)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -306,6 +308,11 @@ class LocalAiSetupActivity : Activity() {
             setOnClickListener { startModelDownload() }
         }
         root.addView(downloadButton, LinearLayout.LayoutParams(-1, dp(52)))
+
+        root.addView(Button(this).apply {
+            text = "EXPERIENCE & APPEARANCE"
+            setOnClickListener { startActivity(Intent(this@LocalAiSetupActivity, ArushiExperienceSettingsActivity::class.java)) }
+        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(8) })
 
         root.addView(Button(this).apply {
             text = "BACK TO STUDIO"
