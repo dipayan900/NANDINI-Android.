@@ -254,9 +254,22 @@ class ArushiConnectActivity : Activity() {
                 "audio" -> "♫  Audio / voice note"
                 else -> "▤  ${item.type.uppercase()}  ${item.text}"
             }
-            container.addView(label((if (mine) "YOU  " else "THEM  ") + body +
+            val messageView = label((if (mine) "YOU  " else "THEM  ") + body +
                 if (item.edited) "  (edited)" else "", 14f,
-                if (mine) palette.accentSecondary else palette.text))
+                if (mine) palette.accentSecondary else palette.text)
+            messageView.setOnLongClickListener {
+                AlertDialog.Builder(this)
+                    .setTitle("Delete this message here?")
+                    .setMessage("This removes the saved copy from this phone only. It does not delete the other person's message.")
+                    .setNegativeButton("CANCEL", null)
+                    .setPositiveButton("DELETE HERE") { _, _ ->
+                        localStore.hideMessageLocally(item.conversationId, item.id)
+                        currentChatMessages = currentChatMessages.filterNot { it.id == item.id }
+                        renderMessages(container, currentChatMessages)
+                    }.show()
+                true
+            }
+            container.addView(messageView)
         }
     }
 
