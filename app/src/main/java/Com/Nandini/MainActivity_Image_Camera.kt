@@ -479,7 +479,7 @@ FirebaseApp.initializeApp(this)
 
 try {
     val appCheck = FirebaseAppCheck.getInstance()
-    if (BuildConfig.DEBUG) {
+    if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
         // Debug builds use the Firebase App Check debug token.
         appCheck.installAppCheckProviderFactory(DebugAppCheckProviderFactory.getInstance())
     } else {
