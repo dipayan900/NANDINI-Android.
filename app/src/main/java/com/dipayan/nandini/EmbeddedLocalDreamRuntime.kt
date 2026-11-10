@@ -36,15 +36,14 @@ object EmbeddedLocalDreamRuntime {
         }
         executable.setExecutable(true, true)
 
-        val safetyChecker = prepareSafetyChecker(app)
         val logFile = File(app.filesDir, "localdream/engine.log")
         logFile.parentFile?.mkdirs()
         val command = listOf(
             executable.absolutePath,
             "--type", "sd15cpu",
             "--model_dir", model.directory.absolutePath,
-            "--port", PORT.toString(),
-            "--safety_checker", safetyChecker.absolutePath
+            "--port", PORT.toString()
+            // removed: "--safety_checker", safetyChecker.absolutePath
         )
         val nativeDir = app.applicationInfo.nativeLibraryDir
         val envVars = mapOf(
