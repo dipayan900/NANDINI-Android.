@@ -121,7 +121,7 @@ class ArushiConnectActivity : Activity() {
     }
 
     private fun showOnboarding() {
-        base("Your space. Your people.", "Create your unique ARUSHI ID. Phone discovery can be added after verification is configured.")
+        base("Your space. Your people.", "Create your ARUSHI username. Chat over the internet — no phone number or SMS needed.")
         val username = field("Choose username (3–20 characters)")
         val displayName = field("Display name")
         root.addView(label("ARUSHI ID", 12f, palette.accentSecondary, true))
@@ -136,7 +136,7 @@ class ArushiConnectActivity : Activity() {
                 } catch (e: Exception) { toast(e.message ?: "Could not create username.") }
             }
         })
-        root.addView(label("Your phone number will not be a public username. Phone-number discovery requires optional verified phone ownership and backend configuration.", 12f, palette.muted))
+        root.addView(label("People can find you using your exact ARUSHI username. ARUSHI Connect does not need SMS verification.", 12f, palette.muted))
     }
 
     private fun showHome(username: String) {
