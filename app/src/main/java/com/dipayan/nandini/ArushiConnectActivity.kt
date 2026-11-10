@@ -28,6 +28,7 @@ import java.io.File
 /** ARUSHI Connect workspace using the existing ARUSHI Experience palette. */
 class ArushiConnectActivity : Activity() {
     private val repo by lazy { ArushiConnectRepository() }
+    private val localStore by lazy { ArushiConnectLocalStore(this) }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val palette by lazy { ArushiExperience.palette(this) }
     private lateinit var root: LinearLayout
@@ -36,6 +37,7 @@ class ArushiConnectActivity : Activity() {
     private var recorder: MediaRecorder? = null
     private var voiceFile: File? = null
     private var pendingConversation: String? = null
+    private var currentChatMessages: List<ArushiConnectRepository.ChatMessage> = emptyList()
     private val pickAttachment = 8401
     private val requestAudio = 8402
 
@@ -191,6 +193,7 @@ class ArushiConnectActivity : Activity() {
         base("Conversation", "ARUSHI Connect  •  ${conversationId.take(12)}")
         val messages = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(messages)
+        renderMessages(messages, localStore.readConversation(conversationId))
         val input = field("Message…")
         root.addView(input)
         root.addView(action("SEND MESSAGE") {
@@ -211,22 +214,50 @@ class ArushiConnectActivity : Activity() {
         })
         root.addView(action("🎙  RECORD VOICE NOTE") { toggleVoiceNote(conversationId) })
         root.addView(action("☎  CALL SETUP") { showCallInfo() })
+        root.addView(action("DELETE CHAT HISTORY ON THIS PHONE") {
+            AlertDialog.Builder(this)
+                .setTitle("Delete local chat history?")
+                .setMessage("This removes this conversation's saved history from this phone only. The other person's copy is not deleted.")
+                .setNegativeButton("CANCEL", null)
+                .setPositiveButton("DELETE") { _, _ ->
+                    localStore.clearConversation(conversationId, currentChatMessages)
+                    currentChatMessages = emptyList()
+                    messages.removeAllViews()
+                    messages.addView(label("Local chat history cleared on this phone.", 13f, palette.muted))
+                    toast("This phone's chat history was cleared.")
+                }.show()
+        })
         root.addView(action("← BACK TO CHATS") { backHome() })
         messageListener = repo.listenToMessages(conversationId, { items ->
-            messages.removeAllViews()
-            items.forEach { item ->
-                val mine = item.senderId == repo.currentUid
-                val body = when (item.type) {
-                    "text" -> item.text
-                    "image" -> "▧  Image  ${item.text}"
-                    "video" -> "▶  Video  ${item.text}"
-                    "audio" -> "♫  Audio / voice note"
-                    else -> "▤  ${item.type.uppercase()}  ${item.text}"
-                }
-                messages.addView(label((if (mine) "YOU  " else "THEM  ") + body + if (item.edited) "  (edited)" else "", 14f,
-                    if (mine) palette.accentSecondary else palette.text))
-            }
+            val visible = localStore.visible(conversationId, items)
+            localStore.cache(visible)
+            currentChatMessages = visible
+            renderMessages(messages, visible)
         }, { toast("Could not load messages: ${it.message}") })
+    }
+
+    private fun renderMessages(
+        container: LinearLayout,
+        items: List<ArushiConnectRepository.ChatMessage>
+    ) {
+        container.removeAllViews()
+        if (items.isEmpty()) {
+            container.addView(label("No messages saved on this phone yet.", 13f, palette.muted))
+            return
+        }
+        items.forEach { item ->
+            val mine = item.senderId == repo.currentUid
+            val body = when (item.type) {
+                "text" -> item.text
+                "image" -> "▧  Image  ${item.text}"
+                "video" -> "▶  Video  ${item.text}"
+                "audio" -> "♫  Audio / voice note"
+                else -> "▤  ${item.type.uppercase()}  ${item.text}"
+            }
+            container.addView(label((if (mine) "YOU  " else "THEM  ") + body +
+                if (item.edited) "  (edited)" else "", 14f,
+                if (mine) palette.accentSecondary else palette.text))
+        }
     }
 
     private fun toggleVoiceNote(conversationId: String) {
@@ -309,7 +340,19 @@ class ArushiConnectActivity : Activity() {
                 } catch (e: Exception) { toast(e.message ?: "Could not save settings.") }
             }
         })
-        root.addView(label("Storage usage, per-chat cleanup, archive, block/report, backup/restore and full account deletion still need their dedicated flows.", 12f, palette.muted))
+        root.addView(label("Chat history is cached in this phone's private ARUSHI app data. Clearing it here does not erase the other participant's copy. Android also removes this local database if ARUSHI app data is cleared or the app is uninstalled.", 12f, palette.muted))
+        root.addView(action("CLEAR ALL LOCAL CHAT HISTORY") {
+            AlertDialog.Builder(this)
+                .setTitle("Clear all chats on this phone?")
+                .setMessage("This clears locally saved message history on this device only. Other participants' copies are unchanged.")
+                .setNegativeButton("CANCEL", null)
+                .setPositiveButton("CLEAR ALL") { _, _ ->
+                    localStore.clearAllLocalHistory()
+                    currentChatMessages = emptyList()
+                    toast("All locally cached chat history was cleared.")
+                }.show()
+        })
+        root.addView(label("Messages still pass through the online delivery service so they can reach recipients and remain available while they are offline.", 12f, palette.muted))
         root.addView(action("← BACK TO CHATS") { backHome() })
     }
 
