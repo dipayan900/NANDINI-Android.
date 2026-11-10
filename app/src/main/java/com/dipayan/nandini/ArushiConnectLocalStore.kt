@@ -107,11 +107,12 @@ class ArushiConnectLocalStore(context: Context) :
         return result
     }
 
-    fun mediaFile(conversationId: String, messageId: String): File {
+    fun mediaFile(conversationId: String, messageId: String, extension: String = "bin"): File {
         if (!mediaDirectory.exists()) mediaDirectory.mkdirs()
         val safeConversation = conversationId.replace(Regex("[^A-Za-z0-9_-]"), "_")
         val safeMessage = messageId.replace(Regex("[^A-Za-z0-9_-]"), "_")
-        return File(mediaDirectory, "${safeConversation}_${safeMessage}.bin")
+        val safeExtension = extension.lowercase().filter { it.isLetterOrDigit() }.take(8).ifBlank { "bin" }
+        return File(mediaDirectory, "${safeConversation}_${safeMessage}.$safeExtension")
     }
 
     @Synchronized
@@ -184,8 +185,12 @@ class ArushiConnectLocalStore(context: Context) :
     }
 
     private fun deleteMediaForMessage(conversationId: String, messageId: String) {
-        val file = mediaFile(conversationId, messageId)
-        if (file.exists()) file.delete()
+        val path = readableDatabase.query(
+            "messages", arrayOf("media_local_path"),
+            "conversation_id = ? AND message_id = ?",
+            arrayOf(conversationId, messageId), null, null, null
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else "" }
+        if (path.isNotBlank()) File(path).delete()
     }
 
     private fun deleteMediaForConversation(conversationId: String) {
