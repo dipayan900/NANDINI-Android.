@@ -199,7 +199,8 @@ class ArushiConnectActivity : Activity() {
         base("Conversation", "ARUSHI Connect  •  ${conversationId.take(12)}")
         val messages = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(messages)
-        renderMessages(messages, localStore.readConversation(conversationId))
+        currentChatMessages = localStore.readConversation(conversationId)
+        renderMessages(messages, currentChatMessages)
         val input = field("Message…")
         root.addView(input)
         root.addView(action("SEND MESSAGE") {
@@ -321,8 +322,10 @@ class ArushiConnectActivity : Activity() {
         if (!mediaDownloadsInFlight.add(message.id)) return
         toast("Downloading media to ARUSHI's private app storage…")
         scope.launch {
-            val extension = getDisplayName(sourceUri).substringAfterLast('.', "").takeIf { it.length in 1..8 }.orEmpty()
-        val destination = localStore.mediaFile(message.conversationId, message.id, extension)
+            val encodedPath = Uri.parse(message.mediaUrl).encodedPath.orEmpty()
+            val remoteName = Uri.decode(encodedPath).substringAfterLast('/')
+            val extension = remoteName.substringAfterLast('.', "").takeIf { it.length in 1..8 }.orEmpty()
+            val destination = localStore.mediaFile(message.conversationId, message.id, extension)
             try {
                 withContext(Dispatchers.IO) {
                     destination.parentFile?.mkdirs()
@@ -346,7 +349,8 @@ class ArushiConnectActivity : Activity() {
         message: ArushiConnectRepository.ChatMessage,
         sourceUri: Uri
     ) {
-        val destination = localStore.mediaFile(message.conversationId, message.id)
+        val extension = getDisplayName(sourceUri).substringAfterLast('.', "").takeIf { it.length in 1..8 }.orEmpty()
+        val destination = localStore.mediaFile(message.conversationId, message.id, extension)
         withContext(Dispatchers.IO) {
             destination.parentFile?.mkdirs()
             contentResolver.openInputStream(sourceUri)?.use { input ->
