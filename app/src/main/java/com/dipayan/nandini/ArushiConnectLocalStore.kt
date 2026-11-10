@@ -145,18 +145,40 @@ class ArushiConnectLocalStore(context: Context) :
 
     @Synchronized
     fun clearConversation(conversationId: String, knownMessages: List<ChatMessage>) {
-        val ids = knownMessages.filter { it.conversationId == conversationId }.map { it.id }.toSet()
-        preferences.edit()
-            .putLong("cleared_before:$conversationId", System.currentTimeMillis())
-            .putStringSet("cleared_ids:$conversationId", ids)
-            .apply()
+        val ids = knownMessages.filter { it.conversationId == conversationId }
+            .map { it.id }.toMutableSet()
+        readableDatabase.query(
+            "messages", arrayOf("message_id"), "conversation_id = ?",
+            arrayOf(conversationId), null, null, null
+        ).use { cursor ->
+            while (cursor.moveToNext()) ids.add(cursor.getString(0))
+        }
+        val previouslyHidden = preferences.getStringSet("cleared_ids:$conversationId", emptySet()).orEmpty()
+        ids.addAll(previouslyHidden)
+        preferences.edit().putStringSet("cleared_ids:$conversationId", ids).apply()
         deleteMediaForConversation(conversationId)
         writableDatabase.delete("messages", "conversation_id = ?", arrayOf(conversationId))
     }
 
     @Synchronized
     fun clearAllLocalHistory() {
-        preferences.edit().putLong("cleared_all_before", System.currentTimeMillis()).apply()
+        val idsByConversation = mutableMapOf<String, MutableSet<String>>()
+        readableDatabase.query(
+            "messages", arrayOf("conversation_id", "message_id"), null, null, null, null, null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val conversationId = cursor.getString(0)
+                val messageId = cursor.getString(1)
+                idsByConversation.getOrPut(conversationId) { mutableSetOf() }.add(messageId)
+            }
+        }
+        val editor = preferences.edit()
+        idsByConversation.forEach { (conversationId, ids) ->
+            val oldIds = preferences.getStringSet("cleared_ids:$conversationId", emptySet()).orEmpty()
+            ids.addAll(oldIds)
+            editor.putStringSet("cleared_ids:$conversationId", ids)
+        }
+        editor.apply()
         mediaDirectory.listFiles()?.forEach { it.deleteRecursively() }
         writableDatabase.delete("messages", null, null)
     }
@@ -175,10 +197,6 @@ class ArushiConnectLocalStore(context: Context) :
     private fun isHidden(conversationId: String, messageId: String, createdAt: Long): Boolean {
         val hiddenIds = preferences.getStringSet("cleared_ids:$conversationId", emptySet()).orEmpty()
         if (messageId in hiddenIds) return true
-        val cutoff = maxOf(
-            preferences.getLong("cleared_before:$conversationId", 0L),
-            preferences.getLong("cleared_all_before", 0L)
-        )
-        return cutoff > 0L && createdAt > 0L && createdAt <= cutoff
+        return false
     }
 }
