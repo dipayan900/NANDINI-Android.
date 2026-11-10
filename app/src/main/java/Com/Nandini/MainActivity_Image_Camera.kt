@@ -57,6 +57,7 @@ import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.ResponseModality
 import com.google.firebase.ai.type.ImagePart
 import com.google.firebase.ai.type.content
+import com.google.firebase.ai.type.Tool
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 
@@ -434,6 +435,12 @@ private val chatStore by lazy { ChatStore(this) }
 private data class ChatMessage(
 val role: String,
 val text: String
+)
+
+private data class AiReplyResult(
+    val text: String,
+    val searchWidgetHtml: String? = null,
+    val sources: List<Pair<String, String>> = emptyList()
 )
 
 private val history = mutableListOf<ChatMessage>()
@@ -1553,7 +1560,7 @@ setAvatarState("thinking")
 scope.launch {
 try {
 var localStreamStarted = false
-val reply = withContext(Dispatchers.IO) {
+val result = withContext(Dispatchers.IO) {
     generateReplyWithRetry(modelPrompt) { chunk ->
         runOnUiThread {
             if (!localStreamStarted) {
@@ -1565,13 +1572,24 @@ val reply = withContext(Dispatchers.IO) {
     }
 }
 
-replyView.text = reply
-    setAvatarEmotionFromText(reply)
-    history.add(ChatMessage("model", reply))    
-    trimHistory()    
-    saveHistory()
-    saveCurrentChat()
-    speakReply(reply)    
+val reply = result.text
+val savedReply = if (result.sources.isEmpty()) reply else {
+    reply + "\n\nSources:\n" + result.sources.joinToString("\n") { (title, url) ->
+        "• ${title.ifBlank { url }} — $url"
+    }
+}
+replyView.text = savedReply
+if (result.sources.isNotEmpty()) {
+    android.text.util.Linkify.addLinks(replyView, android.text.util.Linkify.WEB_URLS)
+    replyView.movementMethod = android.text.method.LinkMovementMethod.getInstance()
+}
+showGroundingDetails(replyView, result.searchWidgetHtml)
+setAvatarEmotionFromText(reply)
+history.add(ChatMessage("model", savedReply))
+trimHistory()
+saveHistory()
+saveCurrentChat()
+speakReply(reply)    
 
 } catch (e: CancellationException) {    
     throw e    
@@ -1819,7 +1837,7 @@ return weatherWords.any { it in text }
 private suspend fun generateReplyWithRetry(
     userText: String,
     onLocalChunk: (String) -> Unit = {}
-): String {
+): AiReplyResult {
     val studioMemoryContext = try {
         val saved = JSONArray(
             getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE)
@@ -1862,9 +1880,10 @@ private suspend fun generateReplyWithRetry(
             localBodies.none { it.equals(body, ignoreCase = true) }
         }
         val localHistory = (relevantLocal + recentLocal).takeLast(MAX_CONTEXT_MESSAGES)
-        return LocalAiRuntime.generateReply(
+        val localAnswer = LocalAiRuntime.generateReply(
             this, systemPrompt, localHistory, userText, onLocalChunk
         )
+        return AiReplyResult(localAnswer)
     }
 
     var lastError: Exception? = null
@@ -1874,7 +1893,8 @@ private suspend fun generateReplyWithRetry(
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(
                     modelName = "gemini-3.8-flash",
-                    systemInstruction = content { text(systemPrompt) }
+                    systemInstruction = content { text(systemPrompt) },
+                    tools = listOf(Tool.googleSearch())
                 )
 
             val contextMessages = olderRelevant + recent
@@ -1887,6 +1907,8 @@ private suspend fun generateReplyWithRetry(
 
             val chat = model.startChat(history = savedHistory)
             val answer = StringBuilder()
+            var searchWidgetHtml: String? = null
+            val sources = linkedMapOf<String, String>()
             chat.sendMessageStream(userText).collect { chunk ->
                 val piece = chunk.text.orEmpty()
                 if (piece.isNotEmpty()) {
@@ -1894,11 +1916,29 @@ private suspend fun generateReplyWithRetry(
                     answer.append(piece)
                     onLocalChunk(piece)
                 }
+                val grounding = chunk.candidates.firstOrNull()?.groundingMetadata
+                if (grounding != null) {
+                    searchWidgetHtml = grounding.searchEntryPoint?.renderedContent ?: searchWidgetHtml
+                    grounding.groundingChunks.orEmpty().forEach { groundedChunk ->
+                        val web = groundedChunk.web
+                        val title = web?.title.orEmpty()
+                        val uri = web?.uri.orEmpty()
+                        if (uri.startsWith("https://") || uri.startsWith("http://")) {
+                            sources[uri] = title.ifBlank { uri }
+                        }
+                    }
+                }
             }
 
-            return answer.toString().trim().ifBlank {
+            val finalText = answer.toString().trim()
+            if (finalText.isBlank()) {
                 throw IllegalStateException("The AI service returned an empty response. Please try again.")
             }
+            return AiReplyResult(
+                text = finalText,
+                searchWidgetHtml = searchWidgetHtml,
+                sources = sources.map { (uri, title) -> title to uri }
+            )
         } catch (e: Exception) {
             lastError = e
             // Retrying after partial output would duplicate text in the chat bubble.
@@ -1909,6 +1949,46 @@ private suspend fun generateReplyWithRetry(
         }
     }
     throw lastError ?: IllegalStateException("AI request failed.")
+}
+
+private fun showGroundingDetails(anchor: TextView, renderedHtml: String?) {
+    if (renderedHtml.isNullOrBlank()) return
+    val row = anchor.parent as? LinearLayout ?: return
+    val searchView = android.webkit.WebView(this).apply {
+        setBackgroundColor(Color.TRANSPARENT)
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = false
+        settings.allowFileAccess = false
+        settings.allowContentAccess = false
+        webViewClient = object : android.webkit.WebViewClient() {
+            override fun shouldOverrideUrlLoading(
+                view: android.webkit.WebView?,
+                request: android.webkit.WebResourceRequest?
+            ): Boolean {
+                val uri = request?.url ?: return true
+                if (uri.scheme == "https" || uri.scheme == "http") {
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+                }
+                return true
+            }
+        }
+        loadDataWithBaseURL(
+            "https://www.google.com/",
+            renderedHtml,
+            "text/html",
+            "UTF-8",
+            null
+        )
+    }
+    row.addView(
+        searchView,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dp(150)
+        ).apply {
+            topMargin = dp(6)
+        }
+    )
 }
 
 private fun isTemporaryServerError(error: Exception): Boolean {
