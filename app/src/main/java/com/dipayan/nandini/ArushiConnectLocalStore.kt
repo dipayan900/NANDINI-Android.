@@ -1,20 +1,24 @@
 package com.dipayan.nandini
 
+import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.dipayan.nandini.ArushiConnectRepository.ChatMessage
+import java.io.File
 
 /**
- * Device-local cache for ARUSHI Connect. The database lives in the app's private
- * data directory and is removed by Android when the app is uninstalled or its data is cleared.
+ * Private on-device store for ARUSHI Connect. No chat rows or downloaded media
+ * are stored in a public/shared directory.
  */
 class ArushiConnectLocalStore(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "arushi_connect_local.db", null, 1) {
+    SQLiteOpenHelper(context.applicationContext, "arushi_connect_local.db", null, 2) {
 
-    private val preferences = context.applicationContext.getSharedPreferences(
+    private val appContext = context.applicationContext
+    private val preferences = appContext.getSharedPreferences(
         "arushi_connect_local_retention", Context.MODE_PRIVATE
     )
+    private val mediaDirectory = File(appContext.filesDir, "connect_media")
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -28,6 +32,7 @@ class ArushiConnectLocalStore(context: Context) :
                 created_at INTEGER NOT NULL,
                 reply_to TEXT NOT NULL,
                 edited INTEGER NOT NULL,
+                media_local_path TEXT NOT NULL DEFAULT '',
                 PRIMARY KEY(conversation_id, message_id)
             )""".trimIndent()
         )
@@ -35,7 +40,9 @@ class ArushiConnectLocalStore(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Version 1 is the initial local cache schema. Future upgrades must preserve chat data.
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE messages ADD COLUMN media_local_path TEXT NOT NULL DEFAULT ''")
+        }
     }
 
     @Synchronized
@@ -43,23 +50,31 @@ class ArushiConnectLocalStore(context: Context) :
         val writable = writableDatabase
         writable.beginTransaction()
         try {
-            messages.filter { it.createdAt > 0L && !isHidden(it.conversationId, it.id, it.createdAt) }
-                .forEach { message ->
-                    val values = android.content.ContentValues().apply {
-                        put("conversation_id", message.conversationId)
-                        put("message_id", message.id)
-                        put("sender_id", message.senderId)
-                        put("body", message.text)
-                        put("message_type", message.type)
-                        put("media_url", message.mediaUrl)
-                        put("created_at", message.createdAt)
-                        put("reply_to", message.replyTo)
-                        put("edited", if (message.edited) 1 else 0)
-                    }
-                    writable.insertWithOnConflict(
-                        "messages", null, values, SQLiteDatabase.CONFLICT_REPLACE
-                    )
+            messages.filter {
+                it.createdAt > 0L && !isHidden(it.conversationId, it.id, it.createdAt)
+            }.forEach { message ->
+                val existingPath = writable.rawQuery(
+                    "SELECT media_local_path FROM messages WHERE conversation_id = ? AND message_id = ?",
+                    arrayOf(message.conversationId, message.id)
+                ).use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else ""
                 }
+                val values = ContentValues().apply {
+                    put("conversation_id", message.conversationId)
+                    put("message_id", message.id)
+                    put("sender_id", message.senderId)
+                    put("body", message.text)
+                    put("message_type", message.type)
+                    put("media_url", message.mediaUrl)
+                    put("created_at", message.createdAt)
+                    put("reply_to", message.replyTo)
+                    put("edited", if (message.edited) 1 else 0)
+                    put("media_local_path", message.localMediaPath.ifBlank { existingPath })
+                }
+                writable.insertWithOnConflict(
+                    "messages", null, values, SQLiteDatabase.CONFLICT_REPLACE
+                )
+            }
             writable.setTransactionSuccessful()
         } finally {
             writable.endTransaction()
@@ -83,7 +98,8 @@ class ArushiConnectLocalStore(context: Context) :
                     mediaUrl = cursor.getString(cursor.getColumnIndexOrThrow("media_url")),
                     createdAt = cursor.getLong(cursor.getColumnIndexOrThrow("created_at")),
                     replyTo = cursor.getString(cursor.getColumnIndexOrThrow("reply_to")),
-                    edited = cursor.getInt(cursor.getColumnIndexOrThrow("edited")) == 1
+                    edited = cursor.getInt(cursor.getColumnIndexOrThrow("edited")) == 1,
+                    localMediaPath = cursor.getString(cursor.getColumnIndexOrThrow("media_local_path"))
                 )
                 if (!isHidden(item.conversationId, item.id, item.createdAt)) result.add(item)
             }
@@ -91,15 +107,36 @@ class ArushiConnectLocalStore(context: Context) :
         return result
     }
 
+    fun mediaFile(conversationId: String, messageId: String): File {
+        if (!mediaDirectory.exists()) mediaDirectory.mkdirs()
+        val safeConversation = conversationId.replace(Regex("[^A-Za-z0-9_-]"), "_")
+        val safeMessage = messageId.replace(Regex("[^A-Za-z0-9_-]"), "_")
+        return File(mediaDirectory, "${safeConversation}_${safeMessage}.bin")
+    }
+
+    @Synchronized
+    fun saveMediaPath(conversationId: String, messageId: String, path: String) {
+        writableDatabase.update(
+            "messages",
+            ContentValues().apply { put("media_local_path", path) },
+            "conversation_id = ? AND message_id = ?",
+            arrayOf(conversationId, messageId)
+        )
+    }
+
     fun visible(conversationId: String, messages: List<ChatMessage>): List<ChatMessage> =
-        messages.filter { it.conversationId == conversationId &&
-            !isHidden(conversationId, it.id, it.createdAt) }
+        messages.filter {
+            it.conversationId == conversationId &&
+                !isHidden(conversationId, it.id, it.createdAt)
+        }
 
     @Synchronized
     fun hideMessageLocally(conversationId: String, messageId: String) {
-        val ids = preferences.getStringSet("cleared_ids:$conversationId", emptySet()).orEmpty().toMutableSet()
+        val ids = preferences.getStringSet("cleared_ids:$conversationId", emptySet())
+            .orEmpty().toMutableSet()
         ids.add(messageId)
         preferences.edit().putStringSet("cleared_ids:$conversationId", ids).apply()
+        deleteMediaForMessage(conversationId, messageId)
         writableDatabase.delete(
             "messages", "conversation_id = ? AND message_id = ?",
             arrayOf(conversationId, messageId)
@@ -113,13 +150,26 @@ class ArushiConnectLocalStore(context: Context) :
             .putLong("cleared_before:$conversationId", System.currentTimeMillis())
             .putStringSet("cleared_ids:$conversationId", ids)
             .apply()
+        deleteMediaForConversation(conversationId)
         writableDatabase.delete("messages", "conversation_id = ?", arrayOf(conversationId))
     }
 
     @Synchronized
     fun clearAllLocalHistory() {
         preferences.edit().putLong("cleared_all_before", System.currentTimeMillis()).apply()
+        mediaDirectory.listFiles()?.forEach { it.deleteRecursively() }
         writableDatabase.delete("messages", null, null)
+    }
+
+    private fun deleteMediaForMessage(conversationId: String, messageId: String) {
+        val file = mediaFile(conversationId, messageId)
+        if (file.exists()) file.delete()
+    }
+
+    private fun deleteMediaForConversation(conversationId: String) {
+        mediaDirectory.listFiles()?.filter {
+            it.name.startsWith(conversationId.replace(Regex("[^A-Za-z0-9_-]"), "_") + "_")
+        }?.forEach { it.deleteRecursively() }
     }
 
     private fun isHidden(conversationId: String, messageId: String, createdAt: Long): Boolean {
