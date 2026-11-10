@@ -270,7 +270,8 @@ class ArushiConnectRepository(
             "edited" to false,
             "createdAt" to FieldValue.serverTimestamp(),
             "deletedFor" to emptyList<String>(),
-            "reactions" to emptyMap<String, String>()
+            "reactions" to emptyMap<String, String>(),
+            "deliveredBy" to listOf(uid)
         ))
         batch.update(conversation, mapOf(
             "lastMessage" to if (caption.isBlank()) mediaType.uppercase() else caption.take(160),
