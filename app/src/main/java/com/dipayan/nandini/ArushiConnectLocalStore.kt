@@ -96,6 +96,17 @@ class ArushiConnectLocalStore(context: Context) :
             !isHidden(conversationId, it.id, it.createdAt) }
 
     @Synchronized
+    fun hideMessageLocally(conversationId: String, messageId: String) {
+        val ids = preferences.getStringSet("cleared_ids:$conversationId", emptySet()).orEmpty().toMutableSet()
+        ids.add(messageId)
+        preferences.edit().putStringSet("cleared_ids:$conversationId", ids).apply()
+        writableDatabase.delete(
+            "messages", "conversation_id = ? AND message_id = ?",
+            arrayOf(conversationId, messageId)
+        )
+    }
+
+    @Synchronized
     fun clearConversation(conversationId: String, knownMessages: List<ChatMessage>) {
         val ids = knownMessages.filter { it.conversationId == conversationId }.map { it.id }.toSet()
         preferences.edit()
