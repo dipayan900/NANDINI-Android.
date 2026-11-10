@@ -40,7 +40,8 @@ class ArushiConnectRepository(
         val createdAt: Long,
         val replyTo: String,
         val edited: Boolean,
-        val localMediaPath: String = ""
+        val localMediaPath: String = "",
+        val deliveredBy: List<String> = emptyList()
     )
 
     init {
@@ -160,7 +161,8 @@ class ArushiConnectRepository(
             "edited" to false,
             "createdAt" to FieldValue.serverTimestamp(),
             "deletedFor" to emptyList<String>(),
-            "reactions" to emptyMap<String, String>()
+            "reactions" to emptyMap<String, String>(),
+            "deliveredBy" to listOf(uid)
         ))
         batch.update(conversation, mapOf(
             "lastMessage" to clean.take(160),
@@ -184,6 +186,63 @@ class ArushiConnectRepository(
         ref.putFile(uri, com.google.firebase.storage.StorageMetadata.Builder()
             .setContentType(mimeType).build()).await()
         return ref.downloadUrl.await().toString()
+    }
+
+    suspend fun acknowledgeMessage(conversationId: String, messageId: String) {
+        val uid = ensureSignedIn()
+        val conversationRef = db.collection("connect_conversations").document(conversationId)
+        val messageRef = conversationRef.collection("messages").document(messageId)
+        db.runTransaction { tx ->
+            val message = tx.get(messageRef)
+            if (message.exists()) {
+                val delivered = (message.get("deliveredBy") as? List<*>)?.filterIsInstance<String>().orEmpty()
+                if (uid !in delivered) {
+                    tx.update(messageRef, "deliveredBy", FieldValue.arrayUnion(uid))
+                }
+            }
+            true
+        }.await()
+
+        // Text is only a delivery queue. Once every member has cached it locally,
+        // remove the server copy. Media waits for the sender to clean up its object.
+        db.runTransaction { tx ->
+            val conversation = tx.get(conversationRef)
+            val message = tx.get(messageRef)
+            if (message.exists() && message.getString("type") == "text") {
+                val members = (conversation.get("members") as? List<*>)?.filterIsInstance<String>().orEmpty()
+                val delivered = (message.get("deliveredBy") as? List<*>)?.filterIsInstance<String>().orEmpty()
+                if (members.isNotEmpty() && members.all { it in delivered }) tx.delete(messageRef)
+            }
+            true
+        }.await()
+    }
+
+    suspend fun cleanupDeliveredMedia(conversationId: String, messageId: String) {
+        val uid = ensureSignedIn()
+        val conversationRef = db.collection("connect_conversations").document(conversationId)
+        val messageRef = conversationRef.collection("messages").document(messageId)
+        val mediaUrl = db.runTransaction { tx ->
+            val conversation = tx.get(conversationRef)
+            val message = tx.get(messageRef)
+            if (!message.exists() || message.getString("senderId") != uid ||
+                message.getString("type") == "text") return@runTransaction ""
+            val members = (conversation.get("members") as? List<*>)?.filterIsInstance<String>().orEmpty()
+            val delivered = (message.get("deliveredBy") as? List<*>)?.filterIsInstance<String>().orEmpty()
+            if (members.isNotEmpty() && members.all { it in delivered }) message.getString("mediaUrl").orEmpty()
+            else ""
+        }.await()
+        if (mediaUrl.isBlank()) return
+        storage.getReferenceFromUrl(mediaUrl).delete().await()
+        db.runTransaction { tx ->
+            val conversation = tx.get(conversationRef)
+            val message = tx.get(messageRef)
+            if (message.exists() && message.getString("senderId") == uid) {
+                val members = (conversation.get("members") as? List<*>)?.filterIsInstance<String>().orEmpty()
+                val delivered = (message.get("deliveredBy") as? List<*>)?.filterIsInstance<String>().orEmpty()
+                if (members.isNotEmpty() && members.all { it in delivered }) tx.delete(messageRef)
+            }
+            true
+        }.await()
     }
 
     suspend fun downloadAttachment(mediaUrl: String, destination: java.io.File) {
@@ -321,7 +380,8 @@ class ArushiConnectRepository(
             mediaUrl = getString("mediaUrl") ?: "",
             createdAt = getTimestamp("createdAt")?.toDate()?.time ?: 0L,
             replyTo = getString("replyTo") ?: "",
-            edited = getBoolean("edited") ?: false
+            edited = getBoolean("edited") ?: false,
+            deliveredBy = (get("deliveredBy") as? List<*>)?.filterIsInstance<String>().orEmpty()
         )
     }
 }
