@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.media.MediaRecorder
@@ -18,11 +19,13 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /** ARUSHI Connect workspace using the existing ARUSHI Experience palette. */
@@ -38,6 +41,7 @@ class ArushiConnectActivity : Activity() {
     private var voiceFile: File? = null
     private var pendingConversation: String? = null
     private var currentChatMessages: List<ArushiConnectRepository.ChatMessage> = emptyList()
+    private val mediaDownloadsInFlight = mutableSetOf<String>()
     private val pickAttachment = 8401
     private val requestAudio = 8402
 
@@ -231,8 +235,8 @@ class ArushiConnectActivity : Activity() {
         messageListener = repo.listenToMessages(conversationId, { items ->
             val visible = localStore.visible(conversationId, items)
             localStore.cache(visible)
-            currentChatMessages = visible
-            renderMessages(messages, visible)
+            currentChatMessages = localStore.readConversation(conversationId)
+            renderMessages(messages, currentChatMessages)
         }, { toast("Could not load messages: ${it.message}") })
     }
 
@@ -247,16 +251,20 @@ class ArushiConnectActivity : Activity() {
         }
         items.forEach { item ->
             val mine = item.senderId == repo.currentUid
+            val mediaReady = item.localMediaPath.isNotBlank() && File(item.localMediaPath).exists()
             val body = when (item.type) {
                 "text" -> item.text
-                "image" -> "▧  Image  ${item.text}"
-                "video" -> "▶  Video  ${item.text}"
-                "audio" -> "♫  Audio / voice note"
-                else -> "▤  ${item.type.uppercase()}  ${item.text}"
+                "image" -> if (mediaReady) "▧  Image  •  TAP TO OPEN" else "▧  Image  •  TAP TO DOWNLOAD"
+                "video" -> if (mediaReady) "▶  Video  •  TAP TO OPEN" else "▶  Video  •  TAP TO DOWNLOAD"
+                "audio" -> if (mediaReady) "♫  Voice note  •  TAP TO PLAY" else "♫  Voice note  •  TAP TO DOWNLOAD"
+                else -> if (mediaReady) "▤  File  •  TAP TO OPEN" else "▤  File  •  TAP TO DOWNLOAD"
             }
             val messageView = label((if (mine) "YOU  " else "THEM  ") + body +
                 if (item.edited) "  (edited)" else "", 14f,
                 if (mine) palette.accentSecondary else palette.text)
+            if (item.type != "text" && item.mediaUrl.isNotBlank()) {
+                messageView.setOnClickListener { downloadOrOpenMedia(item, container) }
+            }
             messageView.setOnLongClickListener {
                 AlertDialog.Builder(this)
                     .setTitle("Delete this message here?")
@@ -270,6 +278,60 @@ class ArushiConnectActivity : Activity() {
                 true
             }
             container.addView(messageView)
+        }
+    }
+
+    private fun downloadOrOpenMedia(
+        message: ArushiConnectRepository.ChatMessage,
+        container: LinearLayout
+    ) {
+        val existing = message.localMediaPath.takeIf { it.isNotBlank() }?.let(::File)
+        if (existing != null && existing.exists()) {
+            openLocalMedia(existing, message.type)
+            return
+        }
+        if (!mediaDownloadsInFlight.add(message.id)) return
+        toast("Downloading media to ARUSHI's private app storage…")
+        scope.launch {
+            val destination = localStore.mediaFile(message.conversationId, message.id)
+            try {
+                withContext(Dispatchers.IO) {
+                    destination.parentFile?.mkdirs()
+                    repo.downloadAttachment(message.mediaUrl, destination)
+                }
+                localStore.saveMediaPath(message.conversationId, message.id, destination.absolutePath)
+                currentChatMessages = localStore.readConversation(message.conversationId)
+                renderMessages(container, currentChatMessages)
+                openLocalMedia(destination, message.type)
+            } catch (e: Exception) {
+                destination.delete()
+                toast(e.message ?: "Could not download this attachment.")
+            } finally {
+                mediaDownloadsInFlight.remove(message.id)
+            }
+        }
+    }
+
+    private fun openLocalMedia(file: File, type: String) {
+        try {
+            val uri = FileProvider.getUriForFile(
+                this, packageName + ".connect.files", file
+            )
+            val mime = when (type) {
+                "image" -> "image/*"
+                "video" -> "video/*"
+                "audio" -> "audio/*"
+                else -> "application/octet-stream"
+            }
+            val view = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mime)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(view)
+        } catch (e: ActivityNotFoundException) {
+            toast("No app is available to open this file.")
+        } catch (e: Exception) {
+            toast(e.message ?: "Could not open this file.")
         }
     }
 
