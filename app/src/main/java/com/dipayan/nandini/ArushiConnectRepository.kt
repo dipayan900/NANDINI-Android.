@@ -74,9 +74,14 @@ class ArushiConnectRepository(
                 "createdAt" to FieldValue.serverTimestamp(),
                 "discoverable" to true
             ), SetOptions.merge())
-            null
+            true
         }.await()
         return Person(uid, normalized, safeName)
+    }
+
+    suspend fun getMyProfile(): Person? {
+        val uid = ensureSignedIn()
+        return db.collection("connect_profiles").document(uid).get().await().toPerson()
     }
 
     suspend fun findByUsername(username: String): Person? {
@@ -105,7 +110,7 @@ class ArushiConnectRepository(
                     "lastMessageAt" to FieldValue.serverTimestamp()
                 ))
             }
-            null
+            true
         }.await()
         return key
     }
