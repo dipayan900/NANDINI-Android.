@@ -39,7 +39,8 @@ class ArushiConnectRepository(
         val mediaUrl: String,
         val createdAt: Long,
         val replyTo: String,
-        val edited: Boolean
+        val edited: Boolean,
+        val localMediaPath: String = ""
     )
 
     init {
@@ -183,6 +184,10 @@ class ArushiConnectRepository(
         ref.putFile(uri, com.google.firebase.storage.StorageMetadata.Builder()
             .setContentType(mimeType).build()).await()
         return ref.downloadUrl.await().toString()
+    }
+
+    suspend fun downloadAttachment(mediaUrl: String, destination: java.io.File) {
+        storage.getReferenceFromUrl(mediaUrl).getFile(destination).await()
     }
 
     suspend fun sendMedia(
