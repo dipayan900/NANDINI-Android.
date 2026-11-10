@@ -54,7 +54,12 @@ service cloud.firestore {
           || (request.resource.data.admins is list
             && request.auth.uid in request.resource.data.admins
             && request.resource.data.name is string));
-      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      // A signed-in user may read a missing deterministic direct-chat ID during
+      // createDirectConversation's transaction; existing chats remain member-only.
+      allow get: if signedIn()
+        && (!exists(/databases/$(database)/documents/connect_conversations/$(conversationId))
+          || request.auth.uid in resource.data.members);
+      allow list: if signedIn() && request.auth.uid in resource.data.members;
       allow update: if signedIn()
         && request.auth.uid in resource.data.members
         && request.resource.data.members == resource.data.members
