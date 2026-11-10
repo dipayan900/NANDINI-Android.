@@ -231,7 +231,8 @@ class ChatStore(context: Context) :
      * Lightweight lexical retrieval over older conversations. Recent context is
      * supplied separately by the caller; these are additional older matches.
      */
-    fun findRelevantMessages(query: String, limit: Int = 6): List<Pair<String, String>> {
+    fun findRelevantMessages(chatId: String, query: String, limit: Int = 6): List<Pair<String, String>> {
+        if (chatId.isBlank() || limit <= 0) return emptyList()
         val terms = Regex("[\\p{L}\\p{N}]{3,}")
             .findAll(query.lowercase())
             .map { it.value }
@@ -243,8 +244,8 @@ class ChatStore(context: Context) :
         data class Candidate(val index: Int, val role: String, val body: String, val score: Int)
         val candidates = mutableListOf<Candidate>()
         readableDatabase.rawQuery(
-            "SELECT id, role, body FROM messages ORDER BY id DESC LIMIT 1200",
-            null
+            "SELECT id, role, body FROM messages WHERE chat_id = ? ORDER BY id DESC LIMIT 1200",
+            arrayOf(chatId)
         ).use { cursor ->
             while (cursor.moveToNext()) {
                 val body = cursor.getString(2)

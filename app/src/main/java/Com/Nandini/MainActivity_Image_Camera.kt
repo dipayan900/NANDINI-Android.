@@ -57,8 +57,10 @@ import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.ResponseModality
 import com.google.firebase.ai.type.ImagePart
 import com.google.firebase.ai.type.content
+import com.google.firebase.ai.type.Tool
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -436,6 +438,12 @@ val role: String,
 val text: String
 )
 
+private data class AiReplyResult(
+    val text: String,
+    val searchWidgetHtml: String? = null,
+    val sources: List<Pair<String, String>> = emptyList()
+)
+
 private val history = mutableListOf<ChatMessage>()
 private data class SavedChat(val id: String, val title: String, val preview: String)
 private val savedChats = mutableListOf<SavedChat>()
@@ -457,7 +465,7 @@ private const val REQUEST_MIC_PERMISSION = 201
 private const val REQUEST_SPEECH = 202
 private const val REQUEST_PICK_FILE = 204
 private const val REQUEST_CAMERA_IMAGE = 205
-private const val MAX_CONTEXT_MESSAGES = 16
+private const val MAX_CONTEXT_MESSAGES = 24
 }
 
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -469,13 +477,17 @@ ArushiExperience.applySystemBars(this)
 
 FirebaseApp.initializeApp(this)    
 
-try {    
-    FirebaseAppCheck.getInstance()    
-        .installAppCheckProviderFactory(    
-            DebugAppCheckProviderFactory.getInstance()    
-        )    
-} catch (e: Exception) {    
-    Log.e("ARUSHI", "App Check setup failed", e)    
+try {
+    val appCheck = FirebaseAppCheck.getInstance()
+    if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+        // Debug builds use the Firebase App Check debug token.
+        appCheck.installAppCheckProviderFactory(DebugAppCheckProviderFactory.getInstance())
+    } else {
+        // Release builds must never ship with the debug attestation provider.
+        appCheck.installAppCheckProviderFactory(PlayIntegrityAppCheckProviderFactory.getInstance())
+    }
+} catch (e: Exception) {
+    Log.e("ARUSHI", "App Check setup failed", e)
 }    
 
 loadAllChats()
@@ -493,7 +505,7 @@ if (history.isEmpty()) {
     addMessage("ARUSHI", "Hey! I'm ARUSHI 💜\nTalk to me in Hindi, English, or Hinglish.")    
 }
 
-if (LocalAiRuntime.isModelReady(this)) {
+if (LocalAiRuntime.isEnabled(this) && LocalAiRuntime.isModelReady(this)) {
     scope.launch(Dispatchers.IO) {
         try {
             LocalAiRuntime.prewarm(this@MainActivity)
@@ -1553,7 +1565,7 @@ setAvatarState("thinking")
 scope.launch {
 try {
 var localStreamStarted = false
-val reply = withContext(Dispatchers.IO) {
+val result = withContext(Dispatchers.IO) {
     generateReplyWithRetry(modelPrompt) { chunk ->
         runOnUiThread {
             if (!localStreamStarted) {
@@ -1565,13 +1577,24 @@ val reply = withContext(Dispatchers.IO) {
     }
 }
 
-replyView.text = reply
-    setAvatarEmotionFromText(reply)
-    history.add(ChatMessage("model", reply))    
-    trimHistory()    
-    saveHistory()
-    saveCurrentChat()
-    speakReply(reply)    
+val reply = result.text
+val savedReply = if (result.sources.isEmpty()) reply else {
+    reply + "\n\nSources:\n" + result.sources.joinToString("\n") { (title, url) ->
+        "• ${title.ifBlank { url }} — $url"
+    }
+}
+replyView.text = savedReply
+if (result.sources.isNotEmpty()) {
+    android.text.util.Linkify.addLinks(replyView, android.text.util.Linkify.WEB_URLS)
+    replyView.movementMethod = android.text.method.LinkMovementMethod.getInstance()
+}
+showGroundingDetails(replyView, result.searchWidgetHtml)
+setAvatarEmotionFromText(reply)
+history.add(ChatMessage("model", savedReply))
+trimHistory()
+saveHistory()
+saveCurrentChat()
+speakReply(reply)    
 
 } catch (e: CancellationException) {    
     throw e    
@@ -1816,102 +1839,161 @@ val weatherWords = listOf(
 return weatherWords.any { it in text }
 }
 
-private suspend fun generateReplyWithRetry(userText: String, onLocalChunk: (String) -> Unit = {}): String {
-if (LocalAiRuntime.isEnabled(this)) {
+private suspend fun generateReplyWithRetry(
+    userText: String,
+    onLocalChunk: (String) -> Unit = {}
+): AiReplyResult {
     val studioMemoryContext = try {
-        val saved = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
-        val notes = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf { value -> value.isNotBlank() } }.takeLast(30)
-        if (notes.isEmpty()) "" else "\n\nUSER-APPROVED ARUSHI STUDIO MEMORIES (use only when relevant):\n" + notes.joinToString("\n") { "- " + it }
-    } catch (_: Exception) { "" }
-
-    val studioModeContext = try {
-        val mode = getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("mode", "Companion") ?: "Companion"
-        when (mode) {
-            "Developer" -> "\n\nACTIVE MODE: DEVELOPER. Prioritise Android/Kotlin debugging, reliable minimal patches, build verification and preserving existing features."
-            "Researcher" -> "\n\nACTIVE MODE: RESEARCHER. Separate verified facts from uncertainty and explain sources and assumptions."
-            "Vision" -> "\n\nACTIVE MODE: VISION. Describe only visible evidence and separate observations from guesses."
-            "Hands-free" -> "\n\nACTIVE MODE: HANDS-FREE. Keep replies concise and easy to hear aloud."
-            else -> "\n\nACTIVE MODE: COMPANION. Be warm, natural and conversational."
+        val saved = JSONArray(
+            getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE)
+                .getString("memory", "[]") ?: "[]"
+        )
+        val notes = (0 until saved.length())
+            .mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf(String::isNotBlank) }
+            .takeLast(30)
+        if (notes.isEmpty()) "" else {
+            "\n\nUSER-APPROVED ARUSHI STUDIO MEMORIES (use only when relevant):\n" +
+                notes.joinToString("\n") { "- $it" }
         }
     } catch (_: Exception) { "" }
 
-    val localSystemInstruction = ArushiExperience.systemInstruction(this) + studioMemoryContext + studioModeContext
+    val studioModeContext = try {
+        when (getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE)
+            .getString("mode", "Companion") ?: "Companion") {
+            "Developer" -> "\n\nACTIVE MODE: DEVELOPER. Give practical, correct coding help. Explain assumptions, diagnose errors from evidence, provide complete patches when asked, and never claim a build or test passed unless it actually did."
+            "Researcher" -> "\n\nACTIVE MODE: RESEARCHER. Distinguish verified facts from uncertainty. For current facts, use available search/grounding tools when configured; never pretend to browse."
+            "Vision" -> "\n\nACTIVE MODE: VISION. Describe visible evidence accurately and separate observations from guesses."
+            "Hands-free" -> "\n\nACTIVE MODE: HANDS-FREE. Keep replies concise and easy to hear aloud."
+            else -> "\n\nACTIVE MODE: COMPANION. Be warm, natural and conversational while answering the actual request."
+        }
+    } catch (_: Exception) { "" }
 
-    val recentLocalHistory = history.takeLast(9).dropLast(1).map { message -> message.role to message.text }
-    val recentBodies = recentLocalHistory.map { it.second }
-    val olderRelevantHistory = chatStore.findRelevantMessages(userText, 6)
+    val systemPrompt = ArushiExperience.systemInstruction(this) +
+        studioMemoryContext + studioModeContext
+
+    // Retrieve relevant older turns only from this conversation, never from another chat.
+    val recent = history.takeLast(MAX_CONTEXT_MESSAGES)
+    val recentBodies = recent.map { it.text }
+    val olderRelevant = chatStore.findRelevantMessages(currentChatId, userText, 6)
         .filter { (_, body) -> recentBodies.none { it.equals(body, ignoreCase = true) } }
-    val localHistory = (olderRelevantHistory + recentLocalHistory).takeLast(MAX_CONTEXT_MESSAGES)
-    return LocalAiRuntime.generateReply(this, localSystemInstruction, localHistory, userText, onLocalChunk)
-}
+        .map { (role, body) -> role to body.takeLast(6000) }
 
-var lastError: Exception? = null
-
-for (attempt in 0..3) {
-try {
-
-val studioMemoryContext = try {
-    val saved = JSONArray(getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("memory", "[]") ?: "[]")
-    val notes = (0 until saved.length()).mapNotNull { saved.optJSONObject(it)?.optString("text")?.takeIf { value -> value.isNotBlank() } }.takeLast(30)
-    if (notes.isEmpty()) "" else "\n\nUSER-APPROVED ARUSHI STUDIO MEMORIES (use only when relevant; these were explicitly saved by the user):\n" + notes.joinToString("\n") { "- " + it }
-} catch (_: Exception) { "" }
-
-val studioModeContext = try {
-    val mode = getSharedPreferences("nandini_studio_v1", Context.MODE_PRIVATE).getString("mode", "Companion") ?: "Companion"
-    when (mode) {
-        "Developer" -> "\n\nACTIVE USER-SELECTED MODE: DEVELOPER. Prioritise Kotlin/Android debugging, minimal safe patches, build verification, and preserving existing functionality. Distinguish confirmed causes from hypotheses."
-        "Researcher" -> "\n\nACTIVE USER-SELECTED MODE: RESEARCHER. Structure answers around evidence, uncertainty, and actionable next steps. Never claim live research unless a tool was actually used."
-        "Vision" -> "\n\nACTIVE USER-SELECTED MODE: VISION. For image-related requests, describe visible evidence accurately and separate observation from inference. Ask for an image if needed."
-        "Hands-free" -> "\n\nACTIVE USER-SELECTED MODE: HANDS-FREE. Keep replies concise and easy to hear aloud. Avoid long lists unless requested."
-        else -> "\n\nACTIVE USER-SELECTED MODE: COMPANION. Be warm and conversational while remaining honest and helpful."
+    if (LocalAiRuntime.isEnabled(this)) {
+        val recentLocal = history.dropLast(1).takeLast(9).map { it.role to it.text }
+        val localBodies = recentLocal.map { it.second }
+        val relevantLocal = olderRelevant.filter { (_, body) ->
+            localBodies.none { it.equals(body, ignoreCase = true) }
+        }
+        val localHistory = (relevantLocal + recentLocal).takeLast(MAX_CONTEXT_MESSAGES)
+        val localAnswer = LocalAiRuntime.generateReply(
+            this, systemPrompt, localHistory, userText, onLocalChunk
+        )
+        return AiReplyResult(localAnswer)
     }
-} catch (_: Exception) { "" }
 
-val model = Firebase.ai(
-        backend = GenerativeBackend.googleAI()
-                ).generativeModel(
-        modelName = "gemini-3.8-flash",
-       systemInstruction = content {    
-   text(ArushiExperience.systemInstruction(this@MainActivity) + studioMemoryContext + studioModeContext)
+    var lastError: Exception? = null
+    for (attempt in 0..3) {
+        var emittedAnyChunk = false
+        try {
+            val model = Firebase.ai(backend = GenerativeBackend.googleAI())
+                .generativeModel(
+                    modelName = "gemini-3.8-flash",
+                    systemInstruction = content { text(systemPrompt) },
+                    tools = listOf(Tool.googleSearch())
+                )
 
+            val contextMessages = olderRelevant.map { (role, body) -> ChatMessage(role, body) } + recent
+            val savedHistory = contextMessages
+                .dropLast(1)
+                .filter { it.text.isNotBlank() }
+                .map { message ->
+                    content(role = message.role) { text(message.text) }
+                }
+
+            val chat = model.startChat(history = savedHistory)
+            val answer = StringBuilder()
+            var searchWidgetHtml: String? = null
+            val sources = linkedMapOf<String, String>()
+            chat.sendMessageStream(userText).collect { chunk ->
+                val piece = chunk.text.orEmpty()
+                if (piece.isNotEmpty()) {
+                    emittedAnyChunk = true
+                    answer.append(piece)
+                    onLocalChunk(piece)
+                }
+                val grounding = chunk.candidates.firstOrNull()?.groundingMetadata
+                if (grounding != null) {
+                    searchWidgetHtml = grounding.searchEntryPoint?.renderedContent ?: searchWidgetHtml
+                    grounding.groundingChunks.orEmpty().forEach { groundedChunk ->
+                        val web = groundedChunk.web
+                        val title = web?.title.orEmpty()
+                        val uri = web?.uri.orEmpty()
+                        if (uri.startsWith("https://") || uri.startsWith("http://")) {
+                            sources[uri] = title.ifBlank { uri }
+                        }
+                    }
+                }
+            }
+
+            val finalText = answer.toString().trim()
+            if (finalText.isBlank()) {
+                throw IllegalStateException("The AI service returned an empty response. Please try again.")
+            }
+            return AiReplyResult(
+                text = finalText,
+                searchWidgetHtml = searchWidgetHtml,
+                sources = sources.map { (uri, title) -> title to uri }
+            )
+        } catch (e: Exception) {
+            lastError = e
+            // Retrying after partial output would duplicate text in the chat bubble.
+            if (emittedAnyChunk || !isTemporaryServerError(e) || attempt == 3) {
+                throw e
+            }
+            delay(1000L * (1L shl attempt))
+        }
+    }
+    throw lastError ?: IllegalStateException("AI request failed.")
 }
 
-)
-
-val recent = history.takeLast(MAX_CONTEXT_MESSAGES)
-val savedHistory = recent.dropLast(1).map { message ->
-
-val role = message.role    
-            val savedText = message.text    
-            content(role = role) {    
-                text(savedText)    
-            }    
-        }    
-
-        val chat = model.startChat(history = savedHistory)    
-        val response = chat.sendMessage(    
-            recent.lastOrNull { it.role == "user" }?.text    
-                ?: throw IllegalStateException("No user message to send.")    
-        )    
-
-        return response.text    
-            ?.trim()    
-            ?.takeIf { it.isNotEmpty() }    
-            ?: "I couldn't generate a reply. Please try again."    
-
-    } catch (e: Exception) {    
-        lastError = e    
-
-        if (!isTemporaryServerError(e) || attempt == 3) {    
-            throw e    
-        }    
-
-        delay(1000L * (1L shl attempt))    
-    }    
-}    
-
-throw lastError ?: IllegalStateException("AI request failed.")
-
+private fun showGroundingDetails(anchor: TextView, renderedHtml: String?) {
+    if (renderedHtml.isNullOrBlank()) return
+    val row = anchor.parent as? LinearLayout ?: return
+    val searchView = android.webkit.WebView(this).apply {
+        setBackgroundColor(Color.TRANSPARENT)
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = false
+        settings.allowFileAccess = false
+        settings.allowContentAccess = false
+        webViewClient = object : android.webkit.WebViewClient() {
+            override fun shouldOverrideUrlLoading(
+                view: android.webkit.WebView?,
+                request: android.webkit.WebResourceRequest?
+            ): Boolean {
+                val uri = request?.url ?: return true
+                if (uri.scheme == "https" || uri.scheme == "http") {
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+                }
+                return true
+            }
+        }
+        loadDataWithBaseURL(
+            "https://www.google.com/",
+            renderedHtml,
+            "text/html",
+            "UTF-8",
+            null
+        )
+    }
+    row.addView(
+        searchView,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dp(150)
+        ).apply {
+            topMargin = dp(6)
+        }
+    )
 }
 
 private fun isTemporaryServerError(error: Exception): Boolean {

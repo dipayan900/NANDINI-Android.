@@ -1,6 +1,7 @@
 package com.dipayan.nandini
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
@@ -11,21 +12,21 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 
-/** One place to control ARUSHI's app-wide appearance and companion speaking style. */
+/** One place to control ARUSHI's appearance, AI engine, conversation style and voice. */
 class ArushiExperienceSettingsActivity : Activity() {
     private lateinit var root: LinearLayout
     private var selectedAppearance = "system"
     private var selectedPersonality = "playful"
     private var expressiveVoice = true
+    private var useLocalAi = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ArushiExperience.applyActivityTheme(this)
         super.onCreate(savedInstanceState)
-        val savedAppearance = ArushiExperience.appearance(this)
-        val savedPersonality = ArushiExperience.personality(this)
-        selectedAppearance = savedAppearance
-        selectedPersonality = savedPersonality
+        selectedAppearance = ArushiExperience.appearance(this)
+        selectedPersonality = ArushiExperience.personality(this)
         expressiveVoice = ArushiExperience.expressiveVoice(this)
+        useLocalAi = LocalAiRuntime.isEnabled(this)
         render()
     }
 
@@ -40,17 +41,36 @@ class ArushiExperienceSettingsActivity : Activity() {
         }
         scroll.addView(root)
         root.addView(label("ARUSHI EXPERIENCE", 24f, p.accent, true))
-        root.addView(label("APP-WIDE APPEARANCE  •  TEXT PERSONALITY  •  VOICE", 10f, p.accentSecondary))
+        root.addView(label("APPEARANCE  •  AI ENGINE  •  PERSONALITY  •  VOICE", 10f, p.accentSecondary))
+
         root.addView(label("Appearance", 17f, p.text, true), params(-1, -2, 0, 18, 0, 4))
         root.addView(label("Choose how ARUSHI's screens should look. System follows your phone's light/dark setting.", 13f, p.muted))
         option("System default", "system", selectedAppearance == "system")
         option("Light", "light", selectedAppearance == "light")
         option("Dark", "dark", selectedAppearance == "dark")
 
+        root.addView(label("AI engine", 17f, p.text, true), params(-1, -2, 0, 22, 0, 4))
+        root.addView(label(
+            "Cloud AI is recommended for stronger reasoning, coding help and general questions. It needs internet. Offline AI runs on your phone but uses a compact model with more limited answers.",
+            13f, p.muted
+        ))
+        engineOption("Cloud AI • recommended", false, !useLocalAi)
+        engineOption("On-device AI • offline", true, useLocalAi)
+        root.addView(label(
+            if (LocalAiRuntime.isModelReady(this)) "Offline model is installed. You can switch engines here at any time."
+            else "Offline model is not installed. Download it only if you need on-device chat.",
+            12f, p.muted
+        ))
+        if (!LocalAiRuntime.isModelReady(this)) {
+            root.addView(action("DOWNLOAD OFFLINE MODEL", p) {
+                startActivity(Intent(this, LocalAiSetupActivity::class.java))
+            }, params(-1, dp(44), 0, 8, 0, 0))
+        }
+
         root.addView(label("Conversation personality", 17f, p.text, true), params(-1, -2, 0, 22, 0, 4))
         root.addView(label("The selected style affects both cloud and on-device AI instructions.", 13f, p.muted))
         optionPersonality("Playful companion", "playful", selectedPersonality == "playful",
-            "Cheeky, witty, confident, charming and gently teasing when it fits — always respectful and platonic.")
+            "Cheeky, witty, confident and gently teasing when it fits — always respectful and platonic.")
         optionPersonality("Calm companion", "balanced", selectedPersonality == "balanced",
             "Warm, thoughtful, clear and supportive, with lighter humour.")
 
@@ -66,13 +86,31 @@ class ArushiExperienceSettingsActivity : Activity() {
         ))
 
         root.addView(action("SAVE EXPERIENCE SETTINGS", p, true) {
-            ArushiExperience.save(this, selectedAppearance, selectedPersonality, expressiveVoice)
-            Toast.makeText(this, "ARUSHI experience settings saved.", Toast.LENGTH_SHORT).show()
-            setResult(RESULT_OK)
-            finish()
+            try {
+                LocalAiRuntime.setLocalModelSelected(this, useLocalAi)
+                ArushiExperience.save(this, selectedAppearance, selectedPersonality, expressiveVoice)
+                Toast.makeText(this, "ARUSHI experience settings saved.", Toast.LENGTH_SHORT).show()
+                setResult(RESULT_OK)
+                finish()
+            } catch (e: Exception) {
+                Toast.makeText(this, e.message ?: "Couldn't save AI settings.", Toast.LENGTH_LONG).show()
+            }
         }, params(-1, dp(52), 0, 22, 0, 8))
         root.addView(action("BACK", p) { finish() }, params(-1, dp(48), 0, 0, 0, 0))
         setContentView(scroll)
+    }
+
+    private fun engineOption(title: String, local: Boolean, selected: Boolean) {
+        val p = ArushiExperience.palette(this)
+        root.addView(action((if (selected) "●  " else "○  ") + title, p) {
+            if (local && !LocalAiRuntime.isModelReady(this)) {
+                Toast.makeText(this, "Download the offline model first. Cloud AI remains available.", Toast.LENGTH_LONG).show()
+                startActivity(Intent(this, LocalAiSetupActivity::class.java))
+                return@action
+            }
+            useLocalAi = local
+            render()
+        }, params(-1, dp(46), 0, 5, 0, 0))
     }
 
     private fun option(title: String, value: String, selected: Boolean) {

@@ -54,9 +54,21 @@ object LocalAiRuntime {
     fun modelFile(context: Context): File =
         File(File(context.filesDir, "local_models"), MODEL_NAME)
 
-    fun isEnabled(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean("enabled", false)
+    /** Cloud AI is the default. The small offline model is used only when explicitly selected. */
+    fun isEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getBoolean("use_local_model", false) &&
+            prefs.getBoolean("enabled", false) && isModelReady(context)
+    }
+
+    fun setLocalModelSelected(context: Context, selected: Boolean) {
+        check(!selected || isModelReady(context)) {
+            "Download the on-device model before selecting offline AI."
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean("use_local_model", selected)
+            .apply()
+    }
 
     fun isModelReady(context: Context): Boolean {
         val file = modelFile(context)

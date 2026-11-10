@@ -15,6 +15,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -36,8 +37,12 @@ class ArushiImageStudioActivity : Activity() {
     private lateinit var preview: ImageView
     private lateinit var generateButton: Button
     private lateinit var historyText: TextView
+    private lateinit var studioScroll: ScrollView
+    private lateinit var progressPanel: LinearLayout
+    private lateinit var progressIndicator: ProgressBar
+    private lateinit var progressText: TextView
     private var sourceImage: Bitmap? = null
-    private var busy = false
+    @Volatile private var busy = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ArushiExperience.applyActivityTheme(this)
@@ -59,10 +64,10 @@ class ArushiImageStudioActivity : Activity() {
             gravity = Gravity.CENTER; setTextColor(cyan)
         }, LinearLayout.LayoutParams(-1, dp(26)))
 
-        val scroll = ScrollView(this)
+        studioScroll = ScrollView(this)
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll.addView(content)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        studioScroll.addView(content)
+        root.addView(studioScroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
         status = text("Checking LocalDream connection…", 12f, cyan)
         content.addView(status, margin(-1, -2, 0, 8, 0, 8))
@@ -86,6 +91,7 @@ class ArushiImageStudioActivity : Activity() {
         content.addView(actionButton("CHOOSE IMAGE TO EDIT") { chooseImage() }, margin(-1, dp(46), 0, 0, 0, 8))
         content.addView(actionButton("REMOVE SELECTED IMAGE") {
             sourceImage = null
+            preview.setImageDrawable(null)
             status.text = "Text-to-image mode selected."
         }, margin(-1, dp(42), 0, 0, 0, 8))
 
@@ -94,6 +100,21 @@ class ArushiImageStudioActivity : Activity() {
             setBackgroundColor(panel); contentDescription = "ARUSHI generated image preview"
         }
         content.addView(preview, margin(-1, dp(280), 0, 6, 0, 10))
+
+        progressPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            visibility = View.GONE
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = rounded(panel, cyan)
+        }
+        progressIndicator = ProgressBar(this).apply { isIndeterminate = true }
+        progressPanel.addView(progressIndicator, LinearLayout.LayoutParams(dp(28), dp(28)))
+        progressText = text("Preparing image generation…", 13f, cyan, true)
+        progressPanel.addView(progressText, LinearLayout.LayoutParams(0, -2, 1f).apply {
+            marginStart = dp(12)
+        })
+        content.addView(progressPanel, margin(-1, -2, 0, 0, 0, 10))
 
         generateButton = actionButton("GENERATE IMAGE") { generate() }
         content.addView(generateButton, margin(-1, dp(52), 0, 0, 0, 12))
@@ -118,34 +139,68 @@ class ArushiImageStudioActivity : Activity() {
         appliedAppearanceKey = key
     }
 
+    private fun showProgress(message: String, showSpinner: Boolean = true) {
+        progressPanel.visibility = View.VISIBLE
+        progressText.text = message
+        progressIndicator.visibility = if (showSpinner) View.VISIBLE else View.GONE
+        studioScroll.post {
+            studioScroll.smoothScrollTo(0, (progressPanel.top - dp(18)).coerceAtLeast(0))
+        }
+    }
+
     private fun generate() {
-        if (busy) return
+        if (busy) {
+            Toast.makeText(this, "Image generation is already running.", Toast.LENGTH_SHORT).show()
+            return
+        }
         val requestPrompt = prompt.text.toString().trim()
         if (requestPrompt.isBlank()) {
             prompt.error = "Enter a prompt first."
+            prompt.requestFocus()
             return
         }
+
+        val selectedModel = LocalDreamModelStore.selectedModelId(this)
+        if (selectedModel == null) {
+            showProgress("No model selected. Open MANAGE MODELS and select a compatible SD 1.5 MNN model.", false)
+            status.text = "Image generation needs a compatible model selected in Model Manager."
+            Toast.makeText(this, "Select a compatible model in MANAGE MODELS first.", Toast.LENGTH_LONG).show()
+            return
+        }
+
         busy = true
         generateButton.isEnabled = false
-        status.text = "Starting ARUSHI embedded image engine…"
+        generateButton.text = "GENERATING…"
+        showProgress("Starting the image engine and loading '$selectedModel'. First launch can take a little while.")
+        status.text = "● GENERATING IMAGE — KEEP ARUSHI OPEN"
+
         thread(name = "arushi-localdream-generation") {
             try {
                 val result = LocalDreamImageClient.generate(this@ArushiImageStudioActivity, requestPrompt, sourceImage)
                 val name = saveImage(result)
                 runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
                     preview.setImageBitmap(result)
                     status.text = "✓ Generated and saved on this phone: $name"
+                    showProgress("✓ Image generated successfully and saved to local history.", false)
                     addHistory(name)
                     Toast.makeText(this, "Image saved to ARUSHI local history.", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
+                android.util.Log.e("ARUSHI_IMAGE_STUDIO", "Image generation failed", e)
                 runOnUiThread {
-                    status.text = "Generation failed: ${e.message ?: "Unknown LocalDream error"}"
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    val detail = e.message ?: "Unknown LocalDream error"
+                    status.text = "Generation failed: $detail"
+                    showProgress("Generation failed: $detail", false)
+                    Toast.makeText(this, "Image generation failed. See the message on screen.", Toast.LENGTH_LONG).show()
                 }
             } finally {
                 runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
                     busy = false
                     generateButton.isEnabled = true
+                    generateButton.text = "GENERATE IMAGE"
                 }
             }
         }
@@ -165,7 +220,11 @@ class ArushiImageStudioActivity : Activity() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE); type = "image/*"
         }
-        startActivityForResult(intent, 4107)
+        try {
+            startActivityForResult(intent, 4107)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Couldn't open the image picker: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     @Deprecated("Deprecated by Android but retained for API 26 compatibility")
@@ -173,9 +232,23 @@ class ArushiImageStudioActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 4107 && resultCode == RESULT_OK) {
             val uri: Uri = data?.data ?: return
-            sourceImage = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
-            preview.setImageBitmap(sourceImage)
-            status.text = if (sourceImage != null) "Source image selected. Editing requires img2img support in the loaded LocalDream backend." else "Could not read selected image."
+            try {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                    ?: throw IllegalStateException("Couldn't open the selected image.")
+                var sample = 1
+                while (bounds.outWidth / sample > 1280 || bounds.outHeight / sample > 1280) sample *= 2
+                sourceImage = contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+                } ?: throw IllegalStateException("Couldn't decode the selected image.")
+                preview.setImageBitmap(sourceImage)
+                status.text = "Source image selected. Add an edit prompt and tap GENERATE IMAGE."
+                Toast.makeText(this, "Image attached to Image Studio.", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                sourceImage = null
+                status.text = "Couldn't load selected image: ${e.message ?: "Unsupported image"}"
+                Toast.makeText(this, "Couldn't load that image.", Toast.LENGTH_LONG).show()
+            }
         }
     }
 

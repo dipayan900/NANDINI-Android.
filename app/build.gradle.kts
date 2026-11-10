@@ -60,5 +60,6 @@ dependencies {
     implementation("io.github.webrtc-sdk:android:125.6422.07")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
     debugImplementation("com.google.firebase:firebase-appcheck-debug")
 }
