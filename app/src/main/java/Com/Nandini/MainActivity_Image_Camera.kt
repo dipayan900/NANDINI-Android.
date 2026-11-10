@@ -60,6 +60,7 @@ import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.Tool
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -476,13 +477,17 @@ ArushiExperience.applySystemBars(this)
 
 FirebaseApp.initializeApp(this)    
 
-try {    
-    FirebaseAppCheck.getInstance()    
-        .installAppCheckProviderFactory(    
-            DebugAppCheckProviderFactory.getInstance()    
-        )    
-} catch (e: Exception) {    
-    Log.e("ARUSHI", "App Check setup failed", e)    
+try {
+    val appCheck = FirebaseAppCheck.getInstance()
+    if (BuildConfig.DEBUG) {
+        // Debug builds use the Firebase App Check debug token.
+        appCheck.installAppCheckProviderFactory(DebugAppCheckProviderFactory.getInstance())
+    } else {
+        // Release builds must never ship with the debug attestation provider.
+        appCheck.installAppCheckProviderFactory(PlayIntegrityAppCheckProviderFactory.getInstance())
+    }
+} catch (e: Exception) {
+    Log.e("ARUSHI", "App Check setup failed", e)
 }    
 
 loadAllChats()
