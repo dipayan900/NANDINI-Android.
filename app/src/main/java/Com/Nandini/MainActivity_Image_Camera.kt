@@ -1897,7 +1897,7 @@ private suspend fun generateReplyWithRetry(
                     tools = listOf(Tool.googleSearch())
                 )
 
-            val contextMessages = olderRelevant + recent
+            val contextMessages = olderRelevant.map { (role, body) -> ChatMessage(role, body) } + recent
             val savedHistory = contextMessages
                 .dropLast(1)
                 .filter { it.text.isNotBlank() }
