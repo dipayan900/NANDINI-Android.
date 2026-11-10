@@ -106,6 +106,7 @@
                 <data android:scheme="tel" />
             </intent-filter>
         </activity>
+        <activity android:name=".ArushiConnectActivity" android:exported="false" android:label="ARUSHI Connect" android:theme="@style/NandiniTheme" />
         <activity android:name=".ArushiVoipActivity" android:exported="false" android:label="ARUSHI Internet Voice Call" android:theme="@style/NandiniTheme" />
         <service
             android:name=".ArushiInCallService"
