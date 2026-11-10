@@ -206,7 +206,6 @@ class ArushiLauncherActivity : Activity() {
             "connect" -> Intent(this, ArushiConnectActivity::class.java)
             "phone" -> Intent(Intent.ACTION_DIAL)
             "call" -> Intent(this, ArushiCallAssistantActivity::class.java)
-            "connect" -> Intent(this, ArushiConnectActivity::class.java)
             "hologram" -> Intent(this, HologramStudioActivity::class.java)
             "trains" -> Intent(this, TrainTrackerActivity::class.java)
             "sms" -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
