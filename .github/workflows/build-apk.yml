@@ -14,7 +14,6 @@ on:
       - feature/arushi-embedded-localdream-engine
       - fix/arushi-chat-personality-loop
       - feature/arushi-connect
-      - feature/arushi-connect
 
 permissions:
   contents: read
