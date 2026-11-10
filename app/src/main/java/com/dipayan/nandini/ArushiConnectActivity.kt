@@ -237,6 +237,27 @@ class ArushiConnectActivity : Activity() {
             localStore.cache(visible)
             currentChatMessages = localStore.readConversation(conversationId)
             renderMessages(messages, currentChatMessages)
+            visible.forEach { item ->
+                if (item.senderId == repo.currentUid) {
+                    if (item.type != "text" && item.deliveredBy.size >= 2) {
+                        scope.launch {
+                            runCatching { repo.cleanupDeliveredMedia(conversationId, item.id) }
+                        }
+                    }
+                } else if (item.type == "text") {
+                    scope.launch {
+                        runCatching { repo.acknowledgeMessage(conversationId, item.id) }
+                    }
+                } else {
+                    val cached = currentChatMessages.firstOrNull { it.id == item.id }
+                    val localFile = cached?.localMediaPath?.takeIf { it.isNotBlank() }?.let(::File)
+                    if (localFile != null && localFile.exists()) {
+                        scope.launch {
+                            runCatching { repo.acknowledgeMessage(conversationId, item.id) }
+                        }
+                    }
+                }
+            }
         }, { toast("Could not load messages: ${it.message}") })
     }
 
@@ -302,6 +323,7 @@ class ArushiConnectActivity : Activity() {
                 localStore.saveMediaPath(message.conversationId, message.id, destination.absolutePath)
                 currentChatMessages = localStore.readConversation(message.conversationId)
                 renderMessages(container, currentChatMessages)
+                repo.acknowledgeMessage(message.conversationId, message.id)
                 openLocalMedia(destination, message.type)
             } catch (e: Exception) {
                 destination.delete()
