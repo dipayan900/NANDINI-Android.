@@ -12,6 +12,7 @@ on:
       - feature/arushi-final-mainline
       - feature/arushi-localdream-image-studio
       - feature/arushi-embedded-localdream-engine
+      - fix/arushi-image-generation-feedback
 
 permissions:
   contents: read
