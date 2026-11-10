@@ -144,7 +144,7 @@ class ArushiConnectRepository(
         return ref.id
     }
 
-    suspend fun sendText(conversationId: String, text: String, replyTo: String = "") {
+    suspend fun sendText(conversationId: String, text: String, replyTo: String = ""): ChatMessage {
         val clean = text.trim()
         require(clean.isNotBlank() && clean.length <= 10000) { "Message is empty or too long." }
         val uid = ensureSignedIn()
@@ -170,6 +170,18 @@ class ArushiConnectRepository(
             "lastSenderId" to uid
         ))
         batch.commit().await()
+        return ChatMessage(
+            id = message.id,
+            conversationId = conversationId,
+            senderId = uid,
+            text = clean,
+            type = "text",
+            mediaUrl = "",
+            createdAt = System.currentTimeMillis(),
+            replyTo = replyTo,
+            edited = false,
+            deliveredBy = listOf(uid)
+        )
     }
 
     suspend fun uploadAttachment(
@@ -254,7 +266,7 @@ class ArushiConnectRepository(
         mediaUrl: String,
         mediaType: String,
         caption: String = ""
-    ) {
+    ): ChatMessage {
         require(mediaType in setOf("image", "video", "audio", "document"))
         val uid = ensureSignedIn()
         val conversation = db.collection("connect_conversations").document(conversationId)
@@ -279,6 +291,18 @@ class ArushiConnectRepository(
             "lastSenderId" to uid
         ))
         batch.commit().await()
+        return ChatMessage(
+            id = message.id,
+            conversationId = conversationId,
+            senderId = uid,
+            text = caption.trim().take(2000),
+            type = mediaType,
+            mediaUrl = mediaUrl,
+            createdAt = System.currentTimeMillis(),
+            replyTo = "",
+            edited = false,
+            deliveredBy = listOf(uid)
+        )
     }
 
     suspend fun editMessage(conversationId: String, messageId: String, newText: String) {
