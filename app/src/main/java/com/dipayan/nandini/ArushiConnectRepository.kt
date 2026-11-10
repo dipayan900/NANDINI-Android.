@@ -42,6 +42,14 @@ class ArushiConnectRepository(
         val edited: Boolean
     )
 
+    init {
+        // SQLite is the sole persistent local chat store. Disable Firestore's own
+        // disk cache so clearing ARUSHI chat history actually clears the local copy.
+        db.firestoreSettings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
+            .setPersistenceEnabled(false)
+            .build()
+    }
+
     val currentUid: String? get() = auth.currentUser?.uid
 
     suspend fun ensureSignedIn(): String {
