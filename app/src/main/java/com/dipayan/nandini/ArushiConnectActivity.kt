@@ -55,8 +55,19 @@ class ArushiConnectActivity : Activity() {
         scope.launch {
             try {
                 repo.ensureSignedIn()
+                com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                    .addOnSuccessListener { token ->
+                        ArushiConnectPushRegistration.register(this@ArushiConnectActivity, token)
+                    }
+                if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 8403)
+                }
                 val profile = repo.getMyProfile()
-                if (profile == null) showOnboarding() else showHome(profile.username)
+                val targetConversation = intent.getStringExtra("conversation_id")
+                if (profile == null) showOnboarding()
+                else if (!targetConversation.isNullOrBlank()) openChat(targetConversation)
+                else showHome(profile.username)
             } catch (e: Exception) {
                 showError("ARUSHI Connect could not start: ${e.message ?: "Check your connection."}")
             }
