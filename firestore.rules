@@ -36,6 +36,18 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['discoverable', 'readReceipts', 'lastSeenVisible', 'privacyUpdatedAt']);
       allow delete: if signedIn() && request.auth.uid == uid;
+
+      // FCM tokens are private to the owning profile. Cloud Functions use Admin SDK.
+      match /devices/{deviceId} {
+        allow get, list: if signedIn() && request.auth.uid == uid;
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['token', 'platform', 'updatedAt'])
+          && request.resource.data.token is string
+          && request.resource.data.token.size() > 0
+          && request.resource.data.platform == 'android';
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
     }
 
     match /connect_conversations/{conversationId} {
