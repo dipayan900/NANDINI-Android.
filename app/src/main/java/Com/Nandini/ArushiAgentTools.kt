@@ -95,6 +95,57 @@ internal object ArushiAgentTools {
                 }
             )
         }
+        if ("github.file.read" !in installed) {
+            ArushiAgentRuntime.register(
+                ArushiAgentRuntime.Tool(
+                    name = "github.file.read",
+                    description = "Read a file from the GitHub repository and selected working branch configured in ARUSHI Developer Tools",
+                    requiresApproval = true
+                ) { app, args ->
+                    val path = args.optString("path").trim()
+                    require(path.isNotBlank()) { "Repository file path is required." }
+                    val content = kotlinx.coroutines.runBlocking { ArushiGitHubClient.readFile(app, path) }
+                    JSONObject().put("path", path).put("content", content)
+                }
+            )
+        }
+        if ("github.file.write" !in installed) {
+            ArushiAgentRuntime.register(
+                ArushiAgentRuntime.Tool(
+                    name = "github.file.write",
+                    description = "Create or update a file on the selected non-main GitHub working branch. Requires explicit approval.",
+                    requiresApproval = true
+                ) { app, args ->
+                    val path = args.optString("path").trim()
+                    val content = args.optString("content")
+                    val message = args.optString("commitMessage").ifBlank { "ARUSHI approved repository update" }
+                    val result = kotlinx.coroutines.runBlocking {
+                        ArushiGitHubClient.writeFile(app, path, content, message)
+                    }
+                    JSONObject()
+                        .put("contentUrl", result.optString("content").let { result.optJSONObject("content")?.optString("html_url").orEmpty() })
+                        .put("commitSha", result.optJSONObject("commit")?.optString("sha").orEmpty())
+                        .put("branch", ArushiGitHubClient.branch(app))
+                }
+            )
+        }
+        if ("github.workflow.dispatch" !in installed) {
+            ArushiAgentRuntime.register(
+                ArushiAgentRuntime.Tool(
+                    name = "github.workflow.dispatch",
+                    description = "Dispatch a GitHub Actions workflow on the selected non-main working branch. Requires explicit approval.",
+                    requiresApproval = true
+                ) { app, args ->
+                    val workflow = args.optString("workflow").trim()
+                    val inputs = args.optJSONObject("inputs") ?: JSONObject()
+                    val result = kotlinx.coroutines.runBlocking {
+                        ArushiGitHubClient.dispatchWorkflow(app, workflow, inputs)
+                    }
+                    JSONObject().put("success", true).put("workflow", workflow)
+                        .put("branch", ArushiGitHubClient.branch(app))
+                }
+            )
+        }
         if ("device.open_url" !in installed) {
             ArushiAgentRuntime.register(
                 ArushiAgentRuntime.Tool(
