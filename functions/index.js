@@ -91,7 +91,7 @@ function decryptSocialToken(value, secret) {
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
 }
 function callbackUri(req) {
-  return `https://${req.get("host")}/socialApi?action=callback`;
+  return `https://${req.get("host")}/socialApi`;
 }
 async function requireSocialUser(req) {
   const header = req.get("authorization") || "";
@@ -112,7 +112,7 @@ exports.socialApi = onRequest({
   memory: "256MiB"
 }, async (req, res) => {
   const db = getFirestore();
-  const action = String(req.query.action || "");
+  const action = String(req.query.action || ((req.query.code || req.query.error) && req.query.state ? "callback" : ""));
   try {
     if (action === "start") {
       const uid = await requireSocialUser(req);
@@ -195,7 +195,7 @@ exports.socialApi = onRequest({
         const profile = await socialJson(
           `https://graph.instagram.com/me?fields=user_id,username,account_type,media_count&access_token=${encodeURIComponent(tokenData.access_token)}`
         );
-        account = { name: profile.username || "Instagram professional account", userId: profile.user_id, accountType: profile.account_type, mediaCount: Number(profile.media_count || 0) };
+        account = { name: profile.username || "Instagram professional account", userId: profile.id, accountType: profile.account_type, mediaCount: Number(profile.media_count || 0) };
       }
       await db.collection("social_accounts").doc(`${uid}_${provider}`).set({
         uid, provider, account,
@@ -239,6 +239,15 @@ exports.socialApi = onRequest({
           await ref.update({
             token: encryptSocialToken(accessToken, SOCIAL_ENCRYPTION_KEY.value()),
             expiresAt: Date.now() + Number(fresh.expires_in || 3600) * 1000
+          });
+        } else if (provider === "instagram" && data.expiresAt < Date.now() + 7 * 24 * 60 * 60 * 1000) {
+          const refreshed = await socialJson(
+            `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${encodeURIComponent(accessToken)}`
+          );
+          accessToken = refreshed.access_token;
+          await ref.update({
+            token: encryptSocialToken(accessToken, SOCIAL_ENCRYPTION_KEY.value()),
+            expiresAt: Date.now() + Number(refreshed.expires_in || 5_184_000) * 1000
           });
         }
         let metrics = {};
