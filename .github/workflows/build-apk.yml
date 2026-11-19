@@ -34,6 +34,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate Firebase Functions JavaScript syntax
+        run: node --check functions/index.js
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
