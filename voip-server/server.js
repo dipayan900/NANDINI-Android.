@@ -59,12 +59,31 @@ function remove(ws) {
   }
   ws.room = null;
 }
-async function canJoinConversation(uid, conversationId) {
-  if (!/^[A-Za-z0-9_-]{4,128}$/.test(conversationId)) return false;
+async function getConversationMembers(conversationId) {
+  if (!/^[A-Za-z0-9_-]{4,128}$/.test(conversationId)) return null;
   const doc = await admin.firestore().collection("connect_conversations").doc(conversationId).get();
-  if (!doc.exists) return false;
+  if (!doc.exists) return null;
   const members = doc.get("members");
-  return Array.isArray(members) && members.includes(uid);
+  return Array.isArray(members) ? members : null;
+}
+async function sendCallInvite(conversationId, callerUid, members) {
+  const recipients = members.filter(uid => uid !== callerUid);
+  const tokenReads = await Promise.all(recipients.map(uid =>
+    admin.firestore().collection("connect_profiles").doc(uid).collection("devices").get()
+  ));
+  const tokens = tokenReads.flatMap(snapshot => snapshot.docs.map(doc => doc.get("token")))
+    .filter(token => typeof token === "string" && token.length > 20).slice(0, 500);
+  if (!tokens.length) return;
+  await admin.messaging().sendEachForMulticast({
+    tokens,
+    data: {
+      type: "call_invite",
+      conversationId,
+      callerUid,
+      sentAt: String(Date.now())
+    },
+    android: { priority: "high", ttl: 60000 }
+  });
 }
 wss.on("connection", ws => {
   ws.isAlive = true;
@@ -79,8 +98,10 @@ wss.on("connection", ws => {
     recent.push(now); recentMessages.set(ws, recent);
     if (msg.type === "join") {
       const conversationId = String(msg.room || "").trim();
+      let members;
       try {
-        if (!(await canJoinConversation(ws.uid, conversationId))) {
+        members = await getConversationMembers(conversationId);
+        if (!members || !members.includes(ws.uid)) {
           return send(ws, { type: "error", message: "You are not a member of this ARUSHI Connect conversation." });
         }
       } catch (_) {
@@ -95,6 +116,9 @@ wss.on("connection", ws => {
       room.add(ws); rooms.set(conversationId, room);
       send(ws, { type: "joined", room: conversationId, peers: existing.length });
       for (const peer of existing) send(peer, { type: "peer-joined", peerId: ws.uid });
+      sendCallInvite(conversationId, ws.uid, members).catch(error =>
+        console.error("Call invitation push failed:", error.message)
+      );
       return;
     }
     if (!ws.room) return send(ws, { type: "error", message: "Join a Connect conversation before signaling." });
