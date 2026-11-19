@@ -232,9 +232,7 @@ class ArushiConnectRepository(
         val source = sourceConversation.collection("messages").document(messageId).get().await()
         require(source.exists()) { "Original message not found." }
         require(source.getString("type") == "text") { "Only text messages can be forwarded in this version." }
-        require(source.getString("senderId") == uid || sourceConversation.get().await().get("members") is List<*>) {
-            "You cannot forward this message."
-        }
+        // Reading the source message already enforces membership through Firestore rules.
         val text = source.getString("text").orEmpty()
         require(text.isNotBlank()) { "Original message is empty." }
         return sendText(targetConversationId, "↪ Forwarded message\n$text")
