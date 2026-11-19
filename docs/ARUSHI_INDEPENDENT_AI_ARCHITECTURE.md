@@ -201,3 +201,29 @@ Start with Milestone 0 and Milestone 1 only. Inspect the complete current LocalA
 - Test a non-ARUSHI caller through a separately provisioned AI receptionist endpoint if that feature is required.
 - Test message review, recipient selection, confirmation, cancellation, and local transcript deletion.
 - Keep ordinary phone dialing and emergency calling available through Android's supported phone app. Never intercept or obstruct emergency calls.
+
+
+## Implementation status — 2026-11-19
+
+### Added on `feature/arushi-independent-ai-core`
+- `AiProvider` interface and router now isolate chat UI from provider selection; Firebase Gemini remains the cloud default and LiteRT/Qwen remains opt-in offline.
+- `ArushiSecureMemory` adds AES-GCM encrypted local records using an Android Keystore-managed key. The export method is explicit and returns decrypted values only to the calling code; UI export/delete controls and migration of existing plaintext preferences are still required.
+- `ArushiAgentRuntime` adds an allow-listed tool registry, structured task steps, per-invocation approval, permission checks, progress callbacks, cancellation checks and a bounded audit log. It is a runtime foundation only: no model-driven planner, production tool adapters, background worker, or user-facing execution console is connected yet.
+- The Command Center planner remains a manual local task tracker. Its detail display formatting was corrected, but it must not be described as autonomous execution.
+- Caller-message forwarding remains a review-and-edit handoff to Android's messaging app. It is not a universal background forwarding service. Android app sandboxing and end-to-end encrypted app boundaries prevent an app from reading/sending every other app's private messages. Any future notification-based relay must be opt-in, visibly enabled, app-allowlisted, limited to notification content actually exposed by the source app, and require explicit user review before forwarding.
+- The current VoIP signaling server remains unauthenticated and in-memory; public STUN only is insufficient for reliable carrier/NAT coverage. No production TURN service, authenticated invite tokens, incoming-call push pipeline, persistent group backend, or two-device acceptance test has been completed.
+- The current voice assistant still uses Android SpeechRecognizer and Android TTS. The CI workflow bundles Sherpa-ONNX and a mobile keyword-spotting model, but this alone does not provide neural TTS or prove reliable hands-free speech recognition on the target device.
+- Existing image studio and companion assets remain in the project; no replacement of those working systems is intended.
+- No social provider OAuth integrations, provider-approved analytics scopes, shopping checkout integrations, or production account export/deletion flow have been completed.
+
+### Production gates still required
+1. Build and test the current branch; run Android unit/instrumentation tests and exercise encrypted storage on-device.
+2. Connect the agent runtime to a model-produced plan, implement trusted app-owned tools, move long tasks to a cancellable worker, and add a user-visible approval/progress/audit console.
+3. Add GitHub OAuth/device authorization with an app-owned OAuth client, short-lived access tokens, least privilege, branch-scoped repository tools, Actions monitoring, and explicit deployment approvals.
+4. Deploy an authenticated signaling/backend service, issue short-lived room-scoped credentials, configure a real TURN provider, add push call invitations and group persistence, and test on multiple networks/devices.
+5. Add licensed neural TTS assets/runtime and an offline speech-recognition path with language selection, battery controls and clear microphone indicators; benchmark on the target Vivo device.
+6. Implement official social integrations only after each provider app is registered and approved for the necessary scopes.
+7. Implement checkout via supported merchant/provider flows, with a final confirmation in the provider UI; never store payment credentials in ARUSHI.
+8. Add encrypted export/import/delete screens and account revocation controls, and migrate existing local/cloud data only after backups and user approval.
+
+A successful APK build validates compilation and packaging only. It does not satisfy any of the network, provider approval, push-delivery, TURN, SIM-call audio, neural voice, privacy migration or device acceptance gates above.
