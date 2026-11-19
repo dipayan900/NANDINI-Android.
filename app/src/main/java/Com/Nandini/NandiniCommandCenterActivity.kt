@@ -62,7 +62,15 @@ class NandiniCommandCenterActivity : Activity() {
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, dp(10)) }
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(cardButton("← RETURN TO STUDIO") { finish() }, LinearLayout.LayoutParams(-1, dp(48)))
+        // Footer controls belong to the root; cardButton() inserts its own view into content.
+        val returnButton = android.widget.Button(this).apply {
+            text = "← RETURN TO STUDIO"
+            isAllCaps = false
+            setTextColor(ink)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(panel)
+            setOnClickListener { finish() }
+        }
+        root.addView(returnButton, LinearLayout.LayoutParams(-1, dp(48)))
         setContentView(root)
         render()
     }
