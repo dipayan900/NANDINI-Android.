@@ -114,7 +114,11 @@ internal object ArushiAgentRuntime {
         val results = mutableListOf<ToolResult>()
         val initial = findTask(readTasks(context), taskId)
             ?: return listOf(ToolResult(false, "Task not found"))
+        if (initial.optString("status") == "CANCELLED") {
+            return listOf(ToolResult(false, "Task was cancelled and cannot be resumed"))
+        }
         val steps = initial.optJSONArray("steps") ?: JSONArray()
+        if (steps.length() == 0) return listOf(ToolResult(false, "Task has no executable steps"))
         updateTaskStatus(context, taskId, "RUNNING", "Execution started")
         for (index in 0 until steps.length()) {
             val latestTask = findTask(readTasks(context), taskId)
@@ -172,7 +176,9 @@ internal object ArushiAgentRuntime {
         }
         val finalTask = findTask(readTasks(context), taskId)
         val allDone = (finalTask?.optJSONArray("steps")?.let { arr ->
-            (0 until arr.length()).all { arr.optJSONObject(it)?.optString("status") in setOf("COMPLETED", "REJECTED") }
+            arr.length() > 0 && (0 until arr.length()).all {
+                arr.optJSONObject(it)?.optString("status") in setOf("COMPLETED", "REJECTED")
+            }
         } ?: false)
         if (allDone) updateTaskStatus(context, taskId, "COMPLETED", "All approved steps finished")
         return results
