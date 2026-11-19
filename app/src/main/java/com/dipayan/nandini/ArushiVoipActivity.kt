@@ -55,6 +55,10 @@ class ArushiVoipActivity : Activity() {
             }
         }
         buildUi()
+        intent.getStringExtra("conversation_id")?.takeIf { it.isNotBlank() }?.let { conversationId ->
+            roomInput.setText(conversationId)
+            statusView.text = "Incoming ARUSHI Connect call. Tap Connect / Join room to answer."
+        }
     }
 
     private fun buildUi() {
@@ -70,7 +74,7 @@ class ArushiVoipActivity : Activity() {
         root.addView(text("Separate from SIM calls • WebRTC audio • Both participants need ARUSHI", 14f, palette.muted))
         root.addView(field("Signaling WebSocket URL (wss://your-host)", "signal_url", ""))
         urlInput = root.getChildAt(root.childCount - 1) as EditText
-        root.addView(field("Room code (same on both phones)", "room", ""))
+        root.addView(field("ARUSHI Connect conversation ID (same on both phones)", "room", ""))
         roomInput = root.getChildAt(root.childCount - 1) as EditText
         root.addView(text("OPTIONAL TURN SERVER", 13f, accent, true))
         root.addView(field("TURN URL (turn:host:3478 or turns:host:5349)", "turn_url", ""))
