@@ -108,6 +108,8 @@ service cloud.firestore {
             && request.resource.data.admins is list
             && request.resource.data.admins.size() >= 1
             && request.resource.data.members.hasAll(request.resource.data.admins)
+            && (request.auth.uid in resource.data.admins
+              || request.resource.data.admins == resource.data.admins)
             && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['members', 'admins', 'updatedAt'])
           )
