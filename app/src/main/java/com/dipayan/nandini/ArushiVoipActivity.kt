@@ -50,6 +50,7 @@ class ArushiVoipActivity : Activity() {
         tts = TextToSpeech(this) { result ->
             if (result == TextToSpeech.SUCCESS) {
                 tts?.language = Locale.getDefault()
+                tts?.let { ArushiExperience.applyVoice(this, it) }
                 tts?.setSpeechRate(if (ArushiExperience.expressiveVoice(this)) 0.98f else 0.94f)
                 tts?.setPitch(if (ArushiExperience.expressiveVoice(this)) 1.12f else 1.0f)
             }
