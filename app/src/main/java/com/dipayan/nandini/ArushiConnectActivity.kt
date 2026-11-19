@@ -303,21 +303,26 @@ class ArushiConnectActivity : Activity() {
                 "audio" -> if (mediaReady) "♫  Voice note  •  TAP TO PLAY" else "♫  Voice note  •  TAP TO DOWNLOAD"
                 else -> if (mediaReady) "▤  File  •  TAP TO OPEN" else "▤  File  •  TAP TO DOWNLOAD"
             }
+            val reactionSummary = item.reactions.values.groupingBy { it }.eachCount()
+                .entries.joinToString("  ") { "${it.key} ${it.value}" }
             val messageView = label((if (mine) "YOU  " else "THEM  ") + body +
-                if (item.edited) "  (edited)" else "", 14f,
+                (if (item.edited) "  (edited)" else "") +
+                (if (reactionSummary.isNotBlank()) "\n$reactionSummary" else ""), 14f,
                 if (mine) palette.accentSecondary else palette.text)
             if (item.type != "text" && item.mediaUrl.isNotBlank()) {
                 messageView.setOnClickListener { downloadOrOpenMedia(item, container) }
             }
             messageView.setOnLongClickListener {
-                val choices = if (item.type == "text") arrayOf("Forward to another ARUSHI chat", "Delete here") else arrayOf("Delete here")
+                val choices = if (item.type == "text")
+                    arrayOf("React", "Forward to another ARUSHI chat", "Delete here")
+                else arrayOf("React", "Delete here")
                 AlertDialog.Builder(this)
                     .setTitle("Message actions")
                     .setItems(choices) { _, which ->
-                        val forwardIndex = item.type == "text" && which == 0
-                        if (forwardIndex) forwardMessage(item)
-                        else {
-                            AlertDialog.Builder(this)
+                        when {
+                            which == 0 -> showReactionPicker(item)
+                            item.type == "text" && which == 1 -> forwardMessage(item)
+                            else -> AlertDialog.Builder(this)
                                 .setTitle("Delete this message here?")
                                 .setMessage("This removes the saved copy from this phone only. It does not delete the other person's message.")
                                 .setNegativeButton("CANCEL", null)
@@ -332,6 +337,19 @@ class ArushiConnectActivity : Activity() {
             }
             container.addView(messageView)
         }
+    }
+
+    private fun showReactionPicker(item: ArushiConnectRepository.ChatMessage) {
+        val emojis = arrayOf("👍", "❤️", "😂", "😮", "😢", "🔥")
+        AlertDialog.Builder(this).setTitle("React to message")
+            .setItems(emojis) { _, index ->
+                scope.launch {
+                    try {
+                        repo.addReaction(item.conversationId, item.id, emojis[index])
+                        toast("Reaction added.")
+                    } catch (e: Exception) { toast(e.message ?: "Could not add reaction.") }
+                }
+            }.show()
     }
 
     private fun downloadOrOpenMedia(
