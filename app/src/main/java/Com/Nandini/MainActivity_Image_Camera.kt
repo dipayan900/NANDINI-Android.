@@ -1878,71 +1878,26 @@ private suspend fun generateReplyWithRetry(
         .filter { (_, body) -> recentBodies.none { it.equals(body, ignoreCase = true) } }
         .map { (role, body) -> role to body.takeLast(6000) }
 
-    if (LocalAiRuntime.isEnabled(this)) {
-        val recentLocal = history.dropLast(1).takeLast(9).map { it.role to it.text }
-        val localBodies = recentLocal.map { it.second }
-        val relevantLocal = olderRelevant.filter { (_, body) ->
-            localBodies.none { it.equals(body, ignoreCase = true) }
-        }
-        val localHistory = (relevantLocal + recentLocal).takeLast(MAX_CONTEXT_MESSAGES)
-        val localAnswer = LocalAiRuntime.generateReply(
-            this, systemPrompt, localHistory, userText, onLocalChunk
-        )
-        return AiReplyResult(localAnswer)
-    }
+    val contextMessages = olderRelevant.map { (role, body) -> ChatMessage(role, body) } + recent
+    val provider = AiProviderRouter.primary(this)
+    val providerRequest = AiProviderRequest(
+        systemInstruction = systemPrompt,
+        previousMessages = contextMessages.map { it.role to it.text },
+        userText = userText
+    )
 
     var lastError: Exception? = null
     for (attempt in 0..3) {
         var emittedAnyChunk = false
         try {
-            val model = Firebase.ai(backend = GenerativeBackend.googleAI())
-                .generativeModel(
-                    modelName = "gemini-3.8-flash",
-                    systemInstruction = content { text(systemPrompt) },
-                    tools = listOf(Tool.googleSearch())
-                )
-
-            val contextMessages = olderRelevant.map { (role, body) -> ChatMessage(role, body) } + recent
-            val savedHistory = contextMessages
-                .dropLast(1)
-                .filter { it.text.isNotBlank() }
-                .map { message ->
-                    content(role = message.role) { text(message.text) }
-                }
-
-            val chat = model.startChat(history = savedHistory)
-            val answer = StringBuilder()
-            var searchWidgetHtml: String? = null
-            val sources = linkedMapOf<String, String>()
-            chat.sendMessageStream(userText).collect { chunk ->
-                val piece = chunk.text.orEmpty()
-                if (piece.isNotEmpty()) {
-                    emittedAnyChunk = true
-                    answer.append(piece)
-                    onLocalChunk(piece)
-                }
-                val grounding = chunk.candidates.firstOrNull()?.groundingMetadata
-                if (grounding != null) {
-                    searchWidgetHtml = grounding.searchEntryPoint?.renderedContent ?: searchWidgetHtml
-                    grounding.groundingChunks.orEmpty().forEach { groundedChunk ->
-                        val web = groundedChunk.web
-                        val title = web?.title.orEmpty()
-                        val uri = web?.uri.orEmpty()
-                        if (uri.startsWith("https://") || uri.startsWith("http://")) {
-                            sources[uri] = title.ifBlank { uri }
-                        }
-                    }
-                }
-            }
-
-            val finalText = answer.toString().trim()
-            if (finalText.isBlank()) {
-                throw IllegalStateException("The AI service returned an empty response. Please try again.")
+            val response = provider.generate(providerRequest) { piece ->
+                if (piece.isNotEmpty()) emittedAnyChunk = true
+                onLocalChunk(piece)
             }
             return AiReplyResult(
-                text = finalText,
-                searchWidgetHtml = searchWidgetHtml,
-                sources = sources.map { (uri, title) -> title to uri }
+                text = response.text,
+                searchWidgetHtml = response.searchWidgetHtml,
+                sources = response.sources
             )
         } catch (e: Exception) {
             lastError = e
