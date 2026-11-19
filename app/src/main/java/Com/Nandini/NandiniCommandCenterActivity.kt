@@ -81,6 +81,9 @@ class NandiniCommandCenterActivity : Activity() {
     private fun render() {
         content.removeAllViews()
         section("PLANNING & EXECUTION", "Track tasks, approval gates and progress locally. External actions still require your confirmation.")
+        cardButton("✦  AI TASK EXECUTION ENGINE", "Ask ARUSHI to plan real local actions, review each tool call, approve, execute and inspect the audit trail.") {
+            startActivity(Intent(this, ArushiAgentConsoleActivity::class.java))
+        }
         cardButton("▣  TASK PLANNER & APPROVALS", "Create tasks, track progress, approve or cancel proposed work, and review task history.") { taskPlanner() }
 
         section("LOCAL INTELLIGENCE", "Works without cloud AI. Your notes and command history remain in this app's private storage.")
