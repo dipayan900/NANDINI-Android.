@@ -19,6 +19,10 @@ on:
       - feature/arushi-connect
       - feature/arushi-independent-ai-core
 
+concurrency:
+  group: arushi-apk-\${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -126,8 +130,24 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Build debug APK
-        run: gradle --no-daemon --stacktrace assembleDebug
+      - name: Build debug APK (retry transient repository failures)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "Gradle build attempt \${attempt}/3"
+            if gradle --no-daemon --stacktrace assembleDebug; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Build failed; refreshing dependency metadata before retry."
+              sleep $((attempt * 15))
+              gradle --stop || true
+              gradle --no-daemon --refresh-dependencies --stacktrace assembleDebug && exit 0 || true
+            fi
+          done
+          echo "All Gradle build attempts failed."
+          exit 1
 
       - name: Show signing report
         run: gradle --no-daemon signingReport
