@@ -616,7 +616,7 @@ class ArushiConnectActivity : Activity() {
     private fun showCallInfo() {
         AlertDialog.Builder(this)
             .setTitle("ARUSHI internet calls")
-            .setMessage("The existing WebRTC prototype still needs a deployed signaling service, authenticated call invites, TURN relay, incoming-call notifications and video-track support. It is not yet a WhatsApp-equivalent calling service.")
+            .setMessage("ARUSHI Connect now has authenticated conversation-based call rooms and incoming-call push invitations in the signaling code. Open a chat and use CALL THIS CONVERSATION. The signaling service and TURN provider must be deployed before calls can connect.")
             .setPositiveButton("OPEN CALL TEST") { _, _ ->
                 startActivity(Intent(this, ArushiVoipActivity::class.java))
             }.setNegativeButton("CANCEL", null).show()
