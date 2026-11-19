@@ -13,6 +13,7 @@ import java.util.Locale
 class ArushiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        ArushiAgentTools.install(this)
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             try {
