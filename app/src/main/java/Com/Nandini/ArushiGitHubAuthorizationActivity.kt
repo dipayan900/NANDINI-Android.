@@ -126,7 +126,8 @@ class ArushiGitHubAuthorizationActivity : Activity() {
                 withContext(Dispatchers.IO) {
                     ArushiGitHubClient.pollForToken(this@ArushiGitHubAuthorizationActivity, clientId.text.toString().trim(), code)
                 }
-                status.text = "GitHub connected. Repository access is ready."
+                val result = withContext(Dispatchers.IO) { ArushiGitHubClient.testRepository(this@ArushiGitHubAuthorizationActivity) }
+                status.text = "GitHub connected: ${result.optString("full_name")} • branch ${ArushiGitHubClient.branch(this@ArushiGitHubAuthorizationActivity)}"
             } catch (e: Exception) { status.text = e.message ?: "GitHub authorization failed." }
         }
     }
