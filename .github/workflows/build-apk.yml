@@ -20,7 +20,7 @@ on:
       - feature/arushi-independent-ai-core
 
 concurrency:
-  group: arushi-apk-\${{ github.ref }}
+  group: arushi-apk-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -135,7 +135,7 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in 1 2 3; do
-            echo "Gradle build attempt \${attempt}/3"
+            echo "Gradle build attempt ${attempt}/3"
             if gradle --no-daemon --stacktrace assembleDebug; then
               exit 0
             fi
