@@ -139,7 +139,6 @@ class ArushiExperienceSettingsActivity : Activity() {
             .setSingleChoiceItems(labels, selected) { dialog, which ->
                 selectedVoiceName = voices[which].name
                 voiceEngine?.voice = voices[which]
-                ArushiExperience.applyVoice(this, voiceEngine!!)
                 voiceEngine?.speak("Hello, I'm ARUSHI. This is my selected voice.", TextToSpeech.QUEUE_FLUSH, null, "arushi_voice_preview")
                 dialog.dismiss()
                 render()
