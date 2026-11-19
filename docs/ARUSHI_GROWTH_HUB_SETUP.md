@@ -13,7 +13,7 @@ The Android app deliberately contains no provider client secrets. The Firebase H
 Before connecting accounts:
 
 1. In Google Cloud, create an OAuth **Web application** client for the same Firebase project. Enable YouTube Data API v3 and YouTube Analytics API. Add this exact authorized redirect URI (replace the project ID):
-   `https://us-central1-PROJECT_ID.cloudfunctions.net/socialApi?action=callback`
+   `https://us-central1-PROJECT_ID.cloudfunctions.net/socialApi`
 2. In Meta for Developers, configure Instagram Login for a professional/creator account and add the same callback URL as its redirect URI. Request `instagram_business_basic` and `instagram_business_manage_insights` access through the normal Meta review process where required.
 3. Set Firebase Functions secrets from a trusted terminal. Never put values in Git, the APK, screenshots or this chat:
 
