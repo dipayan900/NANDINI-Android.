@@ -81,6 +81,9 @@ class NandiniCommandCenterActivity : Activity() {
     private fun render() {
         content.removeAllViews()
         section("PLANNING & EXECUTION", "Track tasks, approval gates and progress locally. External actions still require your confirmation.")
+        cardButton("⌘  GITHUB DEVELOPER TOOLS", "Authorize GitHub, select a working branch, read/edit repository files and dispatch approved Actions workflows.") {
+            startActivity(Intent(this, ArushiGitHubAuthorizationActivity::class.java))
+        }
         cardButton("✦  AI TASK EXECUTION ENGINE", "Ask ARUSHI to plan real local actions, review each tool call, approve, execute and inspect the audit trail.") {
             startActivity(Intent(this, ArushiAgentConsoleActivity::class.java))
         }
