@@ -37,6 +37,7 @@ class ArushiExperienceSettingsActivity : Activity() {
             if (status == TextToSpeech.SUCCESS) {
                 voiceEngine?.language = Locale.getDefault()
                 ArushiExperience.applyVoice(this, voiceEngine!!)
+                runOnUiThread { if (!isFinishing) render() }
             }
         }
         render()
@@ -93,7 +94,7 @@ class ArushiExperienceSettingsActivity : Activity() {
         }, params(-1, dp(48), 0, 10, 0, 6))
         root.addView(action("PREVIEW ARUSHI VOICE", p) {
             voiceEngine?.let { engine ->
-                ArushiExperience.applyVoice(this, engine)
+                engine.voices?.firstOrNull { it.name == selectedVoiceName }?.let { engine.voice = it }
                 engine.speak("Hello, I'm ARUSHI. I'm ready when you are.", TextToSpeech.QUEUE_FLUSH, null, "arushi_voice_preview")
             }
         }, params(-1, dp(44), 0, 2, 0, 6))
