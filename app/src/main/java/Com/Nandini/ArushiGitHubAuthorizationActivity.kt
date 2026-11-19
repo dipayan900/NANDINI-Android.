@@ -84,7 +84,7 @@ class ArushiGitHubAuthorizationActivity : Activity() {
             setTextColor(p.muted)
         })
         val scroll = ScrollView(this).apply { addView(root) }
-        root.addView(action("BACK") { finish() })
+        root.addView(action("BACK", p) { finish() })
         setContentView(scroll)
     }
 
