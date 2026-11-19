@@ -73,7 +73,7 @@ class ArushiGrowthHubActivity : Activity() {
         body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(body)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(button("← BACK") { finish() })
+        root.addView(Button(this).apply { text = "← BACK"; setOnClickListener { finish() } })
         setContentView(root)
 
         section("SOCIAL ACCOUNTS & ANALYTICS",
@@ -125,7 +125,7 @@ class ArushiGrowthHubActivity : Activity() {
         }
         Thread {
             try {
-                val token = user.getIdToken(true).result?.token ?: error("Firebase session unavailable")
+                val token = com.google.android.gms.tasks.Tasks.await(user.getIdToken(true)).token ?: error("Firebase session unavailable")
                 val project = com.google.firebase.FirebaseApp.getInstance().options.projectId
                     ?: error("Firebase project is not configured")
                 val url = "https://us-central1-$project.cloudfunctions.net/socialApi?action=start&provider=$provider"
