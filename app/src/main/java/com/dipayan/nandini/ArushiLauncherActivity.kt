@@ -142,7 +142,7 @@ class ArushiLauncherActivity : Activity() {
         root.addView(section("HOLOGRAPHIC APP GRID"))
         val grid = GridLayout(this).apply { columnCount = 3; useDefaultMargins = false }
         val apps = listOf(
-            Triple("✦", "ARUSHI AI", "ai"), Triple("◉", "CONNECT", "connect"), Triple("☎", "PHONE", "phone"), Triple("✆", "AI CALL", "call"), Triple("✉", "MESSAGES", "sms"),
+            Triple("✦", "ARUSHI AI", "ai"), Triple("◉", "CONNECT", "connect"), Triple("▣", "GROWTH HUB", "growth"), Triple("☎", "PHONE", "phone"), Triple("✆", "AI CALL", "call"), Triple("✉", "MESSAGES", "sms"),
             Triple("◎", "CAMERA", "camera"), Triple("▧", "PHOTOS", "gallery"), Triple("✧", "HOLOGRAM", "hologram"), Triple("♫", "MUSIC", "music"),
             Triple("◈", "ARUSHI STYLE", "experience"), Triple("🎨", "IMAGE STUDIO", "image"), Triple("⌘", "BROWSER", "browser"), Triple("🚆", "TRAINS", "trains"), Triple("⚙", "SYSTEM", "settings"), Triple("▦", "APP DRAWER", "drawer")
         )
@@ -204,6 +204,7 @@ class ArushiLauncherActivity : Activity() {
         val intent = when (key) {
             "ai" -> Intent().setClassName(packageName, "com.dipayan.nandini.SplashActivity")
             "connect" -> Intent(this, ArushiConnectActivity::class.java)
+            "growth" -> Intent(this, ArushiGrowthHubActivity::class.java)
             "phone" -> Intent(Intent.ACTION_DIAL)
             "call" -> Intent(this, ArushiCallAssistantActivity::class.java)
             "hologram" -> Intent(this, HologramStudioActivity::class.java)

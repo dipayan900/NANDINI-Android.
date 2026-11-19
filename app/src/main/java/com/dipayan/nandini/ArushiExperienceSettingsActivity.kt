@@ -11,6 +11,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
+import java.util.Locale
 
 /** One place to control ARUSHI's appearance, AI engine, conversation style and voice. */
 class ArushiExperienceSettingsActivity : Activity() {
@@ -19,6 +22,8 @@ class ArushiExperienceSettingsActivity : Activity() {
     private var selectedPersonality = "playful"
     private var expressiveVoice = true
     private var useLocalAi = false
+    private var selectedVoiceName = ""
+    private var voiceEngine: TextToSpeech? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ArushiExperience.applyActivityTheme(this)
@@ -27,6 +32,14 @@ class ArushiExperienceSettingsActivity : Activity() {
         selectedPersonality = ArushiExperience.personality(this)
         expressiveVoice = ArushiExperience.expressiveVoice(this)
         useLocalAi = LocalAiRuntime.isEnabled(this)
+        selectedVoiceName = ArushiExperience.voiceName(this)
+        voiceEngine = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                voiceEngine?.language = Locale.getDefault()
+                ArushiExperience.applyVoice(this, voiceEngine!!)
+                runOnUiThread { if (!isFinishing) render() }
+            }
+        }
         render()
     }
 
@@ -76,6 +89,15 @@ class ArushiExperienceSettingsActivity : Activity() {
 
         root.addView(label("Voice replies", 17f, p.text, true), params(-1, -2, 0, 22, 0, 4))
         root.addView(label("ARUSHI uses your phone's installed text-to-speech voice. Voice availability and accent depend on the TTS engine.", 13f, p.muted))
+        root.addView(action("VOICE: " + (voiceEngine?.voices?.firstOrNull { it.name == selectedVoiceName }?.name ?: selectedVoiceName.ifBlank { "System default" }), p) {
+            showVoicePicker()
+        }, params(-1, dp(48), 0, 10, 0, 6))
+        root.addView(action("PREVIEW ARUSHI VOICE", p) {
+            voiceEngine?.let { engine ->
+                engine.voices?.firstOrNull { it.name == selectedVoiceName }?.let { engine.voice = it }
+                engine.speak("Hello, I'm ARUSHI. I'm ready when you are.", TextToSpeech.QUEUE_FLUSH, null, "arushi_voice_preview")
+            }
+        }, params(-1, dp(44), 0, 2, 0, 6))
         root.addView(action("Expressive speaking: " + if (expressiveVoice) "ON" else "OFF", p) {
             expressiveVoice = !expressiveVoice
             render()
@@ -88,7 +110,7 @@ class ArushiExperienceSettingsActivity : Activity() {
         root.addView(action("SAVE EXPERIENCE SETTINGS", p, true) {
             try {
                 LocalAiRuntime.setLocalModelSelected(this, useLocalAi)
-                ArushiExperience.save(this, selectedAppearance, selectedPersonality, expressiveVoice)
+                ArushiExperience.save(this, selectedAppearance, selectedPersonality, expressiveVoice, selectedVoiceName)
                 Toast.makeText(this, "ARUSHI experience settings saved.", Toast.LENGTH_SHORT).show()
                 setResult(RESULT_OK)
                 finish()
@@ -98,6 +120,32 @@ class ArushiExperienceSettingsActivity : Activity() {
         }, params(-1, dp(52), 0, 22, 0, 8))
         root.addView(action("BACK", p) { finish() }, params(-1, dp(48), 0, 0, 0, 0))
         setContentView(scroll)
+    }
+
+    private fun showVoicePicker() {
+        val voices = voiceEngine?.voices.orEmpty().sortedWith(
+            compareBy<Voice>({ it.locale.displayName }, { it.name })
+        )
+        if (voices.isEmpty()) {
+            Toast.makeText(this, "No installed TTS voices are available. Add a voice in Android Text-to-Speech settings.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val labels = voices.map { voice ->
+            val network = if (voice.isNetworkConnectionRequired) " • online" else " • on-device"
+            "${voice.name} • ${voice.locale.displayName}$network"
+        }.toTypedArray()
+        val selected = voices.indexOfFirst { it.name == selectedVoiceName }.coerceAtLeast(0)
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Choose ARUSHI's installed voice")
+            .setSingleChoiceItems(labels, selected) { dialog, which ->
+                selectedVoiceName = voices[which].name
+                voiceEngine?.voice = voices[which]
+                voiceEngine?.speak("Hello, I'm ARUSHI. This is my selected voice.", TextToSpeech.QUEUE_FLUSH, null, "arushi_voice_preview")
+                dialog.dismiss()
+                render()
+            }
+            .setNegativeButton("CANCEL", null)
+            .show()
     }
 
     private fun engineOption(title: String, local: Boolean, selected: Boolean) {
@@ -157,6 +205,13 @@ class ArushiExperienceSettingsActivity : Activity() {
 
     private fun params(w: Int, h: Int, l: Int, t: Int, r: Int, b: Int) =
         LinearLayout.LayoutParams(w, h).apply { setMargins(l, t, r, b) }
+
+    override fun onDestroy() {
+        voiceEngine?.stop()
+        voiceEngine?.shutdown()
+        voiceEngine = null
+        super.onDestroy()
+    }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 }

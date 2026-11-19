@@ -1,28 +1,29 @@
-# ARUSHI VoIP signaling server
+# ARUSHI authenticated VoIP signaling
 
-This is the signaling relay for the separate WebRTC audio-call feature. It does **not** carry call audio; audio travels peer-to-peer through WebRTC, or through a TURN relay configured by the app.
+This service relays WebRTC signaling only. Audio travels through WebRTC DTLS-SRTP; the signaling server does not receive microphone audio.
 
-## Deploy on a Node.js host
+## Deploy
 
-1. Deploy this folder as a Node.js service (Node 18+).
-2. Set the start command to `npm start`.
-3. Set `PORT` if your host requires it.
-4. Enable HTTPS/WSS at the host/proxy. Use the resulting `wss://...` URL in both ARUSHI clients.
-5. Check `https://YOUR-HOST/health` returns JSON with `"status":"ok"`.
+1. Deploy this folder to a Node.js 18+ host with HTTPS/WSS.
+2. Add the Firebase Admin service-account JSON as the host secret `FIREBASE_SERVICE_ACCOUNT_JSON`. Never commit the key to Git.
+3. Use a service account from the same Firebase project as ARUSHI Connect, with permission to verify ID tokens and read `connect_conversations`.
+4. Run `npm install` and `npm start`.
+5. Check `/health`; it must return `status: ok` and `firebaseAdmin: true`.
+6. Configure the app with the resulting `wss://` endpoint.
 
-The server is a minimal signaling prototype. Use a private/unguessable room code and a trusted TLS host. It currently has no account authentication or persistent storage, so do not treat it as a production service.
+## Authentication and room authorization
 
-## Calling
+- Every WebSocket upgrade requires `Authorization: Bearer <Firebase ID token>`.
+- Tokens are verified with Firebase Admin SDK, including revocation checks.
+- A call room is the ID of an existing ARUSHI Connect conversation.
+- The server checks that the authenticated UID is a member of that conversation before allowing entry.
+- This version supports two participants per call.
+- Signaling messages have payload bounds and a per-socket rate limit.
 
-Install the ARUSHI APK on both Android devices. Both users enter the same room code and signaling URL; the second participant triggers negotiation. Grant microphone permission and keep the app open during the test. Both phones need a working internet connection.
+## TURN
 
-## ICE / TURN
+For carrier/NAT traversal, deploy a TURN service and issue short-lived credentials from a trusted backend. Do not store permanent TURN passwords in the APK. The app accepts a TURN URL and credentials; use TLS/WSS and TURN/TLS where supported.
 
-The app starts with Google's public STUN server. STUN alone does not work on every carrier/NAT. For reliable connections, configure a TURN server and add its TURN URL, username and password in the app's ICE settings (or update the app configuration). TURN credentials should be short-lived in a production deployment.
+## Scope
 
-## Limits
-
-- This is VoIP, not a bridge into a cellular/SIM call.
-- It needs internet (or another IP route) to reach the other participant.
-- Android on-device speech recognition and TTS availability/language packs vary by phone.
-- The WebRTC audio path must be tested on two real devices before claiming reliability.
+This server does not bridge cellular SIM call audio. Multi-party SFU calling and push call invitations are not implemented by this two-party relay.

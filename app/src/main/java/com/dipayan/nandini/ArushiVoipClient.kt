@@ -44,14 +44,18 @@ class ArushiVoipClient(
     private var previousSpeaker = false
     private var pendingCandidates = mutableListOf<IceCandidate>()
 
-    fun connect(url: String, room: String, turnUrl: String = "", turnUser: String = "", turnPassword: String = "") {
+    fun connect(url: String, room: String, turnUrl: String = "", turnUser: String = "", turnPassword: String = "", firebaseIdToken: String) {
         close(false)
         if (!(url.startsWith("wss://") || url.startsWith("ws://"))) {
             listener("Error: signaling URL must begin with wss:// (recommended) or ws://.")
             return
         }
-        if (!room.matches(Regex("[A-Za-z0-9_-]{4,48}"))) {
-            listener("Error: room code must be 4–48 letters, numbers, dashes or underscores.")
+        if (!room.matches(Regex("[A-Za-z0-9_-]{4,128}"))) {
+            listener("Error: enter a valid ARUSHI Connect conversation ID.")
+            return
+        }
+        if (firebaseIdToken.isBlank()) {
+            listener("Error: sign in to ARUSHI Connect before starting a call.")
             return
         }
         roomCode = room
@@ -67,7 +71,9 @@ class ArushiVoipClient(
             previousSpeaker = audioManager?.isSpeakerphoneOn ?: false
             audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
             audioManager?.isSpeakerphoneOn = true
-            val request = Request.Builder().url(url).build()
+            val request = Request.Builder().url(url)
+                .header("Authorization", "Bearer $firebaseIdToken")
+                .build()
             socket = http.newWebSocket(request, object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) {
                     webSocket.send(JSONObject().put("type", "join").put("room", roomCode).put("peerId", peerId).toString())

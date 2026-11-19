@@ -3,6 +3,9 @@ run-name: ARUSHI validation • ${{ github.ref_name }} • ${{ github.sha }}
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - feature/arushi-connect-push-foundation
   push:
     branches:
       - main
@@ -14,6 +17,11 @@ on:
       - feature/arushi-embedded-localdream-engine
       - fix/arushi-chat-personality-loop
       - feature/arushi-connect
+      - feature/arushi-independent-ai-core
+
+concurrency:
+  group: arushi-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -25,6 +33,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Validate Firebase Functions JavaScript syntax
+        run: node --check functions/index.js
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -122,8 +133,24 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Build debug APK
-        run: gradle --no-daemon --stacktrace assembleDebug
+      - name: Build debug APK (retry transient repository failures)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "Gradle build attempt ${attempt}/3"
+            if gradle --no-daemon --stacktrace assembleDebug; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Build failed; refreshing dependency metadata before retry."
+              sleep $((attempt * 15))
+              gradle --stop || true
+              gradle --no-daemon --refresh-dependencies --stacktrace assembleDebug && exit 0 || true
+            fi
+          done
+          echo "All Gradle build attempts failed."
+          exit 1
 
       - name: Show signing report
         run: gradle --no-daemon signingReport

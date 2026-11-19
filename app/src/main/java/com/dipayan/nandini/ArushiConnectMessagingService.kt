@@ -23,7 +23,40 @@ class ArushiConnectMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        val incomingType = message.data["type"].orEmpty()
         val conversationId = message.data["conversationId"].orEmpty()
+        if (incomingType == "call_invite" && conversationId.isNotBlank()) {
+            val callChannel = "arushi_connect_calls"
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                manager.createNotificationChannel(
+                    android.app.NotificationChannel(callChannel, "ARUSHI incoming calls", android.app.NotificationManager.IMPORTANCE_HIGH)
+                )
+            }
+            val answer = Intent(this, ArushiVoipActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("conversation_id", conversationId)
+                putExtra("incoming_call", true)
+            }
+            val answerPending = PendingIntent.getActivity(
+                this, conversationId.hashCode(), answer,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val callNotification = NotificationCompat.Builder(this, callChannel)
+                .setSmallIcon(android.R.drawable.sym_action_call)
+                .setContentTitle("Incoming ARUSHI call")
+                .setContentText("A member of your ARUSHI Connect conversation is calling.")
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setAutoCancel(true)
+                .setContentIntent(answerPending)
+                .addAction(android.R.drawable.sym_action_call, "ANSWER", answerPending)
+                .build()
+            try {
+                NotificationManagerCompat.from(this).notify(("call:" + conversationId).hashCode(), callNotification)
+            } catch (_: SecurityException) { }
+            return
+        }
         val title = "ARUSHI Connect"
         val body = "You have a new message"
         val channelId = "arushi_connect_messages"

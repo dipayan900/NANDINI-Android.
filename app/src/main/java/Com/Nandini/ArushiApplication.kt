@@ -13,6 +13,16 @@ import java.util.Locale
 class ArushiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        ArushiAgentTools.install(this)
+        // Register the current FCM token on fresh installs as well as token rotations.
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { token ->
+                    if (token.isNotBlank()) ArushiConnectPushRegistration.register(this, token)
+                }
+        } catch (_: Exception) {
+            // Firebase initialization may be unavailable in offline/debug-only sessions.
+        }
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             try {

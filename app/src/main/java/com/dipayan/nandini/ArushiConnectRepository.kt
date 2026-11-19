@@ -41,7 +41,8 @@ class ArushiConnectRepository(
         val replyTo: String,
         val edited: Boolean,
         val localMediaPath: String = "",
-        val deliveredBy: List<String> = emptyList()
+        val deliveredBy: List<String> = emptyList(),
+        val reactions: Map<String, String> = emptyMap()
     )
 
     init {
@@ -143,6 +144,99 @@ class ArushiConnectRepository(
             "lastMessageAt" to FieldValue.serverTimestamp()
         )).await()
         return ref.id
+    }
+
+    data class ConversationInfo(
+        val id: String,
+        val type: String,
+        val name: String,
+        val members: List<String>,
+        val admins: List<String>
+    )
+
+    suspend fun getConversationInfo(conversationId: String): ConversationInfo {
+        val uid = ensureSignedIn()
+        val doc = db.collection("connect_conversations").document(conversationId).get().await()
+        require(doc.exists()) { "Conversation not found." }
+        val members = (doc.get("members") as? List<*>)?.filterIsInstance<String>().orEmpty()
+        require(uid in members) { "You are not a member of this conversation." }
+        val admins = (doc.get("admins") as? List<*>)?.filterIsInstance<String>().orEmpty()
+        return ConversationInfo(conversationId, doc.getString("type") ?: "direct",
+            doc.getString("name") ?: "", members, admins)
+    }
+
+    suspend fun addGroupMembers(conversationId: String, memberUids: List<String>) {
+        val uid = ensureSignedIn()
+        require(memberUids.isNotEmpty()) { "Choose at least one person." }
+        val ref = db.collection("connect_conversations").document(conversationId)
+        db.runTransaction { tx ->
+            val doc = tx.get(ref)
+            require(doc.exists() && doc.getString("type") == "group") { "This is not a group chat." }
+            val members = (doc.get("members") as? List<*>)?.filterIsInstance<String>().orEmpty()
+            val admins = (doc.get("admins") as? List<*>)?.filterIsInstance<String>().orEmpty()
+            require(uid in admins) { "Only group admins can add members." }
+            val updated = (members + memberUids).distinct()
+            require(updated.size in 2..256) { "A group can contain up to 256 members." }
+            tx.update(ref, mapOf("members" to updated, "updatedAt" to FieldValue.serverTimestamp()))
+        }.await()
+    }
+
+    suspend fun renameGroup(conversationId: String, name: String) {
+        val uid = ensureSignedIn()
+        val clean = name.trim().take(60)
+        require(clean.isNotBlank()) { "Enter a group name." }
+        val ref = db.collection("connect_conversations").document(conversationId)
+        db.runTransaction { tx ->
+            val doc = tx.get(ref)
+            require(doc.exists() && doc.getString("type") == "group") { "This is not a group chat." }
+            val admins = (doc.get("admins") as? List<*>)?.filterIsInstance<String>().orEmpty()
+            require(uid in admins) { "Only group admins can rename this group." }
+            tx.update(ref, mapOf("name" to clean, "updatedAt" to FieldValue.serverTimestamp()))
+        }.await()
+    }
+
+    suspend fun leaveGroup(conversationId: String) {
+        val uid = ensureSignedIn()
+        val ref = db.collection("connect_conversations").document(conversationId)
+        db.runTransaction { tx ->
+            val doc = tx.get(ref)
+            require(doc.exists() && doc.getString("type") == "group") { "This is not a group chat." }
+            val members = (doc.get("members") as? List<*>)?.filterIsInstance<String>().orEmpty()
+            val admins = (doc.get("admins") as? List<*>)?.filterIsInstance<String>().orEmpty()
+            require(uid in members) { "You have already left this group." }
+            require(members.size > 1) { "The last group member cannot leave. Delete the group instead." }
+            val remaining = members.filterNot { it == uid }
+            val remainingAdmins = admins.filter { it in remaining }.ifEmpty { listOf(remaining.first()) }
+            tx.update(ref, mapOf(
+                "members" to remaining,
+                "admins" to remainingAdmins,
+                "updatedAt" to FieldValue.serverTimestamp()
+            ))
+        }.await()
+    }
+
+    suspend fun myConversationIds(): List<String> {
+        val uid = ensureSignedIn()
+        return db.collection("connect_conversations")
+            .whereArrayContains("members", uid)
+            .get().await().documents.map { it.id }
+    }
+
+    suspend fun forwardTextMessage(
+        sourceConversationId: String,
+        messageId: String,
+        targetConversationId: String
+    ): ChatMessage {
+        val uid = ensureSignedIn()
+        require(sourceConversationId != targetConversationId) { "Choose a different destination chat." }
+        val sourceConversation = db.collection("connect_conversations").document(sourceConversationId)
+        val source = sourceConversation.collection("messages").document(messageId).get().await()
+        require(source.exists()) { "Original message not found." }
+        require(source.getString("type") == "text") { "Only text messages can be forwarded in this version." }
+        // Reading the source message already enforces membership through Firestore rules.
+        val text = source.getString("text").orEmpty()
+        require(text.isNotBlank()) { "Original message is empty." }
+        return sendText(targetConversationId, "↪ Forwarded message\n$text")
     }
 
     suspend fun sendText(conversationId: String, text: String, replyTo: String = ""): ChatMessage {
@@ -407,7 +501,10 @@ class ArushiConnectRepository(
             createdAt = getTimestamp("createdAt")?.toDate()?.time ?: 0L,
             replyTo = getString("replyTo") ?: "",
             edited = getBoolean("edited") ?: false,
-            deliveredBy = (get("deliveredBy") as? List<*>)?.filterIsInstance<String>().orEmpty()
+            deliveredBy = (get("deliveredBy") as? List<*>)?.filterIsInstance<String>().orEmpty(),
+            reactions = (get("reactions") as? Map<*, *>)?.mapNotNull { (key, value) ->
+                if (key is String && value is String) key to value else null
+            }?.toMap().orEmpty()
         )
     }
 }

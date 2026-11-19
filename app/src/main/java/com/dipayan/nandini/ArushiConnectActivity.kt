@@ -160,6 +160,7 @@ class ArushiConnectActivity : Activity() {
         messageListener?.remove()
         base("Messages", "@$username  •  ARUSHI purple/blue")
         root.addView(action("＋  FIND PEOPLE / NEW CHAT") { showDiscover() })
+        root.addView(action("▣  CREATE GROUP CHAT") { createGroupChat() })
         root.addView(action("◉  STATUS UPDATES") { showStatus() })
         root.addView(action("☎  INTERNET CALLS") { showCallInfo() })
         root.addView(action("⚙  PRIVACY & STORAGE") { showSettings() })
@@ -236,7 +237,10 @@ class ArushiConnectActivity : Activity() {
             startActivityForResult(intent, pickAttachment)
         })
         root.addView(action("🎙  RECORD VOICE NOTE") { toggleVoiceNote(conversationId) })
-        root.addView(action("☎  CALL SETUP") { showCallInfo() })
+        root.addView(action("☎  CALL THIS CONVERSATION") {
+            startActivity(Intent(this, ArushiVoipActivity::class.java).putExtra("conversation_id", conversationId))
+        })
+        root.addView(action("⚙  GROUP / CONVERSATION SETTINGS") { showConversationSettings(conversationId) })
         root.addView(action("DELETE CHAT HISTORY ON THIS PHONE") {
             AlertDialog.Builder(this)
                 .setTitle("Delete local chat history?")
@@ -299,26 +303,53 @@ class ArushiConnectActivity : Activity() {
                 "audio" -> if (mediaReady) "♫  Voice note  •  TAP TO PLAY" else "♫  Voice note  •  TAP TO DOWNLOAD"
                 else -> if (mediaReady) "▤  File  •  TAP TO OPEN" else "▤  File  •  TAP TO DOWNLOAD"
             }
+            val reactionSummary = item.reactions.values.groupingBy { it }.eachCount()
+                .entries.joinToString("  ") { "${it.key} ${it.value}" }
             val messageView = label((if (mine) "YOU  " else "THEM  ") + body +
-                if (item.edited) "  (edited)" else "", 14f,
+                (if (item.edited) "  (edited)" else "") +
+                (if (reactionSummary.isNotBlank()) "\n$reactionSummary" else ""), 14f,
                 if (mine) palette.accentSecondary else palette.text)
             if (item.type != "text" && item.mediaUrl.isNotBlank()) {
                 messageView.setOnClickListener { downloadOrOpenMedia(item, container) }
             }
             messageView.setOnLongClickListener {
+                val choices = if (item.type == "text")
+                    arrayOf("React", "Forward to another ARUSHI chat", "Delete here")
+                else arrayOf("React", "Delete here")
                 AlertDialog.Builder(this)
-                    .setTitle("Delete this message here?")
-                    .setMessage("This removes the saved copy from this phone only. It does not delete the other person's message.")
-                    .setNegativeButton("CANCEL", null)
-                    .setPositiveButton("DELETE HERE") { _, _ ->
-                        localStore.hideMessageLocally(item.conversationId, item.id)
-                        currentChatMessages = currentChatMessages.filterNot { it.id == item.id }
-                        renderMessages(container, currentChatMessages)
+                    .setTitle("Message actions")
+                    .setItems(choices) { _, which ->
+                        when {
+                            which == 0 -> showReactionPicker(item)
+                            item.type == "text" && which == 1 -> forwardMessage(item)
+                            else -> AlertDialog.Builder(this)
+                                .setTitle("Delete this message here?")
+                                .setMessage("This removes the saved copy from this phone only. It does not delete the other person's message.")
+                                .setNegativeButton("CANCEL", null)
+                                .setPositiveButton("DELETE HERE") { _, _ ->
+                                    localStore.hideMessageLocally(item.conversationId, item.id)
+                                    currentChatMessages = currentChatMessages.filterNot { it.id == item.id }
+                                    renderMessages(container, currentChatMessages)
+                                }.show()
+                        }
                     }.show()
                 true
             }
             container.addView(messageView)
         }
+    }
+
+    private fun showReactionPicker(item: ArushiConnectRepository.ChatMessage) {
+        val emojis = arrayOf("👍", "❤️", "😂", "😮", "😢", "🔥")
+        AlertDialog.Builder(this).setTitle("React to message")
+            .setItems(emojis) { _, index ->
+                scope.launch {
+                    try {
+                        repo.addReaction(item.conversationId, item.id, emojis[index])
+                        toast("Reaction added.")
+                    } catch (e: Exception) { toast(e.message ?: "Could not add reaction.") }
+                }
+            }.show()
     }
 
     private fun downloadOrOpenMedia(
@@ -469,10 +500,141 @@ class ArushiConnectActivity : Activity() {
         root.addView(action("← BACK") { backHome() })
     }
 
+    private fun createGroupChat() {
+        val name = field("Group name")
+        val usernames = field("Member usernames, separated by commas")
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(4))
+            addView(name)
+            addView(usernames)
+        }
+        AlertDialog.Builder(this).setTitle("Create ARUSHI group")
+            .setMessage("Add at least one other ARUSHI username. You will be the group admin.")
+            .setView(wrap)
+            .setPositiveButton("CREATE") { _, _ ->
+                scope.launch {
+                    try {
+                        val people = usernames.text.toString().split(",")
+                            .map { it.trim().removePrefix("@") }
+                            .filter { it.isNotBlank() }
+                            .distinct()
+                        val uids = people.mapNotNull { repo.findByUsername(it)?.uid }
+                        if (uids.size != people.size) {
+                            toast("One or more usernames could not be found. Check the exact ARUSHI IDs.")
+                            return@launch
+                        }
+                        val id = repo.createGroup(name.text.toString(), uids)
+                        toast("Group created.")
+                        openChat(id)
+                    } catch (e: Exception) { toast(e.message ?: "Could not create group.") }
+                }
+            }.setNegativeButton("CANCEL", null).show()
+    }
+
+    private fun forwardMessage(item: ArushiConnectRepository.ChatMessage) {
+        scope.launch {
+            try {
+                val targets = repo.myConversationIds().filterNot { it == item.conversationId }
+                if (targets.isEmpty()) {
+                    toast("Start another ARUSHI chat before forwarding.")
+                    return@launch
+                }
+                AlertDialog.Builder(this@ArushiConnectActivity)
+                    .setTitle("Forward to ARUSHI chat")
+                    .setItems(targets.map { "Conversation • ${it.take(14)}…" }.toTypedArray()) { _, index ->
+                        scope.launch {
+                            try {
+                                val forwarded = repo.forwardTextMessage(item.conversationId, item.id, targets[index])
+                                localStore.cache(listOf(forwarded))
+                                toast("Message forwarded.")
+                            } catch (e: Exception) { toast(e.message ?: "Forward failed.") }
+                        }
+                    }.setNegativeButton("CANCEL", null).show()
+            } catch (e: Exception) { toast(e.message ?: "Could not load chats.") }
+        }
+    }
+
+    private fun showConversationSettings(conversationId: String) {
+        scope.launch {
+            try {
+                val info = repo.getConversationInfo(conversationId)
+                if (info.type != "group") {
+                    AlertDialog.Builder(this@ArushiConnectActivity)
+                        .setTitle("Conversation details")
+                        .setMessage("Direct ARUSHI Connect conversation\nID: ${info.id}\nMembers: ${info.members.size}")
+                        .setPositiveButton("COPY CALL ID") { _, _ ->
+                            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("ARUSHI call ID", info.id))
+                            toast("Conversation ID copied. Both members use this ID for the call.")
+                        }.setNegativeButton("CLOSE", null).show()
+                    return@launch
+                }
+                val isAdmin = repo.currentUid in info.admins
+                val actions = if (isAdmin) arrayOf("Rename group", "Add members", "Leave group") else arrayOf("Leave group")
+                AlertDialog.Builder(this@ArushiConnectActivity)
+                    .setTitle(info.name.ifBlank { "ARUSHI group" })
+                    .setMessage("Members: ${info.members.size}\nYour role: ${if (isAdmin) "Admin" else "Member"}")
+                    .setItems(actions) { _, which ->
+                        when (actions[which]) {
+                            "Rename group" -> renameGroup(info.id, info.name)
+                            "Add members" -> addGroupMembers(info.id)
+                            "Leave group" -> confirmLeaveGroup(info.id)
+                        }
+                    }.setNegativeButton("CLOSE", null).show()
+            } catch (e: Exception) { toast(e.message ?: "Could not load conversation settings.") }
+        }
+    }
+
+    private fun renameGroup(conversationId: String, currentName: String) {
+        val name = field("New group name").apply { setText(currentName) }
+        AlertDialog.Builder(this).setTitle("Rename group").setView(name)
+            .setPositiveButton("SAVE") { _, _ ->
+                scope.launch {
+                    try { repo.renameGroup(conversationId, name.text.toString()); toast("Group renamed.") }
+                    catch (e: Exception) { toast(e.message ?: "Could not rename group.") }
+                }
+            }.setNegativeButton("CANCEL", null).show()
+    }
+
+    private fun addGroupMembers(conversationId: String) {
+        val usernames = field("@usernames, separated by commas")
+        AlertDialog.Builder(this).setTitle("Add group members").setView(usernames)
+            .setPositiveButton("ADD") { _, _ ->
+                scope.launch {
+                    try {
+                        val names = usernames.text.toString().split(",").map { it.trim().removePrefix("@") }.filter { it.isNotBlank() }.distinct()
+                        val people = names.mapNotNull { repo.findByUsername(it) }
+                        if (people.size != names.size) {
+                            toast("One or more usernames could not be found.")
+                            return@launch
+                        }
+                        repo.addGroupMembers(conversationId, people.map { it.uid })
+                        toast("Group members added.")
+                    } catch (e: Exception) { toast(e.message ?: "Could not add members.") }
+                }
+            }.setNegativeButton("CANCEL", null).show()
+    }
+
+    private fun confirmLeaveGroup(conversationId: String) {
+        AlertDialog.Builder(this).setTitle("Leave this group?")
+            .setMessage("You will no longer receive messages from this group.")
+            .setNegativeButton("CANCEL", null)
+            .setPositiveButton("LEAVE") { _, _ ->
+                scope.launch {
+                    try {
+                        repo.leaveGroup(conversationId)
+                        toast("You left the group.")
+                        backHome()
+                    } catch (e: Exception) { toast(e.message ?: "Could not leave group.") }
+                }
+            }.show()
+    }
+
     private fun showCallInfo() {
         AlertDialog.Builder(this)
             .setTitle("ARUSHI internet calls")
-            .setMessage("The existing WebRTC prototype still needs a deployed signaling service, authenticated call invites, TURN relay, incoming-call notifications and video-track support. It is not yet a WhatsApp-equivalent calling service.")
+            .setMessage("ARUSHI Connect now has authenticated conversation-based call rooms and incoming-call push invitations in the signaling code. Open a chat and use CALL THIS CONVERSATION. The signaling service and TURN provider must be deployed before calls can connect.")
             .setPositiveButton("OPEN CALL TEST") { _, _ ->
                 startActivity(Intent(this, ArushiVoipActivity::class.java))
             }.setNegativeButton("CANCEL", null).show()

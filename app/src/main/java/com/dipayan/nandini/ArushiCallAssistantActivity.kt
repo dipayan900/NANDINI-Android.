@@ -204,6 +204,9 @@ class ArushiCallAssistantActivity : Activity() {
             setBackgroundColor(panel)
         }
         root.addView(transcriptView)
+        root.addView(button("Review and forward saved caller message") {
+            reviewAndForwardCallerMessage()
+        })
 
         root.addView(TextView(this).apply {
             text = "This is a best-effort prototype. Auto-answer, spoken prompts, caller speech recognition and transcript saving are implemented using Android APIs, but the actual SIM-call audio path is device-dependent and must be tested. If ARUSHI cannot hear the caller or the caller cannot hear ARUSHI, disable auto-answer and return to your previous phone app."
@@ -219,6 +222,68 @@ class ArushiCallAssistantActivity : Activity() {
         refreshStatus()
         refreshCallUi()
         refreshVoiceUi()
+    }
+
+
+    /**
+     * Lets the owner review/edit a caller transcript and choose its recipient.
+     * Android's messaging app performs the final send; nothing is forwarded silently.
+     */
+    private fun reviewAndForwardCallerMessage() {
+        val saved = ArushiVoiceCallAssistant.lastTranscript(this)
+            .takeIf { it.isNotBlank() && it != "No call message saved yet." }
+            ?: run {
+                Toast.makeText(this, "There is no saved caller message to forward.", Toast.LENGTH_LONG).show()
+                return
+            }
+        val recipient = EditText(this).apply {
+            hint = "Recipient phone number"
+            inputType = android.text.InputType.TYPE_CLASS_PHONE
+            setSingleLine(true)
+        }
+        val message = EditText(this).apply {
+            setText("Caller message received by ARUSHI:\\n\\n$saved")
+            minLines = 4
+            maxLines = 10
+            gravity = android.view.Gravity.TOP
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(4))
+            addView(TextView(this@ArushiCallAssistantActivity).apply {
+                text = "Choose who receives this message. Review and edit the transcript before continuing."
+                setTextColor(textSecondary)
+                textSize = 14f
+            })
+            addView(recipient)
+            addView(message)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Review caller message")
+            .setView(content)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Continue to Messages", null)
+            .create().also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val number = recipient.text?.toString()?.trim().orEmpty()
+                        val body = message.text?.toString()?.trim().orEmpty()
+                        if (number.isBlank() || body.isBlank()) {
+                            Toast.makeText(this, "Enter a recipient and message first.", Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
+                        }
+                        dialog.dismiss()
+                        try {
+                            val sendIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(number)))
+                                .putExtra("sms_body", body)
+                            startActivity(sendIntent)
+                        } catch (_: Exception) {
+                            Toast.makeText(this, "No compatible messaging app is available.", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+                dialog.show()
+            }
     }
 
     private fun toggleVoiceAssistant() {
