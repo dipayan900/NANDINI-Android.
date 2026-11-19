@@ -29,7 +29,7 @@ internal object ArushiGitHubClient {
     )
 
     fun saveConfig(context: Context, clientId: String, repository: String, branch: String) {
-        require(clientId.matches(Regex("[A-Za-z0-9]{10,80}"))) { "Enter a valid GitHub OAuth App client ID." }
+        require(clientId.matches(Regex("[A-Za-z0-9._-]{10,100}"))) { "Enter a valid GitHub OAuth App client ID." }
         require(repository.matches(Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"))) { "Repository must be owner/repo." }
         require(branch.isNotBlank() && branch.length <= 120 && branch !in setOf("main", "master")) {
             "Use a dedicated feature/fix branch, not main or master."
@@ -126,6 +126,13 @@ internal object ArushiGitHubClient {
             .put("branch", branch)
         current?.optString("sha")?.takeIf { it.isNotBlank() }?.let { body.put("sha", it) }
         api(context, "PUT", "/repos/$repo/contents/$encoded", body)
+    }
+
+    suspend fun workflowRuns(context: Context): JSONArray = withContext(Dispatchers.IO) {
+        val repo = repository(context)
+        val branch = branch(context)
+        val result = api(context, "GET", "/repos/$repo/actions/runs?branch=${URLEncoder.encode(branch, "UTF-8")}&per_page=10", null)
+        result.optJSONArray("workflow_runs") ?: JSONArray()
     }
 
     suspend fun dispatchWorkflow(context: Context, workflow: String, inputs: JSONObject = JSONObject()): JSONObject = withContext(Dispatchers.IO) {
