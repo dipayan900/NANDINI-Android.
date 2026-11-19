@@ -232,6 +232,12 @@ class ArushiGrowthHubActivity : Activity() {
     }
 
     private fun scheduleBriefing() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 7302)
+            Toast.makeText(this, "Allow notifications, then tap ENABLE DAILY BRIEFING again.", Toast.LENGTH_LONG).show()
+            return
+        }
         val prefs = getSharedPreferences("arushi_news", MODE_PRIVATE)
         val now = Calendar.getInstance()
         val target = Calendar.getInstance().apply {
