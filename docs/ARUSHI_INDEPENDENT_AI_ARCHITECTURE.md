@@ -170,3 +170,34 @@ Do not silently migrate or delete existing users' messages, media, or identity r
 ## Immediate next engineering task
 
 Start with Milestone 0 and Milestone 1 only. Inspect the complete current LocalAiRuntime and chat integration points, then add the AiProvider abstraction in this branch without changing existing Firebase Connect code or visual screens. Build and test before expanding scope.
+
+
+## Calling, caller assistant, and message handoff requirements
+
+### Existing code discovered (not yet certified as production-ready)
+
+- `ArushiCallAssistantActivity` requests Android's default dialer role, exposes a dial pad, and has answer/reject/end controls.
+- `ArushiInCallService` observes Telecom calls and can request a delayed auto-answer when the owner has explicitly enabled it.
+- `ArushiVoiceCallAssistant` uses Android SpeechRecognizer and TextToSpeech to introduce itself as ARUSHI, disclose that it may transcribe speech, ask for a caller name/message, and save a transcript.
+- `ArushiVoipClient` and `ArushiVoipActivity` implement an early WebRTC internet-call prototype that expects a separately hosted signaling server and optional TURN credentials.
+- The existing code itself documents that cellular call uplink/downlink audio is not guaranteed. A successful APK build does not prove that the caller can hear ARUSHI or that ARUSHI can hear the caller.
+
+### Required call experience
+
+1. Incoming SIM calls: display caller identity when Android provides it; allow the owner to answer, reject, or silence; optional auto-answer must be explicitly enabled, visibly indicated, and cancellable.
+2. AI receptionist mode: identify itself as an AI assistant before any conversation; ask whether the caller agrees to leave a message; collect only the information the owner has configured; disclose any transcription; stop on request; save the transcript locally and show it to the owner.
+3. Outgoing SIM calls: allow contact/number selection and show a confirmation screen before Android Telecom places the call. Never auto-dial a person based only on model output.
+4. ARUSHI-to-ARUSHI internet calls: complete authenticated account discovery, invitation/acceptance, call setup, TURN-backed NAT traversal, audio routing, reconnection, hangup, and missed-call notifications. Do not ship a public unauthenticated signaling room or hard-coded TURN secret.
+5. Cross-platform callers: do not promise an AI can join ordinary cellular calls from every phone. For reliable AI conversation, use an explicitly configured AI receptionist number/SIP or VoIP endpoint where the service provider supports media access and applicable consent/disclosure. SIM-call audio capture by an ordinary Android app is restricted and device/OEM-dependent.
+6. Message handoff: let the owner review the caller's transcript, choose a recipient, edit the message, and send using the Android share/SMS/messaging app. Any direct send integration must show recipient and full message and require an explicit send confirmation.
+7. Message forwarding: never read and forward all private messages in the background. Support only user-selected messages and destinations, with a preview and confirmation. Use official APIs and Android role/permission requirements.
+8. Call logs/transcripts: store locally with clear retention controls, do not upload by default, do not record audio unless separately lawful, explicitly enabled, and disclosed to all participants.
+
+### Device and service acceptance tests
+
+- Test on the actual Vivo target phone with SIM incoming/outgoing calls, Bluetooth headset, wired headset, speaker, screen locked, app backgrounded, denied permissions, and OS battery restrictions.
+- Verify whether the far-end caller hears the AI greeting and whether caller speech is reliably transcribed. If either direction fails, mark cellular AI conversation unsupported on that device rather than pretending it works.
+- Test two ARUSHI devices on separate networks with TURN enabled, authenticated signaling, call accept/reject, mute, speaker route, disconnect, reconnect, and notification behavior.
+- Test a non-ARUSHI caller through a separately provisioned AI receptionist endpoint if that feature is required.
+- Test message review, recipient selection, confirmation, cancellation, and local transcript deletion.
+- Keep ordinary phone dialing and emergency calling available through Android's supported phone app. Never intercept or obstruct emergency calls.
