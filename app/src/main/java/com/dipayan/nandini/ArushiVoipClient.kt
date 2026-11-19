@@ -50,8 +50,8 @@ class ArushiVoipClient(
             listener("Error: signaling URL must begin with wss:// (recommended) or ws://.")
             return
         }
-        if (!room.matches(Regex("[A-Za-z0-9_-]{4,48}"))) {
-            listener("Error: room code must be 4–48 letters, numbers, dashes or underscores.")
+        if (!room.matches(Regex("[A-Za-z0-9_-]{4,128}"))) {
+            listener("Error: enter a valid ARUSHI Connect conversation ID.")
             return
         }
         if (firebaseIdToken.isBlank()) {
