@@ -90,6 +90,9 @@ class NandiniCommandCenterActivity : Activity() {
         cardButton("▣  TASK PLANNER & APPROVALS", "Create tasks, track progress, approve or cancel proposed work, and review task history.") { taskPlanner() }
 
         section("LOCAL INTELLIGENCE", "Works without cloud AI. Your notes and command history remain in this app's private storage.")
+        cardButton("✧  ARUSHI GROWTH HUB", "Connect supported social accounts and view official analytics, schedule daily news briefings, and manage a local shopping list with merchant checkout hand-off.") {
+            startActivity(Intent(this, ArushiGrowthHubActivity::class.java))
+        }
         cardButton("✦  ARUSHI EXPERIENCE", "Change app appearance, conversation personality and expressive voice.") { startActivity(Intent(this, ArushiExperienceSettingsActivity::class.java)) }
         cardButton("✦  OPEN AI CHAT CENTER", "Continue to ARUSHI chat, voice, camera and AI features.") { startActivity(Intent(this, MainActivity::class.java)) }
         cardButton("⌘  OFFLINE CALCULATOR", "Basic arithmetic with parentheses, + − × ÷ and decimals.") { calculator() }
