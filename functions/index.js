@@ -253,7 +253,7 @@ exports.socialApi = onRequest({
         } else {
           const id = data.account.userId || "me";
           const insight = await socialJson(
-            `https://graph.instagram.com/${encodeURIComponent(id)}/insights?metric=reach,profile_views&period=day&access_token=${encodeURIComponent(accessToken)}`
+            `https://graph.instagram.com/${encodeURIComponent(id)}/insights?metric=reach,accounts_engaged,total_interactions,views&period=day&access_token=${encodeURIComponent(accessToken)}`
           );
           metrics = { insights: insight.data || [] };
         }
