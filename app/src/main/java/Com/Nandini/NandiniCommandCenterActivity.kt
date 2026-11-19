@@ -80,6 +80,9 @@ class NandiniCommandCenterActivity : Activity() {
 
     private fun render() {
         content.removeAllViews()
+        section("PLANNING & EXECUTION", "Track tasks, approval gates and progress locally. External actions still require your confirmation.")
+        cardButton("▣  TASK PLANNER & APPROVALS", "Create tasks, track progress, approve or cancel proposed work, and review task history.") { taskPlanner() }
+
         section("LOCAL INTELLIGENCE", "Works without cloud AI. Your notes and command history remain in this app's private storage.")
         cardButton("✦  ARUSHI EXPERIENCE", "Change app appearance, conversation personality and expressive voice.") { startActivity(Intent(this, ArushiExperienceSettingsActivity::class.java)) }
         cardButton("✦  OPEN AI CHAT CENTER", "Continue to ARUSHI chat, voice, camera and AI features.") { startActivity(Intent(this, MainActivity::class.java)) }
@@ -119,6 +122,119 @@ class NandiniCommandCenterActivity : Activity() {
         })
         content.addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) })
         return view
+    }
+
+
+    private fun readTasks(): JSONArray = try {
+        JSONArray(prefs.getString("execution_tasks", "[]") ?: "[]")
+    } catch (_: Exception) { JSONArray() }
+
+    private fun saveTasks(tasks: JSONArray) {
+        prefs.edit().putString("execution_tasks", tasks.toString()).apply()
+    }
+
+    private fun taskPlanner() {
+        val tasks = readTasks()
+        if (tasks.length() == 0) {
+            AlertDialog.Builder(this).setTitle("ARUSHI Task Planner")
+                .setMessage("No tasks yet. Add a task to start tracking its status and approval requirements.")
+                .setPositiveButton("＋ ADD TASK") { _, _ -> addTask() }
+                .setNegativeButton("CLOSE", null).show()
+            return
+        }
+        val labels = Array(tasks.length()) { i ->
+            val item = tasks.optJSONObject(i)
+            val status = item?.optString("status", "PLANNED") ?: "PLANNED"
+            val approval = if (item?.optBoolean("approval_required", true) == true && !item.optBoolean("approved", false)) " • APPROVAL NEEDED" else ""
+            "${item?.optString("title", "Task") ?: "Task"}  —  $status$approval"
+        }
+        AlertDialog.Builder(this).setTitle("ARUSHI Tasks • ${tasks.length()}")
+            .setItems(labels) { _, index -> taskActions(tasks.optJSONObject(index)) }
+            .setPositiveButton("＋ ADD TASK") { _, _ -> addTask() }
+            .setNeutralButton("CLOSE", null).show()
+    }
+
+    private fun addTask() {
+        val title = EditText(this).apply { hint = "Task title"; setTextColor(ink); setHintTextColor(muted) }
+        val details = EditText(this).apply { hint = "Goal, steps or notes"; setTextColor(ink); setHintTextColor(muted); minLines = 3; gravity = Gravity.TOP }
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(6), dp(16), dp(6))
+            addView(title); addView(details)
+        }
+        AlertDialog.Builder(this).setTitle("Create task").setView(wrap)
+            .setMessage("New tasks start as PLANNED. Any external action must be separately approved.")
+            .setPositiveButton("CREATE") { _, _ ->
+                val name = title.text.toString().trim()
+                if (name.isNotBlank()) {
+                    val all = readTasks()
+                    all.put(JSONObject()
+                        .put("id", java.util.UUID.randomUUID().toString())
+                        .put("title", name.take(120))
+                        .put("details", details.text.toString().trim().take(4000))
+                        .put("status", "PLANNED")
+                        .put("approval_required", true)
+                        .put("approved", false)
+                        .put("created_at", System.currentTimeMillis())
+                        .put("updated_at", System.currentTimeMillis())
+                        .put("history", JSONArray().put("Task created")))
+                    saveTasks(all)
+                    Toast.makeText(this, "Task added to your local planner.", Toast.LENGTH_SHORT).show()
+                }
+            }.setNegativeButton("CANCEL", null).show()
+    }
+
+    private fun taskActions(task: JSONObject?) {
+        if (task == null) return
+        val title = task.optString("title", "Task")
+        val actions = arrayOf("View details and progress", "Mark in progress", "Mark completed", "Approve proposed work", "Cancel task", "Delete task")
+        AlertDialog.Builder(this).setTitle(title).setItems(actions) { _, choice ->
+            when (choice) {
+                0 -> AlertDialog.Builder(this).setTitle(title)
+                    .setMessage(task.optString("details") + "\\n\\nStatus: " + task.optString("status") +
+                        "\\nApproval: " + if (task.optBoolean("approved")) "Approved" else "Not approved" +
+                        "\\nCreated: " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(task.optLong("created_at"))))
+                    .setPositiveButton("OK", null).show()
+                1 -> updateTask(task, "IN_PROGRESS", null)
+                2 -> updateTask(task, "COMPLETED", null)
+                3 -> updateTask(task, null, true)
+                4 -> updateTask(task, "CANCELLED", null)
+                5 -> removeTask(task)
+            }
+        }.show()
+    }
+
+    private fun updateTask(task: JSONObject, status: String?, approved: Boolean?) {
+        val all = readTasks()
+        for (i in 0 until all.length()) {
+            val item = all.optJSONObject(i) ?: continue
+            if (item.optString("id") != task.optString("id")) continue
+            if (status != null) item.put("status", status)
+            if (approved != null) item.put("approved", approved)
+            item.put("updated_at", System.currentTimeMillis())
+            val history = item.optJSONArray("history") ?: JSONArray()
+            history.put(when {
+                approved == true -> "Owner approved proposed work"
+                status != null -> "Status changed to $status"
+                else -> "Task updated"
+            })
+            item.put("history", history)
+            break
+        }
+        saveTasks(all)
+        Toast.makeText(this, "Task updated.", Toast.LENGTH_SHORT).show()
+        taskPlanner()
+    }
+
+    private fun removeTask(task: JSONObject) {
+        val all = readTasks()
+        val kept = JSONArray()
+        for (i in 0 until all.length()) {
+            val item = all.optJSONObject(i) ?: continue
+            if (item.optString("id") != task.optString("id")) kept.put(item)
+        }
+        saveTasks(kept)
+        taskPlanner()
     }
 
     private fun calculator() {
