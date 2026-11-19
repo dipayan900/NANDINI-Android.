@@ -118,13 +118,9 @@ class ArushiGrowthHubActivity : Activity() {
     }
 
     private fun startOAuth(provider: String) {
-        val user = FirebaseAuth.getInstance().currentUser
-        if (user == null) {
-            Toast.makeText(this, "Sign in through ARUSHI Connect first.", Toast.LENGTH_LONG).show()
-            return
-        }
         Thread {
             try {
+                val user = requireFirebaseUser()
                 val token = com.google.android.gms.tasks.Tasks.await(user.getIdToken(true)).token ?: error("Firebase session unavailable")
                 val project = com.google.firebase.FirebaseApp.getInstance().options.projectId
                     ?: error("Firebase project is not configured")
@@ -147,6 +143,12 @@ class ArushiGrowthHubActivity : Activity() {
         }.start()
     }
 
+    private fun requireFirebaseUser(): com.google.firebase.auth.FirebaseUser {
+        val auth = FirebaseAuth.getInstance()
+        return auth.currentUser ?: com.google.android.gms.tasks.Tasks.await(auth.signInAnonymously()).user
+            ?: error("ARUSHI could not create its Firebase session. Enable Anonymous sign-in in Firebase Authentication.")
+    }
+
     private fun handleCallback(intent: Intent?) {
         val uri = intent?.data ?: return
         if (uri.scheme != "com.dipayan.nandini" || uri.host != "social-auth") return
@@ -157,12 +159,10 @@ class ArushiGrowthHubActivity : Activity() {
     }
 
     private fun loadAnalytics() {
-        val user = FirebaseAuth.getInstance().currentUser ?: run {
-            socialStatus.text = "Sign in through ARUSHI Connect first."; return
-        }
         Thread {
             try {
-                val token = user.getIdToken(true).result?.token ?: error("Session unavailable")
+                val user = requireFirebaseUser()
+                val token = com.google.android.gms.tasks.Tasks.await(user.getIdToken(true)).token ?: error("Session unavailable")
                 val project = com.google.firebase.FirebaseApp.getInstance().options.projectId ?: error("Firebase project missing")
                 val url = "https://us-central1-$project.cloudfunctions.net/socialApi?action=analytics"
                 val req = Request.Builder().url(url).header("Authorization", "Bearer $token").get().build()
@@ -196,10 +196,10 @@ class ArushiGrowthHubActivity : Activity() {
         AlertDialog.Builder(this).setTitle("Disconnect social accounts?")
             .setMessage("This removes ARUSHI's stored provider tokens. You can also revoke access in the provider's own account settings.")
             .setNegativeButton("CANCEL", null).setPositiveButton("DISCONNECT") { _, _ ->
-                val user = FirebaseAuth.getInstance().currentUser ?: return@setPositiveButton
                 Thread {
                     runCatching {
-                        val token = user.getIdToken(true).result?.token ?: return@runCatching
+                        val user = requireFirebaseUser()
+                        val token = com.google.android.gms.tasks.Tasks.await(user.getIdToken(true)).token ?: return@runCatching
                         val project = com.google.firebase.FirebaseApp.getInstance().options.projectId ?: return@runCatching
                         val req = Request.Builder()
                             .url("https://us-central1-$project.cloudfunctions.net/socialApi?action=disconnect")
