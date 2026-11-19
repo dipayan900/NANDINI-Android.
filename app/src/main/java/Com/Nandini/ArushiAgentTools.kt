@@ -123,9 +123,31 @@ internal object ArushiAgentTools {
                         ArushiGitHubClient.writeFile(app, path, content, message)
                     }
                     JSONObject()
-                        .put("contentUrl", result.optString("content").let { result.optJSONObject("content")?.optString("html_url").orEmpty() })
+                        .put("contentUrl", result.optJSONObject("content")?.optString("html_url").orEmpty())
                         .put("commitSha", result.optJSONObject("commit")?.optString("sha").orEmpty())
                         .put("branch", ArushiGitHubClient.branch(app))
+                }
+            )
+        }
+        if ("github.workflow.status" !in installed) {
+            ArushiAgentRuntime.register(
+                ArushiAgentRuntime.Tool(
+                    name = "github.workflow.status",
+                    description = "Read recent GitHub Actions workflow runs for the selected repository and working branch",
+                    requiresApproval = true
+                ) { app, _ ->
+                    val runs = kotlinx.coroutines.runBlocking { ArushiGitHubClient.workflowRuns(app) }
+                    val compact = JSONArray()
+                    for (i in 0 until minOf(runs.length(), 10)) {
+                        val item = runs.optJSONObject(i) ?: continue
+                        compact.put(JSONObject()
+                            .put("name", item.optString("name"))
+                            .put("status", item.optString("status"))
+                            .put("conclusion", item.optString("conclusion"))
+                            .put("html_url", item.optString("html_url"))
+                            .put("head_sha", item.optString("head_sha")))
+                    }
+                    JSONObject().put("runs", compact).put("branch", ArushiGitHubClient.branch(app))
                 }
             )
         }
@@ -137,6 +159,9 @@ internal object ArushiAgentTools {
                     requiresApproval = true
                 ) { app, args ->
                     val workflow = args.optString("workflow").trim()
+                    if (workflow.contains("deploy", ignoreCase = true) && !args.optBoolean("confirmDeployment", false)) {
+                        error("Deployment requires the separate confirmDeployment=true approval flag.")
+                    }
                     val inputs = args.optJSONObject("inputs") ?: JSONObject()
                     val result = kotlinx.coroutines.runBlocking {
                         ArushiGitHubClient.dispatchWorkflow(app, workflow, inputs)
