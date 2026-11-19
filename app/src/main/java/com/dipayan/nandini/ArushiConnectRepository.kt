@@ -41,7 +41,8 @@ class ArushiConnectRepository(
         val replyTo: String,
         val edited: Boolean,
         val localMediaPath: String = "",
-        val deliveredBy: List<String> = emptyList()
+        val deliveredBy: List<String> = emptyList(),
+        val reactions: Map<String, String> = emptyMap()
     )
 
     init {
@@ -500,7 +501,10 @@ class ArushiConnectRepository(
             createdAt = getTimestamp("createdAt")?.toDate()?.time ?: 0L,
             replyTo = getString("replyTo") ?: "",
             edited = getBoolean("edited") ?: false,
-            deliveredBy = (get("deliveredBy") as? List<*>)?.filterIsInstance<String>().orEmpty()
+            deliveredBy = (get("deliveredBy") as? List<*>)?.filterIsInstance<String>().orEmpty(),
+            reactions = (get("reactions") as? Map<*, *>)?.mapNotNull { (key, value) ->
+                if (key is String && value is String) key to value else null
+            }?.toMap().orEmpty()
         )
     }
 }
