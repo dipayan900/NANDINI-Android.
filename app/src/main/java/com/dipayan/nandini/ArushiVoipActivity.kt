@@ -20,6 +20,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import org.json.JSONObject
+import com.google.firebase.auth.FirebaseAuth
 import java.util.Locale
 
 /** Internet-only WebRTC call UI, separate from cellular/SIM calling. */
@@ -78,6 +79,7 @@ class ArushiVoipActivity : Activity() {
         turnUserInput = root.getChildAt(root.childCount - 1) as EditText
         root.addView(field("TURN password", "turn_password", ""))
         turnPasswordInput = root.getChildAt(root.childCount - 1) as EditText
+        turnPasswordInput.setText(ArushiSecureMemory.get(this, "voip.turn.password").orEmpty())
         root.addView(button("Connect / Join room") { connect() })
         root.addView(button("Send ARUSHI voice prompt to other caller") {
             val message = "Hello. I am ARUSHI, Dipayan's AI assistant. This is an internet call."
@@ -113,16 +115,43 @@ class ArushiVoipActivity : Activity() {
         prefs.edit().putString("signal_url", url).putString("room", room)
             .putString("turn_url", turnUrlInput.text.toString().trim())
             .putString("turn_user", turnUserInput.text.toString().trim())
-            .putString("turn_password", turnPasswordInput.text.toString().trim()).apply()
+            .remove("turn_password").apply()
+        ArushiSecureMemory.put(this, "voip.turn.password", turnPasswordInput.text.toString().trim())
         client?.close(false)
-        client = ArushiVoipClient(this, { runOnUiThread { statusView.text = it } }, { phrase ->
-            runOnUiThread {
-                tts?.speak(phrase, TextToSpeech.QUEUE_ADD, null, "arushi-remote-" + System.currentTimeMillis())
+        statusView.text = "Authenticating ARUSHI Connect account…"
+        val auth = FirebaseAuth.getInstance()
+        fun startWithToken(user: com.google.firebase.auth.FirebaseUser?) {
+            if (user == null) {
+                statusView.text = "Could not authenticate. Open ARUSHI Connect and sign in first."
+                return
             }
-        }).also {
-            it.setTurnServer(turnUrlInput.text.toString(), turnUserInput.text.toString(), turnPasswordInput.text.toString())
-            it.connect(url, room, turnUrlInput.text.toString(), turnUserInput.text.toString(), turnPasswordInput.text.toString())
+            user.getIdToken(false)
+                .addOnSuccessListener { tokenResult ->
+                    val token = tokenResult.token.orEmpty()
+                    if (token.isBlank()) {
+                        statusView.text = "Authentication returned an empty token."
+                        return@addOnSuccessListener
+                    }
+                    client = ArushiVoipClient(this, { runOnUiThread { statusView.text = it } }, { phrase ->
+                        runOnUiThread {
+                            tts?.speak(phrase, TextToSpeech.QUEUE_ADD, null, "arushi-remote-" + System.currentTimeMillis())
+                        }
+                    }).also {
+                        it.setTurnServer(turnUrlInput.text.toString(), turnUserInput.text.toString(), turnPasswordInput.text.toString())
+                        it.connect(url, room, turnUrlInput.text.toString(), turnUserInput.text.toString(), turnPasswordInput.text.toString(), token)
+                    }
+                }
+                .addOnFailureListener { error ->
+                    statusView.text = "Could not obtain a secure call token: ${error.localizedMessage ?: "authentication failed"}"
+                }
         }
+        val current = auth.currentUser
+        if (current != null) startWithToken(current)
+        else auth.signInAnonymously()
+            .addOnSuccessListener { startWithToken(it.user) }
+            .addOnFailureListener { error ->
+                statusView.text = "Connect sign-in failed: ${error.localizedMessage ?: "unknown error"}"
+            }
     }
 
     private fun startRecognition() {
