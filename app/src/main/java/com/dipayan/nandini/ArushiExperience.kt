@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 import android.view.View
 
 /** Shared ARUSHI appearance and companion voice/personality preferences. */
@@ -13,6 +15,7 @@ object ArushiExperience {
     private const val KEY_APPEARANCE = "appearance"
     private const val KEY_PERSONALITY = "personality"
     private const val KEY_EXPRESSIVE_VOICE = "expressive_voice"
+    private const val KEY_TTS_VOICE = "tts_voice_name"
 
     data class Palette(
         val background: Int,
@@ -50,13 +53,29 @@ object ArushiExperience {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_EXPRESSIVE_VOICE, true)
 
-    fun save(context: Context, appearance: String, personality: String, expressiveVoice: Boolean) {
+    fun voiceName(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_TTS_VOICE, "").orEmpty()
+
+    /** Select the user's saved installed voice; fall back to the best local voice for device language. */
+    fun applyVoice(context: Context, engine: TextToSpeech) {
+        val voices = engine.voices.orEmpty()
+        val saved = voiceName(context)
+        val chosen = voices.firstOrNull { it.name == saved }
+            ?: voices.filter { !it.isNetworkConnectionRequired && it.locale.language == Locale.getDefault().language }
+                .maxByOrNull { it.quality }
+            ?: voices.firstOrNull { it.locale.language == Locale.getDefault().language }
+        if (chosen != null) engine.voice = chosen
+    }
+
+    fun save(context: Context, appearance: String, personality: String, expressiveVoice: Boolean, ttsVoiceName: String = voiceName(context)) {
         require(appearance in setOf("system", "light", "dark"))
         require(personality in setOf("playful", "balanced"))
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_APPEARANCE, appearance)
             .putString(KEY_PERSONALITY, personality)
             .putBoolean(KEY_EXPRESSIVE_VOICE, expressiveVoice)
+            .putString(KEY_TTS_VOICE, ttsVoiceName)
             .apply()
     }
 
