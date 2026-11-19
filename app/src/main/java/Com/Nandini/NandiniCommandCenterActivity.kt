@@ -191,9 +191,9 @@ class NandiniCommandCenterActivity : Activity() {
         AlertDialog.Builder(this).setTitle(title).setItems(actions) { _, choice ->
             when (choice) {
                 0 -> AlertDialog.Builder(this).setTitle(title)
-                    .setMessage(task.optString("details") + "\\n\\nStatus: " + task.optString("status") +
-                        "\\nApproval: " + if (task.optBoolean("approved")) "Approved" else "Not approved" +
-                        "\\nCreated: " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(task.optLong("created_at"))))
+                    .setMessage(task.optString("details") + "\n\nStatus: " + task.optString("status") +
+                        "\nApproval: " + (if (task.optBoolean("approved")) "Approved" else "Not approved") +
+                        "\nCreated: " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(task.optLong("created_at"))))
                     .setPositiveButton("OK", null).show()
                 1 -> updateTask(task, "IN_PROGRESS", null)
                 2 -> updateTask(task, "COMPLETED", null)
