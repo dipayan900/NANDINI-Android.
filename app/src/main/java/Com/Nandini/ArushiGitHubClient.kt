@@ -153,6 +153,7 @@ internal object ArushiGitHubClient {
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
+            .header("User-Agent", "ARUSHI-Android")
             .method(method, if (method == "GET" || method == "DELETE") null else requestBody)
             .build()
         http.newCall(request).execute().use { response ->
@@ -166,6 +167,7 @@ internal object ArushiGitHubClient {
         val request = Request.Builder()
             .url(url)
             .header("Accept", "application/json")
+            .header("User-Agent", "ARUSHI-Android")
             .post(body.toString().toRequestBody(jsonType))
             .apply { if (!token.isNullOrBlank()) header("Authorization", "Bearer $token") }
             .build()
