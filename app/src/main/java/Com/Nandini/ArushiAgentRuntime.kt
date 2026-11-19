@@ -62,9 +62,9 @@ internal object ArushiAgentRuntime {
                 .put("order", index)
                 .put("tool", tool.name)
                 .put("arguments", call.second)
-                .put("status", "WAITING_APPROVAL")
-                .put("approved", false)
-                .put("message", "Waiting for review"))
+                .put("status", if (tool.requiresApproval) "WAITING_APPROVAL" else "APPROVED")
+                .put("approved", !tool.requiresApproval)
+                .put("message", if (tool.requiresApproval) "Waiting for review" else "Pre-authorized by app policy"))
         }
         val tasks = readTasks(context)
         tasks.put(JSONObject()
@@ -117,6 +117,11 @@ internal object ArushiAgentRuntime {
         val steps = initial.optJSONArray("steps") ?: JSONArray()
         updateTaskStatus(context, taskId, "RUNNING", "Execution started")
         for (index in 0 until steps.length()) {
+            val latestTask = findTask(readTasks(context), taskId)
+            if (latestTask?.optString("status") == "CANCELLED") {
+                onProgress(Progress(taskId, "", "CANCELLED", "Task cancelled by user"))
+                break
+            }
             val step = steps.optJSONObject(index) ?: continue
             val stepId = step.optString("id")
             val toolName = step.optString("tool")
